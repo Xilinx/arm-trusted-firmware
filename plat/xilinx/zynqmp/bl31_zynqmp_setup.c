@@ -167,6 +167,25 @@ static uint64_t zynqmp_el3_interrupt_handler(uint32_t id, uint32_t flags,
 	return 0;
 }
 
+/* Enable the test setup */
+#ifndef ZYNQMP_TESTING
+static void zynqmp_testing_setup(void){}
+#else
+static void zynqmp_testing_setup(void)
+{
+	uint32_t actlr_el3, actlr_el2;
+	/* Enable CPU ACTLR AND L2ACTLR RW access from
+	 * non-secure world
+	 */
+	actlr_el3 = read_actlr_el3();
+	actlr_el2 = read_actlr_el2();
+
+	actlr_el3 |= ACTLR_EL3_ENABLE_ACCESS;
+	actlr_el2 |= ACTLR_EL3_ENABLE_ACCESS;
+	write_actlr_el3(actlr_el3);
+	write_actlr_el2(actlr_el2);
+}
+#endif
 /*******************************************************************************
  * Initialize the gic, configure the CLCD and zero out variables needed by the
  * secondaries to boot up correctly.
@@ -176,6 +195,7 @@ void bl31_platform_setup(void)
 	/* Initialize the gic cpu and distributor interfaces */
 	plat_arm_gic_driver_init();
 	plat_arm_gic_init();
+	zynqmp_testing_setup();
 }
 
 void bl31_plat_runtime_setup(void)
