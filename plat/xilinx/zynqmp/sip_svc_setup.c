@@ -40,10 +40,12 @@ DEFINE_SVC_UUID2(zynqmp_sip_uuid,
  */
 static int32_t sip_svc_setup(void)
 {
-	/* PM implementation as SiP Service */
-	pm_setup();
+	int32_t ret;
 
-	return 0;
+	/* PM implementation as SiP Service */
+	ret = pm_setup();
+
+	return ret;
 }
 
 /**
