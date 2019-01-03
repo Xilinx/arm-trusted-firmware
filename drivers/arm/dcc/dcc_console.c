@@ -89,3 +89,18 @@ int32_t console_core_init(unsigned long base_addr, uint32_t uart_clk,
 {
 	return 0; /* No init needed */
 }
+
+/**
+ * console_core_flush() - Function to force a write of all buffered data
+ *		          that hasnt been output.
+ * @base_addr	Console base address
+ *
+ * @return	Returns status(always return 0 in this case)
+ */
+int32_t console_core_flush(unsigned long base_addr)
+{
+	while (__dcc_getstatus() & DCC_STATUS_TX)
+		;
+
+	return 0;
+}
