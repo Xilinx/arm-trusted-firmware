@@ -22,7 +22,9 @@
 
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
+#if !VERSAL_CONSOLE_IS(dcc)
 static console_t versal_runtime_console;
+#endif
 
 /*
  * Return a pointer to the 'entry_point_info' structure of the next image for
@@ -63,6 +65,7 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 {
 	uint64_t atf_handoff_addr;
 
+#if !VERSAL_CONSOLE_IS(dcc)
 	/* Initialize the console to provide early debug support */
 	int rc = console_pl011_register(VERSAL_UART_BASE,
 					VERSAL_UART_CLOCK,
@@ -73,7 +76,7 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 
 	console_set_scope(&versal_runtime_console, CONSOLE_FLAG_BOOT |
 			  CONSOLE_FLAG_RUNTIME);
-
+#endif
 	/* Initialize the platform config for future decision making */
 	versal_config_setup();
 	/* There are no parameters from BL2 if BL31 is a reset vector */
