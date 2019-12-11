@@ -796,7 +796,6 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, unsigned int *version)
 	switch (api_id) {
 	case PM_GET_CALLBACK_DATA:
 	case PM_GET_TRUSTZONE_VERSION:
-	case PM_INIT_FINALIZE:
 		*version = (PM_API_BASE_VERSION << 16);
 		return PM_RET_SUCCESS;
 	case PM_GET_API_VERSION:
@@ -814,6 +813,8 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, unsigned int *version)
 	case PM_SET_REQUIREMENT:
 	case PM_RESET_ASSERT:
 	case PM_RESET_GET_STATUS:
+	case PM_INIT_FINALIZE:
+	case PM_GET_CHIPID:
 	case PM_PINCTRL_REQUEST:
 	case PM_PINCTRL_RELEASE:
 	case PM_PINCTRL_GET_FUNCTION:
