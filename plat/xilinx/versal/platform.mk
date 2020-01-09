@@ -59,10 +59,7 @@ VERSAL_CONSOLE	?=	pl011
 ifeq (${VERSAL_CONSOLE}, $(filter ${VERSAL_CONSOLE},pl011 pl011_0 pl011_1))
   PLAT_BL_COMMON_SOURCES += drivers/arm/pl011/aarch64/pl011_console.S
 else ifeq (${VERSAL_CONSOLE}, dcc)
-MULTI_CONSOLE_API := 0
-  PLAT_BL_COMMON_SOURCES += \
-			    drivers/arm/dcc/dcc_console.c \
-			    drivers/console/aarch64/console.S
+  PLAT_BL_COMMON_SOURCES += drivers/arm/dcc/dcc_console.c
 else
   $(error "Please define VERSAL_CONSOLE")
 endif
