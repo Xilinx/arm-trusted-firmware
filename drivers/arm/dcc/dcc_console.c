@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Xilinx Inc.
+ * Copyright (c) 2015-2020, Xilinx Inc.
  * Written by Michal Simek.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <mmio.h>
+#include <lib/mmio.h>
 #include <stddef.h>
 #include <arch_helpers.h>
+#include <drivers/arm/dcc.h>
+#include <drivers/console.h>
 
 /* DCC Status Bits */
 #define DCC_STATUS_RX		(1 << 30)
 #define DCC_STATUS_TX		(1 << 29)
+
+struct dcc_console {
+	struct console console;
+};
 
 static inline uint32_t __dcc_getstatus(void)
 {
@@ -67,7 +73,7 @@ static inline void __dcc_putchar(char c)
 	isb();
 }
 
-int32_t console_core_putc(int32_t ch, unsigned long base_addr)
+static int32_t dcc_console_putc(int32_t ch, struct console *console)
 {
 	while (__dcc_getstatus() & DCC_STATUS_TX)
 			;
@@ -76,7 +82,7 @@ int32_t console_core_putc(int32_t ch, unsigned long base_addr)
 	return ch;
 }
 
-int32_t console_core_getc(unsigned long base_addr)
+static int32_t dcc_console_getc(struct console *console)
 {
 	while (!(__dcc_getstatus() & DCC_STATUS_RX))
 		  ;
@@ -84,23 +90,38 @@ int32_t console_core_getc(unsigned long base_addr)
 	return __dcc_getchar();
 }
 
-int32_t console_core_init(unsigned long base_addr, uint32_t uart_clk,
+int32_t dcc_console_init(unsigned long base_addr, uint32_t uart_clk,
 		      uint32_t baud_rate)
 {
 	return 0; /* No init needed */
 }
 
 /**
- * console_core_flush() - Function to force a write of all buffered data
+ * dcc_console_flush() - Function to force a write of all buffered data
  *		          that hasnt been output.
- * @base_addr	Console base address
+ * @console		Console struct
  *
  * @return	Returns status(always return 0 in this case)
  */
-int32_t console_core_flush(unsigned long base_addr)
+static int32_t dcc_console_flush(struct console *console)
 {
 	while (__dcc_getstatus() & DCC_STATUS_TX)
 		;
 
 	return 0;
+}
+
+static struct dcc_console dcc_console = {
+	.console = {
+		.flags = CONSOLE_FLAG_BOOT |
+			CONSOLE_FLAG_RUNTIME,
+		.putc = dcc_console_putc,
+		.getc = dcc_console_getc,
+		.flush = dcc_console_flush,
+	},
+};
+
+int console_dcc_register(void)
+{
+	return console_register(&dcc_console.console);
 }
