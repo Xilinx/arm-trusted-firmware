@@ -350,7 +350,7 @@ ERRORS := -Werror
 endif
 
 CPPFLAGS		=	${DEFINES} ${INCLUDES} ${MBEDTLS_INC} -nostdinc	\
-				$(ERRORS) $(WARNINGS)
+				$(ERRORS) $(WARNINGS) -fno-jump-tables
 ASFLAGS			+=	$(CPPFLAGS) $(ASFLAGS_$(ARCH))			\
 				-ffreestanding -Wa,--fatal-warnings
 TF_CFLAGS		+=	$(CPPFLAGS) $(TF_CFLAGS_$(ARCH))		\
