@@ -1363,8 +1363,7 @@ void pm_query_data(enum pm_query_id qid, unsigned int arg1, unsigned int arg2,
 		break;
 
 	case PM_QID_CLOCK_GET_MAX_DIVISOR:
-		ret = pm_clock_get_max_divisor(arg1, arg2, &data[1]);
-		data[0] = (unsigned int)ret;
+		data[0] = pm_clock_get_max_divisor(arg1, arg2, &data[1]);
 		break;
 	default:
 		data[0] = PM_RET_ERROR_ARGS;
