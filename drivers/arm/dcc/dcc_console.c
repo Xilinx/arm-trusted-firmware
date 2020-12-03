@@ -101,14 +101,12 @@ int32_t dcc_console_init(unsigned long base_addr, uint32_t uart_clk,
  *		          that hasnt been output.
  * @console		Console struct
  *
- * @return	Returns status(always return 0 in this case)
  */
-static int32_t dcc_console_flush(struct console *console)
+static void dcc_console_flush(struct console *console)
 {
 	while (__dcc_getstatus() & DCC_STATUS_TX)
 		;
 
-	return 0;
 }
 
 static struct dcc_console dcc_console = {
