@@ -315,9 +315,11 @@ static void zynqmp_print_platform_name(void)
 		break;
 	}
 
-	NOTICE("ATF running on XCZU%s/%s v%d/RTL%d.%d at 0x%x\n",
-	       zynqmp_print_silicon_idcode(), label, zynqmp_get_ps_ver(),
-	       (rtl & 0xf0) >> 4, rtl & 0xf, BL31_BASE);
+	if (!IPI_CRC_CHECK) {
+		NOTICE("ATF running on XCZU%s/%s v%d/RTL%d.%d at 0x%x\n",
+		zynqmp_print_silicon_idcode(), label, zynqmp_get_ps_ver(),
+		(rtl & 0xf0) >> 4, rtl & 0xf, BL31_BASE);
+	}
 }
 #else
 static inline void zynqmp_print_platform_name(void) { }
