@@ -10,7 +10,7 @@ A53_DISABLE_NON_TEMPORAL_HINT := 0
 SEPARATE_CODE_AND_RODATA := 1
 ZYNQMP_WDT_RESTART := 0
 ZYNQMP_WARM_RESTART := 0
-ZYNQMP_IPI_CRC_CHECK := 0
+IPI_CRC_CHECK := 0
 override RESET_TO_BL31 := 1
 override GICV2_G0_FOR_EL3 := 1
 override WARMBOOT_ENABLE_DCACHE_EARLY := 1
@@ -50,8 +50,8 @@ ifdef ZYNQMP_WDT_RESTART
 $(eval $(call add_define,ZYNQMP_WDT_RESTART))
 endif
 
-ifdef ZYNQMP_IPI_CRC_CHECK
-    $(eval $(call add_define,ZYNQMP_IPI_CRC_CHECK))
+ifdef IPI_CRC_CHECK
+    $(eval $(call add_define,IPI_CRC_CHECK))
 endif
 
 PLAT_INCLUDES		:=	-Iinclude/plat/arm/common/			\
