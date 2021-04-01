@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,7 @@
 #include <plat/arm/common/smccc_def.h>
 #include <plat/common/common_def.h>
 
+#define MAX_INTR_EL3			2
 /* List all consoles */
 #define VERSAL_CONSOLE_ID_pl011	1
 #define VERSAL_CONSOLE_ID_pl011_0	1

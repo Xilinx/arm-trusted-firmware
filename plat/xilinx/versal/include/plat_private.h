@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,11 @@
 
 #include <lib/xlat_tables/xlat_tables.h>
 #include <bl31/interrupt_mgmt.h>
+
+typedef struct versal_intr_info_type_el3 {
+	uint32_t id;
+	interrupt_type_handler_t handler;
+} versal_intr_info_type_el3_t;
 
 void versal_config_setup(void);
 
