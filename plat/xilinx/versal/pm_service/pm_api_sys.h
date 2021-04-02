@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2019-2021, Xilinx, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -40,7 +40,7 @@ enum pm_ret_status pm_get_device_status(uint32_t device_id, uint32_t *response,
 enum pm_ret_status pm_reset_assert(uint32_t reset, bool assert, uint32_t flag);
 enum pm_ret_status pm_reset_get_status(uint32_t reset, uint32_t *status,
 				       uint32_t flag);
-void pm_get_callbackdata(uint32_t *data, size_t count, uint32_t flag);
+void pm_get_callbackdata(uint32_t *data, size_t count, uint32_t flag, uint32_t ack);
 enum pm_ret_status pm_pinctrl_request(uint32_t pin, uint32_t flag);
 enum pm_ret_status pm_pinctrl_release(uint32_t pin, uint32_t flag);
 enum pm_ret_status pm_pinctrl_set_function(uint32_t pin, uint32_t function,
