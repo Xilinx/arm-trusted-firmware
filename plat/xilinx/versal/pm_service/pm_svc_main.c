@@ -23,24 +23,45 @@
 #define MODE				0x80000000U
 #define XSCUGIC_SGIR_EL1_INITID_SHIFT    24U
 #define INVALID_SGI    0xFF
+#define PM_INIT_SUSPEND_CB	(30U)
+#define PM_NOTIFY_CB		(32U)
 DEFINE_RENAME_SYSREG_RW_FUNCS(icc_asgi1r_el1, S3_0_C12_C11_6)
 
 /* pm_up = true - UP, pm_up = false - DOWN */
 static bool pm_up;
 static unsigned int sgi = INVALID_SGI;
 
-static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
-				void *cookie)
+static void notify_os(void)
 {
 	int cpu;
 	unsigned int reg;
 
-	(void)plat_ic_acknowledge_interrupt();
 	cpu = plat_my_core_pos() + 1;
 
-	if (sgi != INVALID_SGI) {
-		reg = (cpu | (sgi << XSCUGIC_SGIR_EL1_INITID_SHIFT));
-		write_icc_asgi1r_el1(reg);
+	reg = (cpu | (sgi << XSCUGIC_SGIR_EL1_INITID_SHIFT));
+	write_icc_asgi1r_el1(reg);
+}
+
+static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
+				void *cookie)
+{
+	uint32_t payload[4] = {0};
+
+	VERBOSE("Received IPI FIQ from firmware\r\n");
+
+	(void)plat_ic_acknowledge_interrupt();
+
+	pm_get_callbackdata(payload, ARRAY_SIZE(payload), 0, 0);
+	switch (payload[0]) {
+	case PM_INIT_SUSPEND_CB:
+	case PM_NOTIFY_CB:
+		if (sgi != INVALID_SGI) {
+			notify_os();
+		}
+		break;
+	default:
+		pm_ipi_irq_clear(primary_proc);
+		WARN("Invalid IPI payload\r\n");
 	}
 
 	/* Clear FIQ */
