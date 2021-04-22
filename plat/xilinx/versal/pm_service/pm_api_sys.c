@@ -878,7 +878,7 @@ enum pm_ret_status pm_api_ioctl(uint32_t device_id, uint32_t ioctl_id,
 		return pm_pll_get_param(arg1, PM_PLL_PARAM_DATA, value, flag);
 	case IOCTL_SET_SGI:
 		/* Get the sgi number */
-		ret = pm_register_sgi(arg1);
+		ret = pm_register_sgi(arg1,arg2);
 		if (ret) {
 			return PM_RET_ERROR_ARGS;
 		}
