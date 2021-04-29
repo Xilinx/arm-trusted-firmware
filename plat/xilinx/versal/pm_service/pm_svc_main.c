@@ -42,6 +42,11 @@ static void notify_os(void)
 	write_icc_asgi1r_el1(reg);
 }
 
+static void request_cpu_idle(void)
+{
+	VERBOSE("CPU idle request received\n");
+}
+
 static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 				void *cookie)
 {
@@ -54,8 +59,15 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 	pm_get_callbackdata(payload, ARRAY_SIZE(payload), 0, 0);
 	switch (payload[0]) {
 	case PM_INIT_SUSPEND_CB:
-	case PM_NOTIFY_CB:
 		if (sgi != INVALID_SGI) {
+			notify_os();
+		}
+		break;
+	case PM_NOTIFY_CB:
+		if (payload[2] == EVENT_CPU_IDLE_FORCE_PWRDWN_SUBSYS) {
+			request_cpu_idle();
+			pm_ipi_irq_clear(primary_proc);
+		} else if (sgi != INVALID_SGI) {
 			notify_os();
 		}
 		break;
