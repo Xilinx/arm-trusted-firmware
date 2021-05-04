@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -99,6 +99,8 @@
 
 #define PLAT_VERSAL_G0_IRQ_PROPS(grp) \
 	INTR_PROP_DESC(PLAT_VERSAL_IPI_IRQ, GIC_HIGHEST_SEC_PRIORITY, grp, \
+			GIC_INTR_CFG_EDGE), \
+	INTR_PROP_DESC(VERSAL_CPU_IDLE_SGI, GIC_HIGHEST_SEC_PRIORITY, grp, \
 			GIC_INTR_CFG_EDGE), \
 
 #endif /* PLATFORM_DEF_H */

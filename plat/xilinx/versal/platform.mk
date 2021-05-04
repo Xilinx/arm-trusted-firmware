@@ -10,6 +10,8 @@ override RESET_TO_BL31 := 1
 PL011_GENERIC_UART := 1
 IPI_CRC_CHECK := 0
 HARDEN_SLS_ALL := 0
+VERSAL_CPU_IDLE_SGI ?= 6
+$(eval $(call add_define_val,VERSAL_CPU_IDLE_SGI,ARM_IRQ_SEC_SGI_${VERSAL_CPU_IDLE_SGI}))
 
 ifdef VERSAL_ATF_MEM_BASE
     $(eval $(call add_define,VERSAL_ATF_MEM_BASE))

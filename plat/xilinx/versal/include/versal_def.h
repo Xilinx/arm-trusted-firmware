@@ -154,4 +154,16 @@
 #define IPI5_REG_BASE		0xFF380000
 #define IPI5_TRIG_BIT		(1 << 6)
 
+/*******************************************************************************
+ * interrupt handling related constants
+ ******************************************************************************/
+#define ARM_IRQ_SEC_SGI_0	8
+#define ARM_IRQ_SEC_SGI_1	9
+#define ARM_IRQ_SEC_SGI_2	10
+#define ARM_IRQ_SEC_SGI_3	11
+#define ARM_IRQ_SEC_SGI_4	12
+#define ARM_IRQ_SEC_SGI_5	13
+#define ARM_IRQ_SEC_SGI_6	14
+#define ARM_IRQ_SEC_SGI_7	15
+
 #endif /* VERSAL_DEF_H */
