@@ -56,9 +56,19 @@ static uint64_t __unused __dead2 versal_sgi_irq_handler(uint32_t id,
 	while(1);
 }
 
-static void request_cpu_idle(void)
+static void request_cpu_idle(uint32_t core_mask)
 {
+	int i;
+
 	VERBOSE("CPU idle request received\n");
+
+	for (i = 0; i < PLATFORM_CORE_COUNT; i++) {
+		if ((0 != (core_mask & (1 << i)))) {
+			/* trigger SGI to active cores */
+			VERBOSE("Raise SGI for %d\n", i);
+			plat_ic_raise_el3_sgi(VERSAL_CPU_IDLE_SGI, i);
+		}
+	}
 }
 
 static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
@@ -79,7 +89,7 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 		break;
 	case PM_NOTIFY_CB:
 		if (payload[2] == EVENT_CPU_IDLE_FORCE_PWRDWN_SUBSYS) {
-			request_cpu_idle();
+			request_cpu_idle(payload[1]);
 			pm_ipi_irq_clear(primary_proc);
 		} else if (sgi != INVALID_SGI) {
 			notify_os();
