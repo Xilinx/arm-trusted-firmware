@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -9,6 +9,8 @@ SEPARATE_CODE_AND_RODATA := 1
 override RESET_TO_BL31 := 1
 PL011_GENERIC_UART := 1
 IPI_CRC_CHECK := 0
+VERSAL_CPU_IDLE_SGI ?= 6
+$(eval $(call add_define_val,VERSAL_CPU_IDLE_SGI,ARM_IRQ_SEC_SGI_${VERSAL_CPU_IDLE_SGI}))
 
 ifdef VERSAL_ATF_MEM_BASE
     $(eval $(call add_define,VERSAL_ATF_MEM_BASE))
