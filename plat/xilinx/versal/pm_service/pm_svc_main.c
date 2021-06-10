@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2019-2021, Xilinx, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -115,7 +115,17 @@ int pm_setup(void)
 	ret = request_intr_type_el3(PLAT_VERSAL_IPI_IRQ, ipi_fiq_handler);
 	if (ret) {
 		WARN("BL31: registering IPI interrupt failed\n");
+		goto err;
 	}
+
+	ret = pm_register_notifier(XPM_DEVID_ACPU_0,
+				   EVENT_CPU_IDLE_FORCE_PWRDWN_SUBSYS, 0U, 1U,
+				   0U);
+	if (ret) {
+		WARN("BL31: registering notifier failed\r\n");
+	}
+
+err:
 	return ret;
 }
 

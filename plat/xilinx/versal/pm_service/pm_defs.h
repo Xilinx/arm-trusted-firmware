@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2019-2021, Xilinx, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -189,4 +189,15 @@ enum pm_query_id {
 	XPM_QID_CLOCK_GET_MAX_DIVISOR,
 	XPM_QID_PLD_GET_PARENT,
 };
+
+/**
+ * PM notify events
+ */
+enum XPmNotifyEvent {
+	EVENT_STATE_CHANGE = 1,                         /**< State change event */
+	EVENT_ZERO_USERS = 2,                           /**< Zero user event */
+	EVENT_CPU_IDLE_FORCE_PWRDWN_CORE = 3,           /**< CPU idle event during force power down core */
+	EVENT_CPU_IDLE_FORCE_PWRDWN_SUBSYS = 4,         /**< CPU idle event during force power down subsystem */
+};
+
 #endif /* PM_DEFS_H */
