@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2019-2021, Xilinx, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,7 +16,6 @@
 #include "pm_client.h"
 #include "pm_defs.h"
 #include "pm_svc_main.h"
-#include "../drivers/arm/gic/v3/gicv3_private.h"
 
 /*********************************************************************
  * Target module IDs macros
@@ -24,7 +23,6 @@
 #define LIBPM_MODULE_ID		0x2
 #define LOADER_MODULE_ID	0x7
 
-#define  MODE	0x80000000
 /* default shutdown/reboot scope is system(2) */
 static unsigned int pm_shutdown_scope = XPM_SHUTDOWN_SUBTYPE_RST_SYSTEM;
 
@@ -881,8 +879,6 @@ enum pm_ret_status pm_api_ioctl(uint32_t device_id, uint32_t ioctl_id,
 		if (ret) {
 			return PM_RET_ERROR_ARGS;
 		}
-		gicd_write_irouter(gicv3_driver_data->gicd_base,
-				PLAT_VERSAL_IPI_IRQ, MODE);
 		return PM_RET_SUCCESS;
 	default:
 		/* Send request to the PMC */

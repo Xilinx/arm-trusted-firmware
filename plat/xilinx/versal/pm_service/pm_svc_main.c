@@ -19,7 +19,9 @@
 #include "pm_client.h"
 #include "pm_ipi.h"
 #include <drivers/arm/gicv3.h>
+#include "../drivers/arm/gic/v3/gicv3_private.h"
 
+#define MODE				0x80000000U
 #define XSCUGIC_SGIR_EL1_INITID_SHIFT    24U
 #define INVALID_SGI    0xFF
 #define PM_INIT_SUSPEND_CB	(30U)
@@ -201,6 +203,9 @@ int pm_setup(void)
 	if (ret) {
 		WARN("BL31: registering notifier failed\r\n");
 	}
+
+	gicd_write_irouter(gicv3_driver_data->gicd_base, PLAT_VERSAL_IPI_IRQ,
+			   MODE);
 
 err:
 	return ret;
