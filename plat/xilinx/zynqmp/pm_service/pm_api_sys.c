@@ -1648,3 +1648,27 @@ enum pm_ret_status em_send_errors(unsigned int *value)
 	EM_PACK_PAYLOAD1(payload, EM_SEND_ERRORS);
 	return pm_ipi_send_sync(primary_proc, payload, value, 1);
 }
+
+/**
+ * pm_set_feature_config() - feature configuration at runtime
+ *
+ * This function is used to send IPI request to PMUFW to configure feature
+ * at runtime. The feature can be enable or disable as well as the feature
+ * can be configure at runtime using an IOCTL call.
+ *
+ * @config_id	The config id of the feature to be configured
+ * @value	The value to be configured
+ *
+ * @return      Returns 0 on success or error value on failure
+ */
+enum pm_ret_status pm_set_feature_config(unsigned int config_id,
+					 unsigned int value)
+{
+	uint32_t payload[PAYLOAD_ARG_CNT];
+	unsigned int ioctl_id = IOCTL_SET_FEATURE_CONFIG;
+
+	/* Send request to the PMU */
+	PM_PACK_PAYLOAD5(payload, PM_IOCTL, 0, ioctl_id, config_id, value);
+
+	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
+}

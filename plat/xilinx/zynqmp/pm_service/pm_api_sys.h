@@ -204,4 +204,7 @@ enum pm_ret_status em_set_action(unsigned int *value);
 enum pm_ret_status em_remove_action(unsigned int *value);
 enum pm_ret_status em_send_errors(unsigned int *value);
 
-#endif /* PM_API_SYS_H */
+enum pm_ret_status pm_set_feature_config(unsigned int config_id,
+					 unsigned int value);
+
+#endif /* _PM_API_SYS_H_ */
