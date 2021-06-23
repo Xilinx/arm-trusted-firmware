@@ -206,5 +206,7 @@ enum pm_ret_status em_send_errors(unsigned int *value);
 
 enum pm_ret_status pm_set_feature_config(unsigned int config_id,
 					 unsigned int value);
+enum pm_ret_status pm_get_feature_config(unsigned int config_id,
+					 unsigned int *value);
 
 #endif /* _PM_API_SYS_H_ */

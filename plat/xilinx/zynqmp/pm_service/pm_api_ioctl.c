@@ -677,6 +677,9 @@ enum pm_ret_status pm_api_ioctl(enum pm_node_id nid,
 	case IOCTL_SET_FEATURE_CONFIG:
 		ret = pm_set_feature_config(arg1, arg2);
 		break;
+	case IOCTL_GET_FEATURE_CONFIG:
+		ret = pm_get_feature_config(arg1, value);
+		break;
 	default:
 		ret = PM_RET_ERROR_NOTSUPPORTED;
 		break;

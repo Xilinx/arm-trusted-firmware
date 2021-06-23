@@ -1672,3 +1672,27 @@ enum pm_ret_status pm_set_feature_config(unsigned int config_id,
 
 	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
 }
+
+/**
+ * pm_get_feature_config() - Get configured value of feature
+ *
+ * This function is used to get the configured value of the feature running at
+ * PMUFW. Like the feature is enabled or disabled or the configured value of
+ * supported feature.
+ *
+ * @config_id	The config id of the feature to be configured
+ * @value	Return to reference pointer
+ *
+ * @return      Returns 0 on success or error value on failure
+ */
+enum pm_ret_status pm_get_feature_config(unsigned int config_id,
+					 unsigned int *value)
+{
+	uint32_t payload[PAYLOAD_ARG_CNT];
+	unsigned int ioctl_id = IOCTL_GET_FEATURE_CONFIG;
+
+	/* Send request to the PMU */
+	PM_PACK_PAYLOAD5(payload, PM_IOCTL, 0, ioctl_id, config_id, 0);
+
+	return pm_ipi_send_sync(primary_proc, payload, value, 1);
+}
