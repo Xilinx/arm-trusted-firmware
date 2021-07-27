@@ -57,6 +57,7 @@
 struct xfsbl_partition {
 	uint64_t entry_point;
 	uint64_t flags;
+	uint64_t fdt_addr;
 };
 
 /* Structure for handoff parameters to ARM Trusted Firmware (ATF) */
@@ -224,13 +225,16 @@ enum fsbl_handoff fsbl_atf_handover(entry_point_info_t *bl32,
 		if (target_secure == FSBL_FLAGS_SECURE) {
 			image = bl32;
 
-			if (target_estate == FSBL_FLAGS_ESTATE_A32)
+			if (target_estate == FSBL_FLAGS_ESTATE_A32) {
 				bl32->spsr = SPSR_MODE32(MODE32_svc, SPSR_T_ARM,
 							 target_endianness,
 							 DISABLE_ALL_EXCEPTIONS);
-			else
+			} else {
 				bl32->spsr = SPSR_64(MODE_EL1, MODE_SP_ELX,
 						     DISABLE_ALL_EXCEPTIONS);
+				bl32->args.arg3 = ATFHandoffParams->partition[i].fdt_addr;
+				VERBOSE("BL32 fdt: %llx\n", bl32->args.arg3);
+			}
 		} else {
 			image = bl33;
 
