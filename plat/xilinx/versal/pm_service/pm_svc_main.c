@@ -20,6 +20,7 @@
 #include "pm_ipi.h"
 #include <drivers/arm/gicv3.h>
 #include "../drivers/arm/gic/v3/gicv3_private.h"
+#include "../lib/psci/psci_private.h"
 
 #define MODE				0x80000000U
 #define XSCUGIC_SGIR_EL1_INITID_SHIFT    24U
@@ -60,6 +61,7 @@ static uint64_t __unused __dead2 versal_sgi_irq_handler(uint32_t id,
 	/* Prevent interrupts from spuriously waking up this cpu */
 	plat_versal_gic_cpuif_disable();
 
+	pm_ipi_irq_clear(primary_proc);
 	mmio_write_32(FPD_APU_PWRCTL, mmio_read_32(FPD_APU_PWRCTL) |
 			proc->pwrdn_mask);
 
@@ -69,14 +71,28 @@ static uint64_t __unused __dead2 versal_sgi_irq_handler(uint32_t id,
 	}
 }
 
-static void request_cpu_idle(uint32_t core_mask)
+static void request_cpu_idle(void)
 {
 	int i;
+	uint8_t state;
+	static int idle_requests = 0;
+	int active_cores = 0;
 
 	VERBOSE("CPU idle request received\n");
 
-	for (i = 0; i < PLATFORM_CORE_COUNT; i++) {
-		if ((0 != (core_mask & (1 << i)))) {
+	for (i = 0; i < psci_plat_core_count; i++) {
+		state = psci_get_aff_info_state_by_idx(i);
+		if (state == AFF_STATE_ON) {
+			active_cores++;
+		}
+	}
+	idle_requests++;
+
+	if (idle_requests < active_cores) {
+		pm_ipi_irq_clear(primary_proc);
+	} else {
+		idle_requests = 0;
+		for (i = 0; i < PLATFORM_CORE_COUNT; i++) {
 			/* trigger SGI to active cores */
 			VERBOSE("Raise SGI for %d\n", i);
 			plat_ic_raise_el3_sgi(VERSAL_CPU_IDLE_SGI, i);
@@ -98,12 +114,12 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 	case PM_INIT_SUSPEND_CB:
 		if (sgi != INVALID_SGI) {
 			notify_os();
+			pm_ipi_irq_clear(primary_proc);
 		}
 		break;
 	case PM_NOTIFY_CB:
-		if (payload[2] == EVENT_CPU_IDLE_FORCE_PWRDWN_SUBSYS) {
-			request_cpu_idle(payload[1]);
-			pm_ipi_irq_clear(primary_proc);
+		if (payload[2] == EVENT_CPU_IDLE_FORCE_PWRDWN) {
+			request_cpu_idle();
 		} else if (sgi != INVALID_SGI) {
 			notify_os();
 		}
@@ -198,10 +214,17 @@ int pm_setup(void)
 	}
 
 	ret = pm_register_notifier(XPM_DEVID_ACPU_0,
-				   EVENT_CPU_IDLE_FORCE_PWRDWN_SUBSYS, 0U, 1U,
+				   EVENT_CPU_IDLE_FORCE_PWRDWN, 0U, 1U,
 				   0U);
 	if (ret) {
-		WARN("BL31: registering notifier failed\r\n");
+		WARN("BL31: registering notifier failed for acpu_0\r\n");
+	}
+
+	ret = pm_register_notifier(XPM_DEVID_ACPU_1,
+				   EVENT_CPU_IDLE_FORCE_PWRDWN, 0U, 1U,
+				   0U);
+	if (ret) {
+		WARN("BL31: registering notifier failed for acpu_1\r\n");
 	}
 
 	gicd_write_irouter(gicv3_driver_data->gicd_base, PLAT_VERSAL_IPI_IRQ,
