@@ -71,38 +71,22 @@ unsigned int pm_get_shutdown_scope(void)
 /* PM API functions */
 
 /**
- * pm_get_api_version() - Get version number of PMC PM firmware
- * @version	Returns 32-bit version number of PMC Power Management Firmware
+ * pm_handle_eemi_call() - PM call for processor to send eemi payload
  * @flag	0 - Call from secure source
  *		1 - Call from non-secure source
+ * @x0 to x5	Arguments received per SMC64 standard
+ * @result	Payload received from firmware
  *
- * @return	Returns status, either success or error+reason
+ * @return	 PM_RET_SUCCESS on success or error code
  */
-enum pm_ret_status pm_get_api_version(unsigned int *version, uint32_t flag)
+enum pm_ret_status pm_handle_eemi_call(uint32_t flag, uint32_t x0, uint32_t x1,
+				       uint32_t x2, uint32_t x3, uint32_t x4,
+				       uint32_t x5, uint64_t *result)
 {
 	uint32_t payload[PAYLOAD_ARG_CNT];
 
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD1(payload, LIBPM_MODULE_ID, flag, PM_GET_API_VERSION);
-	return pm_ipi_send_sync(primary_proc, payload, version, 1);
-}
-
-/**
- * pm_init_finalize() - Call to notify PMC PM firmware that master has power
- *			management enabled and that it has finished its
- *			initialization
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Status returned by the PMU firmware
- */
-enum pm_ret_status pm_init_finalize(uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMU */
-	PM_PACK_PAYLOAD1(payload, LIBPM_MODULE_ID, flag, PM_INIT_FINALIZE);
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
+	PM_PACK_PAYLOAD6(payload, LIBPM_MODULE_ID, flag, x0, x1, x2, x3, x4, x5);
+	return pm_ipi_send_sync(primary_proc, payload, (uint32_t *)result, 4);
 }
 
 /**
@@ -232,134 +216,6 @@ enum pm_ret_status pm_req_wakeup(uint32_t target, uint32_t set_address,
 }
 
 /**
- * pm_request_device() - Request a device
- * @device_id		Device ID
- * @capabilities	Requested capabilities for the device
- * @qos			Required Quality of Service
- * @ack			Flag to specify whether acknowledge requested
- * @flag		0 - Call from secure source
- *			1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_request_device(uint32_t device_id, uint32_t capabilities,
-				     uint32_t qos, uint32_t ack, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD5(payload, LIBPM_MODULE_ID, flag, PM_REQUEST_DEVICE,
-			 device_id, capabilities, qos, ack);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_release_device() - Release a device
- * @device_id		Device ID
- * @flag		0 - Call from secure source
- *			1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_release_device(uint32_t device_id, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_RELEASE_DEVICE,
-			 device_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_set_requirement() - Set requirement for the device
- * @device_id		Device ID
- * @capabilities	Requested capabilities for the device
- * @latency		Requested maximum latency
- * @qos			Required Quality of Service
- * @flag		0 - Call from secure source
- *			1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_set_requirement(uint32_t device_id, uint32_t capabilities,
-				      uint32_t latency, uint32_t qos,
-				      uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD5(payload, LIBPM_MODULE_ID, flag, PM_SET_REQUIREMENT,
-			 device_id, capabilities, latency, qos);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_get_device_status() - Get device's status
- * @device_id		Device ID
- * @response		Buffer to store device status response
- * @flag		0 - Call from secure source
- *			1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_get_device_status(uint32_t device_id, uint32_t *response,
-					uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_GET_DEVICE_STATUS,
-			 device_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, response, 3);
-}
-
-/**
- * pm_reset_assert() - Assert/De-assert reset
- * @reset	Reset ID
- * @assert	Assert (1) or de-assert (0)
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_reset_assert(uint32_t reset, bool assert, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag, PM_RESET_ASSERT, reset,
-			 assert);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_reset_get_status() - Get current status of a reset line
- * @reset	Reset ID
- * @status	Returns current status of selected reset ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_reset_get_status(uint32_t reset, uint32_t *status,
-				       uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_RESET_ASSERT,
-			 reset);
-
-	return pm_ipi_send_sync(primary_proc, payload, status, 1);
-}
-
-/**
  * pm_get_callbackdata() - Read from IPI response buffer
  * @data - array of PAYLOAD_ARG_CNT elements
  * @flag - 0 - Call from secure source
@@ -380,293 +236,6 @@ void pm_get_callbackdata(uint32_t *data, size_t count, uint32_t flag, uint32_t a
 	if (ack != 0U) {
 		pm_ipi_irq_clear(primary_proc);
 	}
-}
-
-/**
- * pm_pinctrl_request() - Request a pin
- * @pin		Pin ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_pinctrl_request(uint32_t pin, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_PINCTRL_REQUEST,
-			 pin);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_pinctrl_release() - Release a pin
- * @pin		Pin ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_pinctrl_release(uint32_t pin, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_PINCTRL_RELEASE,
-			 pin);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_pinctrl_set_function() - Set pin function
- * @pin		Pin ID
- * @function	Function ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_pinctrl_set_function(uint32_t pin, uint32_t function,
-					   uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag,
-			 PM_PINCTRL_SET_FUNCTION, pin, function)
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_pinctrl_get_function() - Get function set on the pin
- * @pin		Pin ID
- * @function	Function set on the pin
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_pinctrl_get_function(uint32_t pin, uint32_t *function,
-					   uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag,
-			 PM_PINCTRL_SET_FUNCTION, pin);
-
-	return pm_ipi_send_sync(primary_proc, payload, function, 1);
-}
-
-/**
- * pm_pinctrl_set_pin_param() - Set configuration parameter for the pin
- * @pin		Pin ID
- * @param	Parameter ID
- * @value	Parameter value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_pinctrl_set_pin_param(uint32_t pin, uint32_t param,
-					    uint32_t value, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD4(payload, LIBPM_MODULE_ID, flag,
-			 PM_PINCTRL_CONFIG_PARAM_SET, pin, param, value);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_pinctrl_get_pin_param() - Get configuration parameter value for the pin
- * @pin		Pin ID
- * @param	Parameter ID
- * @value	Buffer to store parameter value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_pinctrl_get_pin_param(uint32_t pin, uint32_t param,
-					    uint32_t *value, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag,
-			 PM_PINCTRL_CONFIG_PARAM_GET, pin, param);
-
-	return pm_ipi_send_sync(primary_proc, payload, value, 1);
-}
-
-/**
- * pm_clock_enable() - Enable the clock
- * @clk_id	Clock ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_enable(uint32_t clk_id, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_ENABLE,
-			 clk_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_clock_disable() - Disable the clock
- * @clk_id	Clock ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_disable(uint32_t clk_id, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_DISABLE,
-			 clk_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_clock_get_state() - Get clock status
- * @clk_id	Clock ID
- * @state:	Buffer to store clock status (1: Enabled, 0:Disabled)
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_get_state(uint32_t clk_id, uint32_t *state,
-				      uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_GETSTATE,
-			 clk_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, state, 1);
-}
-
-/**
- * pm_clock_set_divider() - Set divider for the clock
- * @clk_id	Clock ID
- * @divider	Divider value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_set_divider(uint32_t clk_id, uint32_t divider,
-					uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_SETDIVIDER,
-			 clk_id, divider);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_clock_get_divider() - Get divider value for the clock
- * @clk_id	Clock ID
- * @divider:	Buffer to store clock divider value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_get_divider(uint32_t clk_id, uint32_t *divider,
-					uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_GETDIVIDER,
-			 clk_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, divider, 1);
-}
-
-/**
- * pm_clock_set_parent() - Set parent for the clock
- * @clk_id	Clock ID
- * @parent	Parent ID
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_set_parent(uint32_t clk_id, uint32_t parent,
-				       uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_SETPARENT,
-			 clk_id, parent);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_clock_get_parent() - Get parent value for the clock
- * @clk_id	Clock ID
- * @parent:	Buffer to store clock parent value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_get_parent(uint32_t clk_id, uint32_t *parent,
-				       uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_GETPARENT,
-			 clk_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, parent, 1);
-}
-/**
- * pm_clock_get_rate() - Get the rate value for the clock
- * @clk_id	Clock ID
- * @rate:	Buffer to store clock rate value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_clock_get_rate(uint32_t clk_id, uint32_t *clk_rate,
-				     uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_CLOCK_GETRATE,
-			 clk_id);
-
-	return pm_ipi_send_sync(primary_proc, payload, clk_rate, 2);
 }
 
 /**
@@ -866,7 +435,6 @@ enum pm_ret_status pm_api_ioctl(uint32_t device_id, uint32_t ioctl_id,
 				uint32_t arg1, uint32_t arg2, uint32_t *value,
 				uint32_t flag)
 {
-	uint32_t payload[PAYLOAD_ARG_CNT];
 	int ret;
 
 	switch (ioctl_id) {
@@ -886,10 +454,7 @@ enum pm_ret_status pm_api_ioctl(uint32_t device_id, uint32_t ioctl_id,
 		}
 		return PM_RET_SUCCESS;
 	default:
-		/* Send request to the PMC */
-		PM_PACK_PAYLOAD5(payload, LIBPM_MODULE_ID, flag, PM_IOCTL,
-				 device_id, ioctl_id, arg1, arg2);
-		return pm_ipi_send_sync(primary_proc, payload, value, 1);
+		return PM_RET_ERROR_NOTSUPPORTED;
 	}
 }
 
@@ -914,25 +479,6 @@ enum pm_ret_status pm_set_wakeup_source(uint32_t target, uint32_t wkup_device,
 }
 
 /**
- * pm_get_chipid() - Read silicon ID registers
- * @value       Buffer for return values. Must be large enough
- *		to hold 8 bytes.
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return      Returns silicon ID registers
- */
-enum pm_ret_status pm_get_chipid(uint32_t *value, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD1(payload, LIBPM_MODULE_ID, flag, PM_GET_CHIPID);
-
-	return pm_ipi_send_sync(primary_proc, payload, value, 2);
-}
-
-/**
  * pm_feature_check() - Returns the supported API version if supported
  * @api_id	API ID to check
  * @value	Returned supported API version
@@ -952,58 +498,15 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, unsigned int *version,
 	case PM_GET_TRUSTZONE_VERSION:
 		*version = (PM_API_BASE_VERSION << 16);
 		return PM_RET_SUCCESS;
-	case PM_GET_API_VERSION:
-	case PM_GET_DEVICE_STATUS:
-	case PM_GET_OP_CHARACTERISTIC:
-	case PM_REQ_SUSPEND:
-	case PM_SELF_SUSPEND:
-	case PM_FORCE_POWERDOWN:
-	case PM_ABORT_SUSPEND:
-	case PM_REQ_WAKEUP:
-	case PM_SET_WAKEUP_SOURCE:
-	case PM_SYSTEM_SHUTDOWN:
-	case PM_REQUEST_DEVICE:
-	case PM_RELEASE_DEVICE:
-	case PM_SET_REQUIREMENT:
-	case PM_RESET_ASSERT:
-	case PM_RESET_GET_STATUS:
-	case PM_INIT_FINALIZE:
-	case PM_GET_CHIPID:
-	case PM_PINCTRL_REQUEST:
-	case PM_PINCTRL_RELEASE:
-	case PM_PINCTRL_GET_FUNCTION:
-	case PM_PINCTRL_SET_FUNCTION:
-	case PM_PINCTRL_CONFIG_PARAM_GET:
-	case PM_PINCTRL_CONFIG_PARAM_SET:
-	case PM_IOCTL:
-	case PM_SET_MAX_LATENCY:
-	case PM_REGISTER_NOTIFIER:
-		*version = (PM_API_BASE_VERSION << 16);
-		break;
 	case PM_QUERY_DATA:
 		*version = (PM_API_QUERY_DATA_VERSION << 16);
-		break;
-	case PM_CLOCK_ENABLE:
-	case PM_CLOCK_DISABLE:
-	case PM_CLOCK_GETSTATE:
-	case PM_CLOCK_SETDIVIDER:
-	case PM_CLOCK_GETDIVIDER:
-	case PM_CLOCK_SETPARENT:
-	case PM_CLOCK_GETPARENT:
-	case PM_CLOCK_GETRATE:
-	case PM_PLL_SET_PARAMETER:
-	case PM_PLL_GET_PARAMETER:
-	case PM_PLL_SET_MODE:
-	case PM_PLL_GET_MODE:
-	case PM_FEATURE_CHECK:
-		*version = (PM_API_BASE_VERSION << 16);
 		break;
 	case PM_LOAD_PDI:
 		*version = (PM_API_BASE_VERSION << 16);
 		return PM_RET_SUCCESS;
 	default:
-		*version = 0U;
-		return PM_RET_ERROR_NOFEATURE;
+		*version = (PM_API_BASE_VERSION << 16);
+		break;
 	}
 
 	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag,
@@ -1016,78 +519,6 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, unsigned int *version,
 	*version |= fw_api_version;
 
 	return PM_RET_SUCCESS;
-}
-
-/**
- * pm_load_pdi() - Load the PDI
- *
- * This function provides support to load PDI from linux
- *
- * src:        Source device of pdi(DDR, OCM, SD etc)
- * address_low: lower 32-bit Linear memory space address
- * address_high: higher 32-bit Linear memory space address
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return      Returns status, either success or error+reason
- */
-enum pm_ret_status pm_load_pdi(uint32_t src, uint32_t address_low,
-			       uint32_t address_high, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMU */
-	PM_PACK_PAYLOAD4(payload, LOADER_MODULE_ID, flag, PM_LOAD_PDI, src,
-			 address_high, address_low);
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
-}
-
-/**
- * pm_get_op_characteristic() - PM call to request operating characteristics
- *                              of a device
- * @device_id   Device id
- * @type        Type of the operating characteristic
- *              (power, temperature and latency)
- * @result      Returns the operating characteristic for the requested device,
- *              specified by the type
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return      Returns status, either success or error+reason
- */
-enum pm_ret_status pm_get_op_characteristic(uint32_t device_id,
-					    enum pm_opchar_type type,
-					    uint32_t *result, uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag,
-			 PM_GET_OP_CHARACTERISTIC, device_id, type);
-	return pm_ipi_send_sync(primary_proc, payload, result, 1);
-}
-
-/**
- * pm_set_max_latency() - PM call to change in the maximum wake-up latency
- *			  requirements for a specific device currently
- *			  used by that CPU.
- * @device_id	Device ID
- * @latency	Latency value
- * @flag	0 - Call from secure source
- *		1 - Call from non-secure source
- *
- * @return	Returns status, either success or error+reason
- */
-enum pm_ret_status pm_set_max_latency(uint32_t device_id, uint32_t latency,
-				      uint32_t flag)
-{
-	uint32_t payload[PAYLOAD_ARG_CNT];
-
-	/* Send request to the PMC */
-	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag, PM_SET_MAX_LATENCY,
-			 device_id, latency);
-
-	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
 }
 
 /**
