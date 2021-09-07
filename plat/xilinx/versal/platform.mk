@@ -9,6 +9,7 @@ SEPARATE_CODE_AND_RODATA := 1
 override RESET_TO_BL31 := 1
 PL011_GENERIC_UART := 1
 IPI_CRC_CHECK := 0
+HARDEN_SLS_ALL := 0
 VERSAL_CPU_IDLE_SGI ?= 6
 $(eval $(call add_define_val,VERSAL_CPU_IDLE_SGI,ARM_IRQ_SEC_SGI_${VERSAL_CPU_IDLE_SGI}))
 
@@ -90,3 +91,7 @@ BL31_SOURCES		+=	drivers/arm/cci/cci.c				\
 				plat/xilinx/versal/pm_service/pm_svc_main.c	\
 				plat/xilinx/versal/pm_service/pm_api_sys.c	\
 				plat/xilinx/versal/pm_service/pm_client.c
+
+ifeq ($(HARDEN_SLS_ALL), 1)
+TF_CFLAGS_aarch64      +=      -mharden-sls=all
+endif
