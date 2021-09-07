@@ -11,10 +11,19 @@ SEPARATE_CODE_AND_RODATA := 1
 ZYNQMP_WDT_RESTART := 0
 IPI_CRC_CHECK := 0
 override RESET_TO_BL31 := 1
-override GICV2_G0_FOR_EL3 := 1
 override WARMBOOT_ENABLE_DCACHE_EARLY := 1
 
 EL3_EXCEPTION_HANDLING := $(SDEI_SUPPORT)
+
+# pncd SPD requires secure SGI to be handled at EL1
+ifeq (${SPD},pncd)
+ifeq (${ZYNQMP_WDT_RESTART},1)
+$(error "Error: ZYNQMP_WDT_RESTART and SPD=pncd are incompatible")
+endif
+override GICV2_G0_FOR_EL3 := 0
+else
+override GICV2_G0_FOR_EL3 := 1
+endif
 
 # Do not enable SVE
 ENABLE_SVE_FOR_NS	:= 0
