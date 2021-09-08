@@ -42,13 +42,15 @@
 #define SGIR_TGTLSTFLT_MASK	U(0x3)
 #define SGIR_TGTLST_SHIFT	16
 #define SGIR_TGTLST_MASK	U(0xff)
+#define SGIR_NSATT		(U(0x1) << 16)
 #define SGIR_INTID_MASK		ULL(0xf)
 
 #define SGIR_TGT_SPECIFIC	U(0)
 
-#define GICV2_SGIR_VALUE(tgt_lst_flt, tgt, intid) \
+#define GICV2_SGIR_VALUE(tgt_lst_flt, tgt, nsatt, intid) \
 	((((tgt_lst_flt) & SGIR_TGTLSTFLT_MASK) << SGIR_TGTLSTFLT_SHIFT) | \
 	 (((tgt) & SGIR_TGTLST_MASK) << SGIR_TGTLST_SHIFT) | \
+	 (nsatt ? SGIR_NSATT : U(0)) | \
 	 ((intid) & SGIR_INTID_MASK))
 
 /*******************************************************************************
@@ -119,6 +121,7 @@
 #ifndef __ASSEMBLER__
 
 #include <cdefs.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <common/interrupt_props.h>
@@ -177,7 +180,7 @@ void gicv2_enable_interrupt(unsigned int id);
 void gicv2_disable_interrupt(unsigned int id);
 void gicv2_set_interrupt_priority(unsigned int id, unsigned int priority);
 void gicv2_set_interrupt_type(unsigned int id, unsigned int type);
-void gicv2_raise_sgi(int sgi_num, int proc_num);
+void gicv2_raise_sgi(int sgi_num, bool ns, int proc_num);
 void gicv2_set_spi_routing(unsigned int id, int proc_num);
 void gicv2_set_interrupt_pending(unsigned int id);
 void gicv2_clear_interrupt_pending(unsigned int id);

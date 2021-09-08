@@ -282,6 +282,7 @@ DEFINE_COPROCR_RW_FUNCS(icc_eoir0_el1, ICC_EOIR0)
 DEFINE_COPROCR_RW_FUNCS(icc_eoir1_el1, ICC_EOIR1)
 DEFINE_COPROCR_RW_FUNCS_64(icc_sgi0r_el1, ICC_SGI0R_EL1_64)
 DEFINE_COPROCR_WRITE_FUNC_64(icc_sgi1r, ICC_SGI1R_EL1_64)
+DEFINE_COPROCR_WRITE_FUNC_64(icc_asgi1r, ICC_ASGI1R_EL1_64)
 
 DEFINE_COPROCR_RW_FUNCS(sdcr, SDCR)
 DEFINE_COPROCR_RW_FUNCS(hdcr, HDCR)
@@ -402,6 +403,8 @@ static inline unsigned int get_current_el(void)
 #define read_ctr_el0()		read_ctr()
 
 #define write_icc_sgi0r_el1(_v)	write64_icc_sgi0r_el1(_v)
+#define write_icc_sgi1r(_v)	write64_icc_sgi1r(_v)
+#define write_icc_asgi1r(_v)	write64_icc_asgi1r(_v)
 
 #define read_daif()		read_cpsr()
 #define write_daif(flags)	write_cpsr(flags)
