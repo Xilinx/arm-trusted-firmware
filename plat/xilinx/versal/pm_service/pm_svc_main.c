@@ -114,7 +114,6 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 	case PM_INIT_SUSPEND_CB:
 		if (sgi != INVALID_SGI) {
 			notify_os();
-			pm_ipi_irq_clear(primary_proc);
 		}
 		break;
 	case PM_NOTIFY_CB:
