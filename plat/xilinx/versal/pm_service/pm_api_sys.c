@@ -23,8 +23,6 @@
 #define LIBPM_MODULE_ID		0x2
 #define LOADER_MODULE_ID	0x7
 
-#define MODULE_ID_MASK		0x0000ff00
-
 /* default shutdown/reboot scope is system(2) */
 static unsigned int pm_shutdown_scope = XPM_SHUTDOWN_SUBTYPE_RST_SYSTEM;
 
@@ -86,15 +84,8 @@ enum pm_ret_status pm_handle_eemi_call(uint32_t flag, uint32_t x0, uint32_t x1,
 				       uint32_t x5, uint64_t *result)
 {
 	uint32_t payload[PAYLOAD_ARG_CNT];
-	uint32_t module_id;
 
-	module_id = (x0 & MODULE_ID_MASK) >> 8;
-
-	//default module id is for LIBPM
-	if (module_id == 0)
-		module_id = LIBPM_MODULE_ID;
-
-	PM_PACK_PAYLOAD6(payload, module_id, flag, x0, x1, x2, x3, x4, x5);
+	PM_PACK_PAYLOAD6(payload, LIBPM_MODULE_ID, flag, x0, x1, x2, x3, x4, x5);
 	return pm_ipi_send_sync(primary_proc, payload, (uint32_t *)result, 4);
 }
 
@@ -501,16 +492,6 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, unsigned int *version,
 {
 	uint32_t payload[PAYLOAD_ARG_CNT], fw_api_version;
 	uint32_t status;
-	uint32_t module_id;
-
-	module_id = (api_id & MODULE_ID_MASK) >> 8;
-
-	/* feature check should be done only for LIBPM module
-	 * If module_id is 0, then we consider it LIBPM module as default id
-	 */
-	if ((module_id > 0) && (module_id != LIBPM_MODULE_ID)) {
-		return PM_RET_SUCCESS;
-	}
 
 	switch (api_id) {
 	case PM_GET_CALLBACK_DATA:
@@ -520,6 +501,9 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, unsigned int *version,
 	case PM_QUERY_DATA:
 		*version = (PM_API_QUERY_DATA_VERSION << 16);
 		break;
+	case PM_LOAD_PDI:
+		*version = (PM_API_BASE_VERSION << 16);
+		return PM_RET_SUCCESS;
 	default:
 		*version = (PM_API_BASE_VERSION << 16);
 		break;
