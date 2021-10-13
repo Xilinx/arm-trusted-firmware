@@ -335,7 +335,7 @@ static void zynqmp_print_platform_name(void)
 	}
 
 	if (!IPI_CRC_CHECK) {
-		NOTICE("ATF running on %s/%s v%d/RTL%d.%d at 0x%x\n",
+		VERBOSE("ATF running on %s/%s v%d/RTL%d.%d at 0x%x\n",
 		zynqmp_print_silicon_idcode(), label, zynqmp_get_ps_ver(),
 		(rtl & 0xf0) >> 4, rtl & 0xf, BL31_BASE);
 	}
