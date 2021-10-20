@@ -54,7 +54,7 @@ static uint64_t __unused __dead2 versal_sgi_irq_handler(uint32_t id,
 
 	VERBOSE("Entering wfi %d\n", cpu_id);
 
-	plat_ic_clear_interrupt_pending(id);
+	gicv3_clear_interrupt_pending(id, cpu_id);
 
 	dsb();
 
