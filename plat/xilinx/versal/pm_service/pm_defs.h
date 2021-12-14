@@ -35,6 +35,7 @@
 
 #define PM_GET_CALLBACK_DATA		0xa01
 #define PM_GET_TRUSTZONE_VERSION	0xa03
+#define TF_A_PM_REGISTER_SGI		0xa04
 
 /* PM API Versions */
 #define PM_API_BASE_VERSION		1U

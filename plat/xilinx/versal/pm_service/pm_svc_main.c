@@ -244,6 +244,14 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 		ret = pm_init_finalize(security_flag);
 		SMC_RET1(handle, (uint64_t)ret);
 
+	case TF_A_PM_REGISTER_SGI:
+	{
+		ret = pm_register_sgi(pm_arg[0], pm_arg[1]);
+		if (ret)
+			SMC_RET1(handle, (uint32_t)PM_RET_ERROR_ARGS);
+		SMC_RET1(handle, (uint32_t)PM_RET_SUCCESS);
+	}
+
 	case PM_GET_CALLBACK_DATA:
 	{
 		uint32_t result[4] = {0};
