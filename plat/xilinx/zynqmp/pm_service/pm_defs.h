@@ -107,6 +107,7 @@ enum pm_api_id {
 	/* PM Register Access API */
 	PM_REGISTER_ACCESS,
 	PM_EFUSE_ACCESS,
+	PM_FEATURE_CHECK = 63,
 	PM_API_MAX
 };
 

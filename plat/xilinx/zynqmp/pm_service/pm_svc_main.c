@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2022, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -633,6 +633,18 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 
 		ret = pm_efuse_access(pm_arg[0], pm_arg[1], &value);
 		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
+	case PM_FEATURE_CHECK:
+	{
+		uint32_t payload[PAYLOAD_ARG_CNT];
+		uint32_t ret_payload[PAYLOAD_ARG_CNT];
+
+		PM_PACK_PAYLOAD5(payload, smc_fid & FUNCID_NUM_MASK,
+				 pm_arg[0], pm_arg[1], pm_arg[2], pm_arg[3]);
+		ret = pm_ipi_send_sync(primary_proc, payload, ret_payload, 3U);
+		SMC_RET2(handle, (uint64_t)ret | (uint64_t)ret_payload[0] << 32,
+			 (uint64_t)ret_payload[1] | (uint64_t)ret_payload[2] << 32);
 	}
 
 	default:
