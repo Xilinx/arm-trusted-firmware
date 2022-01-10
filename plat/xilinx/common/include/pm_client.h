@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -27,6 +27,6 @@ extern const struct pm_proc *primary_proc;
 enum pm_ret_status set_ocm_retention(void);
 enum pm_ret_status pm_set_suspend_mode(uint32_t mode);
 const struct pm_proc *pm_get_proc_by_node(enum pm_node_id nid);
-#endif
+#endif /* VERSAL_PLATFORM */
 
 #endif /* PM_CLIENT_H */
