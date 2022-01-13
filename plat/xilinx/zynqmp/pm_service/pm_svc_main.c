@@ -636,6 +636,8 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 	}
 
 	case PM_FEATURE_CHECK:
+	case PM_FPGA_GET_VERSION:
+	case PM_FPGA_GET_FEATURE_LIST:
 	{
 		uint32_t payload[PAYLOAD_ARG_CNT];
 		uint32_t ret_payload[PAYLOAD_ARG_CNT];
