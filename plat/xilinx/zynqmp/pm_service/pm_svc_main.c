@@ -37,7 +37,6 @@ static spinlock_t inc_lock;
 static int active_cores = 0;
 #endif
 
-
 /**
  * pm_context - Structure which contains data for power management
  * @api_version		version of PM API, must match with one on PMU side
@@ -106,7 +105,7 @@ static void trigger_wdt_restart(void)
  * action.
  */
 static uint64_t ttc_fiq_handler(uint32_t id, uint32_t flags, void *handle,
-                               void *cookie)
+				void *cookie)
 {
 	INFO("BL31: Got TTC FIQ\n");
 
@@ -139,7 +138,7 @@ static uint64_t ttc_fiq_handler(uint32_t id, uint32_t flags, void *handle,
  * running CPU calls system restart.
  */
 static uint64_t __unused __dead2 zynqmp_sgi7_irq(uint32_t id, uint32_t flags,
-                                                void *handle, void *cookie)
+						 void *handle, void *cookie)
 {
 	int i;
 	uint32_t value;
