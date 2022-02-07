@@ -24,14 +24,14 @@
 
 #define MODE				0x80000000U
 #define XSCUGIC_SGIR_EL1_INITID_SHIFT    24U
-#define INVALID_SGI    0xFF
+#define INVALID_SGI    0xFFU
 #define PM_INIT_SUSPEND_CB	(30U)
 #define PM_NOTIFY_CB		(32U)
 DEFINE_RENAME_SYSREG_RW_FUNCS(icc_asgi1r_el1, S3_0_C12_C11_6)
 
 /* pm_up = true - UP, pm_up = false - DOWN */
 static bool pm_up;
-static unsigned int sgi = INVALID_SGI;
+static unsigned int sgi = (unsigned int)INVALID_SGI;
 
 static void notify_os(void)
 {
@@ -153,7 +153,7 @@ int pm_register_sgi(unsigned int sgi_num, unsigned int reset)
 		return 0;
 	}
 
-	if (sgi != INVALID_SGI) {
+	if ((unsigned int)sgi != (unsigned int)INVALID_SGI) {
 		return -EBUSY;
 	}
 
@@ -161,7 +161,7 @@ int pm_register_sgi(unsigned int sgi_num, unsigned int reset)
 		return -EINVAL;
 	}
 
-	sgi = sgi_num;
+	sgi = (unsigned int)sgi_num;
 	return 0;
 }
 
@@ -193,7 +193,7 @@ int pm_setup(void)
 
 	/* register IRQ handler for CPU idle SGI */
 	ret = request_intr_type_el3(VERSAL_CPU_IDLE_SGI, versal_sgi_irq_handler);
-	if (ret) {
+	if (ret != 0) {
 		INFO("BL31: registering SGI interrupt failed\n");
 		goto err;
 	}
@@ -207,7 +207,7 @@ int pm_setup(void)
 	pm_ipi_irq_enable(primary_proc);
 
 	ret = request_intr_type_el3(PLAT_VERSAL_IPI_IRQ, ipi_fiq_handler);
-	if (ret) {
+	if (ret != 0) {
 		WARN("BL31: registering IPI interrupt failed\n");
 		goto err;
 	}
@@ -215,14 +215,14 @@ int pm_setup(void)
 	ret = pm_register_notifier(XPM_DEVID_ACPU_0,
 				   EVENT_CPU_IDLE_FORCE_PWRDWN, 0U, 1U,
 				   0U);
-	if (ret) {
+	if (ret != 0) {
 		WARN("BL31: registering notifier failed for acpu_0\r\n");
 	}
 
 	ret = pm_register_notifier(XPM_DEVID_ACPU_1,
 				   EVENT_CPU_IDLE_FORCE_PWRDWN, 0U, 1U,
 				   0U);
-	if (ret) {
+	if (ret != 0) {
 		WARN("BL31: registering notifier failed for acpu_1\r\n");
 	}
 
@@ -290,24 +290,24 @@ static uintptr_t eemi_psci_debugfs_handler(uint32_t api_id, uint32_t *pm_arg,
 	case PM_SELF_SUSPEND:
 		ret = pm_self_suspend(pm_arg[0], pm_arg[1], pm_arg[2],
 				      pm_arg[3], security_flag);
-		SMC_RET1(handle, (uint64_t)ret);
+		SMC_RET1(handle, (u_register_t)ret);
 
 	case PM_FORCE_POWERDOWN:
 		ret = pm_force_powerdown(pm_arg[0], pm_arg[1], security_flag);
-		SMC_RET1(handle, (uint64_t)ret);
+		SMC_RET1(handle, (u_register_t)ret);
 
 	case PM_REQ_SUSPEND:
 		ret = pm_req_suspend(pm_arg[0], pm_arg[1], pm_arg[2],
 				     pm_arg[3], security_flag);
-		SMC_RET1(handle, (uint64_t)ret);
+		SMC_RET1(handle, (u_register_t)ret);
 
 	case PM_ABORT_SUSPEND:
 		ret = pm_abort_suspend(pm_arg[0], security_flag);
-		SMC_RET1(handle, (uint64_t)ret);
+		SMC_RET1(handle, (u_register_t)ret);
 
 	case PM_SYSTEM_SHUTDOWN:
 		ret = pm_system_shutdown(pm_arg[0], pm_arg[1], security_flag);
-		SMC_RET1(handle, (uint64_t)ret);
+		SMC_RET1(handle, (u_register_t)ret);
 
 	default:
 		return (uintptr_t)0;
@@ -420,14 +420,15 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 	uint32_t api_id;
 
 	/* Handle case where PM wasn't initialized properly */
-	if (!pm_up)
+	if (pm_up == false) {
 		SMC_RET1(handle, SMC_UNK);
+	}
 
 	/*
 	 * Mark BIT24 payload (i.e 1st bit of pm_arg[3] ) as non-secure (1)
 	 * if smc called is non secure
 	 */
-	if (is_caller_non_secure(flags)) {
+	if (is_caller_non_secure(flags) != 0) {
 		security_flag = NON_SECURE_FLAG;
 	}
 

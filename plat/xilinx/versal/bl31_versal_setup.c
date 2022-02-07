@@ -46,10 +46,10 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
  */
 static inline void bl31_set_default_config(void)
 {
-	bl32_image_ep_info.pc = BL32_BASE;
-	bl32_image_ep_info.spsr = arm_get_spsr_for_bl32_entry();
-	bl33_image_ep_info.pc = plat_get_ns_image_entrypoint();
-	bl33_image_ep_info.spsr = SPSR_64(MODE_EL2, MODE_SP_ELX,
+	bl32_image_ep_info.pc = (uintptr_t)BL32_BASE;
+	bl32_image_ep_info.spsr = (uint32_t)arm_get_spsr_for_bl32_entry();
+	bl33_image_ep_info.pc = (uintptr_t)plat_get_ns_image_entrypoint();
+	bl33_image_ep_info.spsr = (uint32_t)SPSR_64(MODE_EL2, MODE_SP_ELX,
 					  DISABLE_ALL_EXCEPTIONS);
 }
 
@@ -67,22 +67,24 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	if (VERSAL_CONSOLE_IS(pl011)) {
 		static console_t versal_runtime_console;
 		/* Initialize the console to provide early debug support */
-		int rc = console_pl011_register(VERSAL_UART_BASE,
-						VERSAL_UART_CLOCK,
-						VERSAL_UART_BAUDRATE,
+		int rc = console_pl011_register((unsigned long)VERSAL_UART_BASE,
+						(unsigned int)VERSAL_UART_CLOCK,
+						(unsigned int)VERSAL_UART_BAUDRATE,
 						&versal_runtime_console);
 		if (rc == 0) {
 			panic();
 		}
 
-		console_set_scope(&versal_runtime_console, CONSOLE_FLAG_BOOT |
-				  CONSOLE_FLAG_RUNTIME);
+		console_set_scope(&versal_runtime_console, (unsigned int)(CONSOLE_FLAG_BOOT |
+				  CONSOLE_FLAG_RUNTIME));
 	} else if (VERSAL_CONSOLE_IS(dcc)) {
 		/* Initialize the dcc console for debug */
 		int rc = console_dcc_register();
 		if (rc == 0) {
 			panic();
 		}
+	} else {
+		NOTICE("BL31: Did not register for any console.\n");
 	}
 	/* Initialize the platform config for future decision making */
 	versal_config_setup();
@@ -111,6 +113,8 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 		bl31_set_default_config();
 	} else if (ret != FSBL_HANDOFF_SUCCESS) {
 		panic();
+	} else {
+		ERROR("BL31: Error during fsbl-atf handover %d.\n", ret);
 	}
 
 	NOTICE("BL31: Secure code at 0x%lx\n", bl32_image_ep_info.pc);
@@ -125,7 +129,7 @@ int request_intr_type_el3(uint32_t id, interrupt_type_handler_t handler)
 	uint32_t i;
 
 	/* Validate 'handler' and 'id' parameters */
-	if (!handler || index >= MAX_INTR_EL3)
+	if (handler == NULL || index >= MAX_INTR_EL3)
 		return -EINVAL;
 
 	/* Check if a handler has already been registered */
@@ -157,7 +161,7 @@ static uint64_t rdo_el3_interrupt_handler(uint32_t id, uint32_t flags,
 		}
 	}
 
-	if (handler)
+	if (handler != NULL)
 		handler(intr_id, flags, handle, cookie);
 
 	return 0;
@@ -172,12 +176,12 @@ void bl31_platform_setup(void)
 void bl31_plat_runtime_setup(void)
 {
 	uint64_t flags = 0;
-	uint64_t rc;
+	int32_t rc;
 
 	set_interrupt_rm_flag(flags, NON_SECURE);
 	rc = register_interrupt_type_handler(INTR_TYPE_EL3,
 					     rdo_el3_interrupt_handler, flags);
-	if (rc) {
+	if (rc != 0) {
 		panic();
 	}
 }
