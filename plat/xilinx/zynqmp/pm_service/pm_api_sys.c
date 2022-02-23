@@ -810,6 +810,46 @@ static enum pm_ret_status feature_check_atf(uint32_t api_id, uint32_t *version,
 }
 
 /**
+ * get_atf_version_for_partial_apis() - Return ATF version for partially
+ * implemented APIs
+ * @api_id	API ID to check
+ * @version	Returned supported API version
+ *
+ * @return	Returns status, either success or error+reason
+ */
+static enum pm_ret_status get_atf_version_for_partial_apis(uint32_t api_id,
+							   uint32_t *version)
+{
+	switch (api_id) {
+	case PM_SELF_SUSPEND:
+	case PM_REQ_WAKEUP:
+	case PM_ABORT_SUSPEND:
+	case PM_SET_WAKEUP_SOURCE:
+	case PM_SYSTEM_SHUTDOWN:
+	case PM_GET_API_VERSION:
+	case PM_CLOCK_ENABLE:
+	case PM_CLOCK_DISABLE:
+	case PM_CLOCK_GETSTATE:
+	case PM_CLOCK_SETDIVIDER:
+	case PM_CLOCK_GETDIVIDER:
+	case PM_CLOCK_SETPARENT:
+	case PM_CLOCK_GETPARENT:
+	case PM_PLL_SET_PARAMETER:
+	case PM_PLL_GET_PARAMETER:
+	case PM_PLL_SET_MODE:
+	case PM_PLL_GET_MODE:
+	case PM_REGISTER_ACCESS:
+		*version = ATF_API_BASE_VERSION;
+		return PM_RET_SUCCESS;
+	case PM_FEATURE_CHECK:
+		*version = FW_API_VERSION_2;
+		return PM_RET_SUCCESS;
+	default:
+		return PM_RET_ERROR_ARGS;
+	}
+}
+
+/**
  * feature_check_partial() - These are API's partially implemented in
  * ATF and firmware both
  * @api_id	API ID to check
@@ -845,8 +885,7 @@ static enum pm_ret_status feature_check_partial(uint32_t api_id,
 		status = check_api_dependency(api_id);
 		if (status != PM_RET_SUCCESS)
 			return status;
-		*version = ATF_API_BASE_VERSION;
-		return PM_RET_SUCCESS;
+		return get_atf_version_for_partial_apis(api_id, version);
 	default:
 		return PM_RET_ERROR_NO_FEATURE;
 	}
