@@ -20,6 +20,21 @@
 #include "pm_common.h"
 #include "pm_ipi.h"
 
+#define PM_QUERY_FEATURE_BITMASK ( \
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_NAME) | \
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_TOPOLOGY) |	\
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_FIXEDFACTOR_PARAMS) | \
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_PARENTS) | \
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_ATTRIBUTES) | \
+	(1ULL << (uint64_t)PM_QID_PINCTRL_GET_NUM_PINS) | \
+	(1ULL << (uint64_t)PM_QID_PINCTRL_GET_NUM_FUNCTIONS) | \
+	(1ULL << (uint64_t)PM_QID_PINCTRL_GET_NUM_FUNCTION_GROUPS) | \
+	(1ULL << (uint64_t)PM_QID_PINCTRL_GET_FUNCTION_NAME) | \
+	(1ULL << (uint64_t)PM_QID_PINCTRL_GET_FUNCTION_GROUPS) | \
+	(1ULL << (uint64_t)PM_QID_PINCTRL_GET_PIN_GROUPS) | \
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_NUM_CLOCKS) | \
+	(1ULL << (uint64_t)PM_QID_CLOCK_GET_MAX_DIVISOR))
+
 /**
  * struct eemi_api_dependency - Dependent EEMI APIs which are implemented
  * on both the ATF and firmware
@@ -751,39 +766,6 @@ enum pm_ret_status check_api_dependency(uint8_t id)
 }
 
 /**
- * atf_query_bitmask() -  API to get supported QUERY ID mask
- * @bit_mask		Returned bit mask of supported QUERY IDs
- */
-static enum pm_ret_status atf_query_bitmask(uint32_t *bit_mask)
-{
-	uint8_t qid, i;
-	uint8_t supported_ids[] = {
-		PM_QID_CLOCK_GET_NAME,
-		PM_QID_CLOCK_GET_TOPOLOGY,
-		PM_QID_CLOCK_GET_FIXEDFACTOR_PARAMS,
-		PM_QID_CLOCK_GET_PARENTS,
-		PM_QID_CLOCK_GET_ATTRIBUTES,
-		PM_QID_PINCTRL_GET_NUM_PINS,
-		PM_QID_PINCTRL_GET_NUM_FUNCTIONS,
-		PM_QID_PINCTRL_GET_NUM_FUNCTION_GROUPS,
-		PM_QID_PINCTRL_GET_FUNCTION_NAME,
-		PM_QID_PINCTRL_GET_FUNCTION_GROUPS,
-		PM_QID_PINCTRL_GET_PIN_GROUPS,
-		PM_QID_CLOCK_GET_NUM_CLOCKS,
-		PM_QID_CLOCK_GET_MAX_DIVISOR,
-	};
-
-	for (i = 0U; i < ARRAY_SIZE(supported_ids); i++) {
-		qid = supported_ids[i];
-		if (qid >= 64U)
-			return PM_RET_ERROR_NOTSUPPORTED;
-		bit_mask[qid / 32] |= BIT(qid % 32);
-	}
-
-	return PM_RET_SUCCESS;
-}
-
-/**
  * feature_check_atf() - These are API's completely implemented in ATF
  * @api_id	API ID to check
  * @version	Returned supported API version
@@ -791,14 +773,14 @@ static enum pm_ret_status atf_query_bitmask(uint32_t *bit_mask)
  * @return	Returns status, either success or error+reason
  */
 static enum pm_ret_status feature_check_atf(uint32_t api_id, uint32_t *version,
-					    uint32_t *bit_mask, uint8_t len)
+					    uint32_t *bit_mask)
 {
 	switch (api_id) {
 	case PM_QUERY_DATA:
 		*version = ATF_API_BASE_VERSION;
-		if (len < 2)
-			return PM_RET_ERROR_ARGS;
-		return atf_query_bitmask(bit_mask);
+		bit_mask[0] = (uint32_t)(PM_QUERY_FEATURE_BITMASK);
+		bit_mask[1] = (uint32_t)(PM_QUERY_FEATURE_BITMASK >> 32);
+		return PM_RET_SUCCESS;
 	case PM_GET_CALLBACK_DATA:
 	case PM_GET_TRUSTZONE_VERSION:
 	case PM_SET_SUSPEND_MODE:
@@ -907,7 +889,7 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, uint32_t *version,
 	uint32_t status;
 
 	/* Get API version implemented in ATF */
-	status = feature_check_atf(api_id, version, bit_mask, len);
+	status = feature_check_atf(api_id, version, bit_mask);
 	if (status != PM_RET_ERROR_NO_FEATURE)
 		return status;
 
