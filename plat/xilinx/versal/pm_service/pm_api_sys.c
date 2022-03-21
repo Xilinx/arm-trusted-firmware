@@ -250,6 +250,112 @@ void pm_get_callbackdata(uint32_t *data, size_t count, uint32_t flag, uint32_t a
 }
 
 /**
+ * pm_pll_set_param() - Set PLL parameter
+ *
+ * This API is deprecated and maintained here for backward compatibility.
+ * New use of this API should be avoided for versal platform.
+ * This API and its use cases will be removed for versal platform.
+ *
+ * @clk_id	PLL clock ID
+ * @param	PLL parameter ID
+ * @value	Value to set for PLL parameter
+ * @flag	0 - Call from secure source
+ *		1 - Call from non-secure source
+ *
+ * @return	Returns status, either success or error+reason
+ */
+enum pm_ret_status pm_pll_set_param(uint32_t clk_id, uint32_t param,
+				    uint32_t value, uint32_t flag)
+{
+	uint32_t payload[PAYLOAD_ARG_CNT];
+
+	/* Send request to the PMC */
+	PM_PACK_PAYLOAD4(payload, LIBPM_MODULE_ID, flag, PM_PLL_SET_PARAMETER,
+			 clk_id, param, value);
+
+	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
+}
+
+/**
+ * pm_pll_get_param() - Get PLL parameter value
+ *
+ * This API is deprecated and maintained here for backward compatibility.
+ * New use of this API should be avoided for versal platform.
+ * This API and its use cases will be removed for versal platform.
+ *
+ * @clk_id	PLL clock ID
+ * @param	PLL parameter ID
+ * @value:	Buffer to store PLL parameter value
+ * @flag	0 - Call from secure source
+ *		1 - Call from non-secure source
+ *
+ * @return	Returns status, either success or error+reason
+ */
+enum pm_ret_status pm_pll_get_param(uint32_t clk_id, uint32_t param,
+				    uint32_t *value, uint32_t flag)
+{
+	uint32_t payload[PAYLOAD_ARG_CNT];
+
+	/* Send request to the PMC */
+	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag, PM_PLL_GET_PARAMETER,
+			 clk_id, param);
+
+	return pm_ipi_send_sync(primary_proc, payload, value, 1);
+}
+
+/**
+ * pm_pll_set_mode() - Set PLL mode
+ *
+ * This API is deprecated and maintained here for backward compatibility.
+ * New use of this API should be avoided for versal platform.
+ * This API and its use cases will be removed for versal platform.
+ *
+ * @clk_id	PLL clock ID
+ * @mode	PLL mode
+ * @flag	0 - Call from secure source
+ *		1 - Call from non-secure source
+ *
+ * @return	Returns status, either success or error+reason
+ */
+enum pm_ret_status pm_pll_set_mode(uint32_t clk_id, uint32_t mode,
+				   uint32_t flag)
+{
+	uint32_t payload[PAYLOAD_ARG_CNT];
+
+	/* Send request to the PMC */
+	PM_PACK_PAYLOAD3(payload, LIBPM_MODULE_ID, flag, PM_PLL_SET_MODE,
+			 clk_id, mode);
+
+	return pm_ipi_send_sync(primary_proc, payload, NULL, 0);
+}
+
+/**
+ * pm_pll_get_mode() - Get PLL mode
+ *
+ * This API is deprecated and maintained here for backward compatibility.
+ * New use of this API should be avoided for versal platform.
+ * This API and its use cases will be removed for versal platform.
+ *
+ * @clk_id	PLL clock ID
+ * @mode:	Buffer to store PLL mode
+ * @flag	0 - Call from secure source
+ *		1 - Call from non-secure source
+ *
+ * @return	Returns status, either success or error+reason
+ */
+enum pm_ret_status pm_pll_get_mode(uint32_t clk_id, uint32_t *mode,
+				   uint32_t flag)
+{
+	uint32_t payload[PAYLOAD_ARG_CNT];
+
+	/* Send request to the PMC */
+	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag, PM_PLL_GET_MODE,
+			 clk_id);
+
+	return pm_ipi_send_sync(primary_proc, payload, mode, 1);
+}
+
+/**
  * pm_force_powerdown() - PM call to request for another PU or subsystem to
  *			  be powered down forcefully
  * @target	Device ID of the PU node to be forced powered down.
@@ -303,6 +409,102 @@ enum pm_ret_status pm_system_shutdown(uint32_t type, uint32_t subtype,
 }
 
 /**
+ * pm_query_data() -  PM API for querying firmware data
+ *
+ * This API is deprecated and maintained here for backward compatibility.
+ * New use of this API should be avoided for versal platform.
+ * This API and its use cases will be removed for versal platform.
+ *
+ * @qid	The type of data to query
+ * @arg1	Argument 1 to requested query data call
+ * @arg2	Argument 2 to requested query data call
+ * @arg3	Argument 3 to requested query data call
+ * @data	Returned output data
+ * @flag 0 - Call from secure source
+ *	1 - Call from non-secure source
+ *
+ * @retur - 0 if success else non-zero error code of type
+ * enum pm_ret_status
+ */
+enum pm_ret_status pm_query_data(uint32_t qid, uint32_t arg1, uint32_t arg2,
+				 uint32_t arg3, uint32_t *data, uint32_t flag)
+{
+	uint32_t ret;
+	uint32_t version[PAYLOAD_ARG_CNT] = {0};
+	uint32_t payload[PAYLOAD_ARG_CNT];
+	uint32_t fw_api_version;
+
+	/* Send request to the PMC */
+	PM_PACK_PAYLOAD5(payload, LIBPM_MODULE_ID, flag, PM_QUERY_DATA, qid,
+			 arg1, arg2, arg3);
+
+	ret = pm_feature_check(PM_QUERY_DATA, &version[0], flag);
+	if (ret == PM_RET_SUCCESS) {
+		fw_api_version = version[0] & 0xFFFF;
+		if ((fw_api_version == 2U) &&
+		    ((qid == XPM_QID_CLOCK_GET_NAME) ||
+		     (qid == XPM_QID_PINCTRL_GET_FUNCTION_NAME))) {
+			ret = pm_ipi_send_sync(primary_proc, payload, data, PAYLOAD_ARG_CNT);
+			if (ret == PM_RET_SUCCESS) {
+				ret = data[0];
+				data[0] = data[1];
+				data[1] = data[2];
+				data[2] = data[3];
+			}
+		} else {
+			ret = pm_ipi_send_sync(primary_proc, payload, data, PAYLOAD_ARG_CNT);
+		}
+	}
+	return ret;
+}
+/**
+ * pm_api_ioctl() -  PM IOCTL API for device control and configs
+ *
+ * This API is deprecated and maintained here for backward compatibility.
+ * New use of this API should be avoided for versal platform.
+ * This API and its use cases will be removed for versal platform.
+ *
+ * @device_id	Device ID
+ * @ioctl_id	ID of the requested IOCTL
+ * @arg1	Argument 1 to requested IOCTL call
+ * @arg2	Argument 2 to requested IOCTL call
+ * @arg3	Argument 3 to requested IOCTL call
+ * @value	Returned output value
+ * @flag	0 - Call from secure source
+ *		1 - Call from non-secure source
+ *
+ * This function calls IOCTL to firmware for device control and configuration.
+ *
+ * @return	Returns status, either 0 on success or non-zero error code
+ * of type enum pm_ret_status
+ */
+enum pm_ret_status pm_api_ioctl(uint32_t device_id, uint32_t ioctl_id,
+				uint32_t arg1, uint32_t arg2, uint32_t arg3,
+				uint32_t *value, uint32_t flag)
+{
+	int ret;
+
+	switch (ioctl_id) {
+	case IOCTL_SET_PLL_FRAC_MODE:
+		return pm_pll_set_mode(arg1, arg2, flag);
+	case IOCTL_GET_PLL_FRAC_MODE:
+		return pm_pll_get_mode(arg1, value, flag);
+	case IOCTL_SET_PLL_FRAC_DATA:
+		return pm_pll_set_param(arg1, PM_PLL_PARAM_DATA, arg2, flag);
+	case IOCTL_GET_PLL_FRAC_DATA:
+		return pm_pll_get_param(arg1, PM_PLL_PARAM_DATA, value, flag);
+	case IOCTL_SET_SGI:
+		/* Get the sgi number */
+		ret = pm_register_sgi(arg1, arg2);
+		if (ret)
+			return PM_RET_ERROR_ARGS;
+		return PM_RET_SUCCESS;
+	default:
+		return PM_RET_ERROR_NOTSUPPORTED;
+	}
+}
+
+/**
  * pm_set_wakeup_source() - PM call to specify the wakeup source while suspended
  * @target	Device id of the targeted PU or subsystem
  * @wkup_node	Device id of the wakeup peripheral
@@ -325,10 +527,11 @@ enum pm_ret_status pm_set_wakeup_source(uint32_t target, uint32_t wkup_device,
 /**
  * pm_feature_check() - Returns the supported API version if supported
  * @api_id	API ID to check
- * @value	Returned supported API version
  * @flag	0 - Call from secure source
  *		1 - Call from non-secure source
- * @ret_payload	Returned supported API version
+ * @ret_payload pointer to array of PAYLOAD_ARG_CNT number of
+ *		words Returned supported API version and bitmasks
+ *		for IOCTL and QUERY ID
  *
  * @return	Returns status, either success or error+reason
  */
@@ -353,7 +556,8 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, uint32_t *ret_payload,
 
 	module_id = (api_id & MODULE_ID_MASK) >> 8;
 
-	/* feature check should be done only for LIBPM module
+	/*
+	 * feature check should be done only for LIBPM module
 	 * If module_id is 0, then we consider it LIBPM module as default id
 	 */
 	if ((module_id > 0) && (module_id != LIBPM_MODULE_ID)) {
@@ -362,7 +566,7 @@ enum pm_ret_status pm_feature_check(uint32_t api_id, uint32_t *ret_payload,
 
 	PM_PACK_PAYLOAD2(payload, LIBPM_MODULE_ID, flag,
 			 PM_FEATURE_CHECK, api_id);
-	return pm_ipi_send_sync(primary_proc, payload, ret_payload, 3);
+	return pm_ipi_send_sync(primary_proc, payload, ret_payload, PAYLOAD_ARG_CNT);
 }
 
 /**

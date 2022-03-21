@@ -50,11 +50,27 @@
 #define PM_REQ_WAKEUP			10U
 #define PM_SET_WAKEUP_SOURCE		11U
 #define PM_SYSTEM_SHUTDOWN		12U
+#define PM_IOCTL			34U
 #define PM_QUERY_DATA			35U
+#define PM_PLL_SET_PARAMETER		48U
+#define PM_PLL_GET_PARAMETER		49U
+#define PM_PLL_SET_MODE			50U
+#define PM_PLL_GET_MODE			51U
 #define PM_FEATURE_CHECK		63U
 
 /* Loader API ids */
 #define PM_LOAD_PDI			0x701U
+
+/* IOCTL IDs for clock driver */
+#define IOCTL_SET_PLL_FRAC_MODE		8
+#define	IOCTL_GET_PLL_FRAC_MODE		9
+#define	IOCTL_SET_PLL_FRAC_DATA		10
+#define	IOCTL_GET_PLL_FRAC_DATA		11
+#define	IOCTL_SET_SGI			25
+
+/* Parameter ID for PLL IOCTLs */
+/* Fractional data portion for PLL */
+#define PM_PLL_PARAM_DATA	2
 
 /* System shutdown macros */
 #define	XPM_SHUTDOWN_TYPE_SHUTDOWN	0U

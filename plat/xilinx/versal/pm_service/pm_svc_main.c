@@ -250,6 +250,30 @@ static uintptr_t eemi_for_compatibility(uint32_t api_id, uint32_t *pm_arg,
 
 	switch (api_id) {
 
+	case PM_IOCTL:
+	{
+		uint32_t value;
+
+		ret = pm_api_ioctl(pm_arg[0], pm_arg[1], pm_arg[2],
+				   pm_arg[3], pm_arg[4],
+				   &value, security_flag);
+		if (ret == PM_RET_ERROR_NOTSUPPORTED)
+			return (uintptr_t)0;
+
+		SMC_RET1(handle, (uint64_t)ret | ((uint64_t)value) << 32);
+	}
+
+	case PM_QUERY_DATA:
+	{
+		uint32_t data[PAYLOAD_ARG_CNT] = { 0 };
+
+		ret = pm_query_data(pm_arg[0], pm_arg[1], pm_arg[2],
+				    pm_arg[3], data, security_flag);
+		SMC_RET2(handle, (uint64_t)ret  | ((uint64_t)data[0] << 32),
+			 (uint64_t)data[1] | ((uint64_t)data[2] << 32));
+	}
+
+
 	case PM_FEATURE_CHECK:
 	{
 		uint32_t result[PAYLOAD_ARG_CNT] = {0U};
