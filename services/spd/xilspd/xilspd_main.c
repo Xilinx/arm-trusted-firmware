@@ -38,19 +38,21 @@
  * handle the request locally or delegate it to the Secure Payload. It is also
  * responsible for initialising and maintaining communication with the SP.
  ******************************************************************************/
-#include <arch_helpers.h>
 #include <assert.h>
-#include <bl_common.h>
-#include <bl31.h>
-#include <context_mgmt.h>
-#include <debug.h>
 #include <errno.h>
-#include <platform.h>
-#include <runtime_svc.h>
 #include <stddef.h>
 #include <string.h>
-#include <uuid.h>
-#include <xilsp.h>
+
+#include <arch_helpers.h>
+#include <bl31/bl31.h>
+#include <common/bl_common.h>
+#include <common/debug.h>
+#include <common/runtime_svc.h>
+#include <lib/el3_runtime/context_mgmt.h>
+#include <plat/common/platform.h>
+#include <tools_share/uuid.h>
+
+#include <bl32/payloads/xilsp.h>
 #include "xilspd_private.h"
 
 /*******************************************************************************

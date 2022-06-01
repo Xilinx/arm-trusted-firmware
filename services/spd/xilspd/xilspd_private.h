@@ -32,10 +32,10 @@
 #define __XILSPD_PRIVATE_H__
 
 #include <arch.h>
+#include <bl31/interrupt_mgmt.h>
 #include <context.h>
-#include <interrupt_mgmt.h>
 #include <platform_def.h>
-#include <psci.h>
+#include <lib/psci/psci.h>
 
 /*******************************************************************************
  * Secure Payload state information e.g. SP is suspended, uninitialised etc
@@ -101,9 +101,9 @@
 #define XILSPD_C_RT_CTX_SIZE	0x60
 #define XILSPD_C_RT_CTX_ENTRIES		(XILSPD_C_RT_CTX_SIZE >> DWORD_SHIFT)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
-#include <cassert.h>
+#include <lib/cassert.h>
 #include <stdint.h>
 
 /* AArch64 callee saved general purpose register context structure. */

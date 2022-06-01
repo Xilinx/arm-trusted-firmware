@@ -34,3 +34,7 @@ SPD_INCLUDES		:=	-Iinclude/bl32/payloads
 SPD_SOURCES		:=	services/spd/xilspd/xilspd_common.c	\
 				services/spd/xilspd/xilspd_helpers.S	\
 				services/spd/xilspd/xilspd_main.c
+
+ifeq (${SPD},xilspd)
+   $(warning "Warning: xilspd is deprecated")
+endif
