@@ -30,6 +30,8 @@ struct xfsbl_atf_handoff_params {
 	struct xfsbl_partition partition[FSBL_MAX_PARTITIONS];
 };
 
+#define ATF_HANDOFF_PARAMS_MAX_SIZE	sizeof(struct xfsbl_atf_handoff_params)
+
 enum fsbl_handoff fsbl_atf_handover(entry_point_info_t *bl32_image_ep_info,
 					entry_point_info_t *bl33_image_ep_info,
 					uint64_t atf_handoff_addr);
