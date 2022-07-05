@@ -17,14 +17,6 @@
 #include "pm_defs.h"
 #include "pm_svc_main.h"
 
-/*********************************************************************
- * Target module IDs macros
- ********************************************************************/
-#define LIBPM_MODULE_ID		0x2U
-#define LOADER_MODULE_ID	0x7U
-
-#define MODULE_ID_MASK		0x0000ff00U
-
 /* default shutdown/reboot scope is system(2) */
 static unsigned int pm_shutdown_scope = XPM_SHUTDOWN_SUBTYPE_RST_SYSTEM;
 
@@ -36,38 +28,6 @@ static unsigned int pm_shutdown_scope = XPM_SHUTDOWN_SUBTYPE_RST_SYSTEM;
 unsigned int pm_get_shutdown_scope(void)
 {
 	return pm_shutdown_scope;
-}
-
-/**
- * Assigning of argument values into array elements.
- */
-#define PM_PACK_PAYLOAD1(pl, mid, flag, arg0) {	\
-	pl[0] = (uint32_t)(((uint32_t)(arg0) & 0xFFU) | ((mid) << 8U) | ((flag) << 24U)); \
-}
-
-#define PM_PACK_PAYLOAD2(pl, mid, flag, arg0, arg1) {		\
-	pl[1] = (uint32_t)(arg1);				\
-	PM_PACK_PAYLOAD1(pl, (mid), (flag), (arg0));			\
-}
-
-#define PM_PACK_PAYLOAD3(pl, mid, flag, arg0, arg1, arg2) {	\
-	pl[2] = (uint32_t)(arg2);				\
-	PM_PACK_PAYLOAD2(pl, (mid), (flag), (arg0), (arg1));		\
-}
-
-#define PM_PACK_PAYLOAD4(pl, mid, flag, arg0, arg1, arg2, arg3) {	\
-	pl[3] = (uint32_t)(arg3);					\
-	PM_PACK_PAYLOAD3(pl, (mid), (flag), (arg0), (arg1), (arg2));		\
-}
-
-#define PM_PACK_PAYLOAD5(pl, mid, flag, arg0, arg1, arg2, arg3, arg4) {	\
-	pl[4] = (uint32_t)(arg4);					\
-	PM_PACK_PAYLOAD4(pl, (mid), (flag), (arg0), (arg1), (arg2), (arg3));	\
-}
-
-#define PM_PACK_PAYLOAD6(pl, mid, flag, arg0, arg1, arg2, arg3, arg4, arg5) {	\
-	pl[5] = (uint32_t)(arg5);						\
-	PM_PACK_PAYLOAD5(pl, (mid), (flag), (arg0), (arg1), (arg2), (arg3), (arg4));		\
 }
 
 /* PM API functions */
