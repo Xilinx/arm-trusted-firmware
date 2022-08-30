@@ -44,62 +44,6 @@ static void notify_os(void)
 	write_icc_asgi1r_el1(reg);
 }
 
-static uint64_t __unused __dead2 versal_sgi_irq_handler(uint32_t id,
-							uint32_t flags,
-							void *handle,
-							void *cookie)
-{
-	unsigned int cpu_id = plat_my_core_pos();
-	const struct pm_proc *proc = pm_get_proc(cpu_id);
-
-	VERBOSE("Entering wfi %d\n", cpu_id);
-
-	gicv3_clear_interrupt_pending(id, cpu_id);
-
-	dsb();
-
-	/* Prevent interrupts from spuriously waking up this cpu */
-	plat_versal_gic_cpuif_disable();
-
-	pm_ipi_irq_clear(primary_proc);
-	mmio_write_32(FPD_APU_PWRCTL, mmio_read_32(FPD_APU_PWRCTL) |
-			proc->pwrdn_mask);
-
-	/* enter wfi and stay there */
-	while (1) {
-		wfi();
-	}
-}
-
-static void request_cpu_idle(void)
-{
-	int i;
-	uint8_t state;
-	static int idle_requests = 0;
-	int active_cores = 0;
-
-	VERBOSE("CPU idle request received\n");
-
-	for (i = 0; i < psci_plat_core_count; i++) {
-		state = psci_get_aff_info_state_by_idx(i);
-		if (state == AFF_STATE_ON) {
-			active_cores++;
-		}
-	}
-	idle_requests++;
-
-	if (idle_requests < active_cores) {
-		pm_ipi_irq_clear(primary_proc);
-	} else {
-		idle_requests = 0;
-		for (i = 0; i < PLATFORM_CORE_COUNT; i++) {
-			/* trigger SGI to active cores */
-			VERBOSE("Raise SGI for %d\n", i);
-			plat_ic_raise_el3_sgi(VERSAL_CPU_IDLE_SGI, i);
-		}
-	}
-}
-
 static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 				void *cookie)
 {
@@ -112,14 +56,8 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 	pm_get_callbackdata(payload, ARRAY_SIZE(payload), 0, 0);
 	switch (payload[0]) {
 	case PM_INIT_SUSPEND_CB:
-		if (sgi != INVALID_SGI) {
-			notify_os();
-		}
-		break;
 	case PM_NOTIFY_CB:
-		if (payload[2] == EVENT_CPU_IDLE_FORCE_PWRDWN) {
-			request_cpu_idle();
-		} else if (sgi != INVALID_SGI) {
+		if (sgi != INVALID_SGI) {
 			notify_os();
 		}
 		break;
@@ -191,13 +129,6 @@ int pm_setup(void)
 		pm_up = true;
 	}
 
-	/* register IRQ handler for CPU idle SGI */
-	ret = request_intr_type_el3(VERSAL_CPU_IDLE_SGI, versal_sgi_irq_handler);
-	if (ret != 0) {
-		INFO("BL31: registering SGI interrupt failed\n");
-		goto err;
-	}
-
 	/*
 	 * Enable IPI IRQ
 	 * assume the rich OS is OK to handle callback IRQs now.
@@ -210,20 +141,6 @@ int pm_setup(void)
 	if (ret != 0) {
 		WARN("BL31: registering IPI interrupt failed\n");
 		goto err;
-	}
-
-	ret = pm_register_notifier(XPM_DEVID_ACPU_0,
-				   EVENT_CPU_IDLE_FORCE_PWRDWN, 0U, 1U,
-				   0U);
-	if (ret != 0) {
-		WARN("BL31: registering notifier failed for acpu_0\r\n");
-	}
-
-	ret = pm_register_notifier(XPM_DEVID_ACPU_1,
-				   EVENT_CPU_IDLE_FORCE_PWRDWN, 0U, 1U,
-				   0U);
-	if (ret != 0) {
-		WARN("BL31: registering notifier failed for acpu_1\r\n");
 	}
 
 	gicd_write_irouter(gicv3_driver_data->gicd_base, PLAT_VERSAL_IPI_IRQ,
