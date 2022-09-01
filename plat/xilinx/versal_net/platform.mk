@@ -70,6 +70,8 @@ BL31_SOURCES		+=	drivers/arm/cci/cci.c				\
 				plat/common/plat_psci_common.c			\
 				${PLAT_PATH}/plat_psci.c			\
 				plat/xilinx/common/plat_startup.c		\
+				plat/xilinx/common/ipi.c			\
+				plat/xilinx/common/ipi_mailbox_service/ipi_mailbox_svc.c \
 				${PLAT_PATH}/bl31_versal_net_setup.c		\
 				${PLAT_PATH}/plat_topology.c			\
 				common/fdt_fixup.c				\

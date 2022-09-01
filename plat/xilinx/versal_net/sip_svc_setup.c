@@ -24,6 +24,13 @@
 #define SIP_SVC_VERSION_MAJOR	0
 #define SIP_SVC_VERSION_MINOR	1
 
+/* These macros are used to identify PM calls from the SMC function ID */
+#define PM_FID_MASK	0xf000u
+#define PM_FID_VALUE	0u
+#define IPI_FID_VALUE	0x1000u
+#define is_pm_fid(_fid)	(((_fid) & PM_FID_MASK) == PM_FID_VALUE)
+#define is_ipi_fid(_fid) (((_fid) & PM_FID_MASK) == IPI_FID_VALUE)
+
 /* SiP Service UUID */
 DEFINE_SVC_UUID2(versal_net_sip_uuid,
 		0x80d4c25a, 0xebaf, 0x11eb, 0x94, 0x68,
@@ -52,6 +59,17 @@ static uintptr_t sip_svc_smc_handler(uint32_t smc_fid,
 			     void *handle,
 			     u_register_t flags)
 {
+	/* Let PM SMC handler deal with PM-related requests */
+	if (is_pm_fid(smc_fid)) {
+		return smc_handler(smc_fid, x1, x2, x3, x4, cookie, handle,
+				flags);
+	}
+
+	/* Let IPI SMC handler deal with IPI-related requests if platform */
+	if (is_ipi_fid(smc_fid)) {
+		return ipi_smc_handler(smc_fid, x1, x2, x3, x4, cookie, handle, flags);
+	}
+
 	/* Let PM SMC handler deal with PM-related requests */
 	switch (smc_fid) {
 	case VERSAL_NET_SIP_SVC_CALL_COUNT:
