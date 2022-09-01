@@ -26,11 +26,11 @@ static void zynqmp_cpu_standby(plat_local_state_t cpu_state)
 	wfi();
 }
 
-static int zynqmp_nopmu_pwr_domain_on(u_register_t mpidr)
+static int32_t zynqmp_nopmu_pwr_domain_on(u_register_t mpidr)
 {
-	unsigned int cpu_id = plat_core_pos_by_mpidr(mpidr);
-	unsigned int cpu = cpu_id % PLATFORM_CORE_COUNT_PER_CLUSTER;
-	unsigned int cluster = cpu_id / PLATFORM_CORE_COUNT_PER_CLUSTER;
+	uint32_t cpu_id = plat_core_pos_by_mpidr(mpidr);
+	uint32_t cpu = cpu_id % PLATFORM_CORE_COUNT_PER_CLUSTER;
+	uint32_t cluster = cpu_id / PLATFORM_CORE_COUNT_PER_CLUSTER;
 	uintptr_t apu_cluster_base = 0, apu_pcli_base, apu_pcli_cluster = 0;
 	uintptr_t rst_apu_cluster = PSX_CRF + RST_APU0_OFFSET + (cluster * 0x4);
 
@@ -93,7 +93,7 @@ static void __dead2 zynqmp_nopmu_system_reset(void)
 		wfi();
 }
 
-static int zynqmp_validate_ns_entrypoint(unsigned long ns_entrypoint)
+static int32_t zynqmp_validate_ns_entrypoint(uint64_t ns_entrypoint)
 {
 	return PSCI_E_SUCCESS;
 }
@@ -118,7 +118,7 @@ static void __dead2 zynqmp_system_off(void)
 		wfi();
 }
 
-static int zynqmp_validate_power_state(unsigned int power_state, psci_power_state_t *req_state)
+static int32_t zynqmp_validate_power_state(uint32_t power_state, psci_power_state_t *req_state)
 {
 	return PSCI_E_SUCCESS;
 }
@@ -146,7 +146,7 @@ static const struct plat_psci_ops versal_net_nopmc_psci_ops = {
 /*******************************************************************************
  * Export the platform specific power ops.
  ******************************************************************************/
-int plat_setup_psci_ops(uintptr_t sec_entrypoint, const struct plat_psci_ops **psci_ops)
+int32_t plat_setup_psci_ops(uintptr_t sec_entrypoint, const struct plat_psci_ops **psci_ops)
 {
 	versal_net_sec_entry = sec_entrypoint;
 
