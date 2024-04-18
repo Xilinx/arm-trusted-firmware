@@ -27,7 +27,7 @@ int psci_cpu_on(u_register_t target_cpu,
 
 {
 	int rc;
-	entry_point_info_t ep;
+	entry_point_info_t ep = {};
 
 	/* Validate the target CPU */
 	if (!is_valid_mpidr(target_cpu)) {
