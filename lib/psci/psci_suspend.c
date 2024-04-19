@@ -193,7 +193,7 @@ int psci_cpu_suspend_start(const entry_point_info_t *ep,
 	 */
 	if (read_isr_el1() != 0U) {
 		skip_wfi = true;
-		goto exit;
+		goto suspend_exit;
 	}
 
 #if PSCI_OS_INIT_MODE
@@ -205,7 +205,7 @@ int psci_cpu_suspend_start(const entry_point_info_t *ep,
 		rc = psci_validate_state_coordination(end_pwrlvl, state_info);
 		if (rc != PSCI_E_SUCCESS) {
 			skip_wfi = true;
-			goto exit;
+			goto suspend_exit;
 		}
 	} else {
 #endif
@@ -224,7 +224,7 @@ int psci_cpu_suspend_start(const entry_point_info_t *ep,
 		rc = psci_plat_pm_ops->pwr_domain_validate_suspend(state_info);
 		if (rc != PSCI_E_SUCCESS) {
 			skip_wfi = true;
-			goto exit;
+			goto suspend_exit;
 		}
 	}
 #endif
@@ -253,7 +253,7 @@ int psci_cpu_suspend_start(const entry_point_info_t *ep,
 	plat_psci_stat_accounting_start(state_info);
 #endif
 
-exit:
+suspend_exit:
 	/*
 	 * Release the locks corresponding to each power level in the
 	 * reverse order to which they were acquired.
