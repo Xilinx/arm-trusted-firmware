@@ -1230,7 +1230,8 @@ int psci_stop_other_cores(unsigned int wait_ms,
 
 	/* Need to wait for other cores to shutdown */
 	if (wait_ms != 0U) {
-		while ((wait_ms-- != 0U) && (!psci_is_last_on_cpu())) {
+		for (uint32_t delay_ms = wait_ms; ((delay_ms != 0U) &&
+					(!psci_is_last_on_cpu())); delay_ms--) {
 			mdelay(1U);
 		}
 
