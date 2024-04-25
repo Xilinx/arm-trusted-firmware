@@ -136,9 +136,9 @@ int psci_validate_power_state(unsigned int power_state,
 			      psci_power_state_t *state_info)
 {
 	/* Check SBZ bits in power state are zero */
-	if (psci_check_power_state(power_state) != 0U)
+	if (psci_check_power_state(power_state) != 0U) {
 		return PSCI_E_INVALID_PARAMS;
-
+	}
 	assert(psci_plat_pm_ops->validate_power_state != NULL);
 
 	/* Validate the power_state using platform pm_ops */
@@ -444,8 +444,9 @@ void psci_get_target_local_pwr_states(unsigned int end_pwrlvl,
 	}
 
 	/* Set the the higher levels to RUN */
-	for (; lvl <= PLAT_MAX_PWR_LVL; lvl++)
+	for (; lvl <= PLAT_MAX_PWR_LVL; lvl++) {
 		target_state->pwr_domain_state[lvl] = PSCI_LOCAL_STATE_RUN;
+	}
 }
 
 /******************************************************************************
@@ -579,8 +580,9 @@ void psci_do_state_coordination(unsigned int end_pwrlvl,
 		state_info->pwr_domain_state[lvl] = target_state;
 
 		/* Break early if the negotiated target power state is RUN */
-		if (is_local_state_run(state_info->pwr_domain_state[lvl]) != 0)
+		if (is_local_state_run(state_info->pwr_domain_state[lvl]) != 0) {
 			break;
+		}
 
 		parent_idx = psci_non_cpu_pd_nodes[parent_idx].parent_node;
 	}
@@ -762,8 +764,9 @@ unsigned int psci_find_max_off_lvl(const psci_power_state_t *state_info)
 	int i;
 
 	for (i = (int) PLAT_MAX_PWR_LVL; i >= (int) PSCI_CPU_PWR_LVL; i--) {
-		if (is_local_state_off(state_info->pwr_domain_state[i]) != 0)
+		if (is_local_state_off(state_info->pwr_domain_state[i]) != 0) {
 			return (unsigned int) i;
+		}
 	}
 
 	return PSCI_INVALID_PWR_LVL;
@@ -947,8 +950,9 @@ int psci_validate_entry_point(entry_point_info_t *ep,
 	/* Validate the entrypoint using platform psci_ops */
 	if (psci_plat_pm_ops->validate_ns_entrypoint != NULL) {
 		rc = psci_plat_pm_ops->validate_ns_entrypoint(entrypoint);
-		if (rc != PSCI_E_SUCCESS)
+		if (rc != PSCI_E_SUCCESS) {
 			return PSCI_E_INVALID_ADDRESS;
+		}
 	}
 
 	/*
@@ -1022,10 +1026,11 @@ void psci_warmboot_entrypoint(void)
 	 * of power management handler and perform the generic, architecture
 	 * and platform specific handling.
 	 */
-	if (psci_get_aff_info_state() == AFF_STATE_ON_PENDING)
+	if (psci_get_aff_info_state() == AFF_STATE_ON_PENDING) {
 		psci_cpu_on_finish(cpu_idx, &state_info);
-	else
+	} else {
 		psci_cpu_suspend_finish(cpu_idx, &state_info);
+	}
 
 	/*
 	 * Generic management: Now we just need to retrieve the
