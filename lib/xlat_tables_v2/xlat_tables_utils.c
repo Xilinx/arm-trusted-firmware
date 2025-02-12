@@ -498,7 +498,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 				   size_t size, uint32_t attr)
 {
 	/* Note: This implementation isn't optimized. */
-
+	int ret = 0;
 	assert(ctx != NULL);
 	assert(ctx->initialized);
 
@@ -509,24 +509,28 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 	if (!IS_PAGE_ALIGNED(base_va)) {
 		WARN("%s: Address 0x%lx is not aligned on a page boundary.\n",
 		     __func__, base_va);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto xlat_chn_mem_attr_ctx;
 	}
 
 	if (size == 0U) {
 		WARN("%s: Size is 0.\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto xlat_chn_mem_attr_ctx;
 	}
 
 	if ((size % PAGE_SIZE) != 0U) {
 		WARN("%s: Size 0x%zx is not a multiple of a page size.\n",
 		     __func__, size);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto xlat_chn_mem_attr_ctx;
 	}
 
 	if (((attr & MT_EXECUTE_NEVER) == 0U) && ((attr & MT_RW) != 0U)) {
 		WARN("%s: Mapping memory as read-write and executable not allowed.\n",
 		     __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto xlat_chn_mem_attr_ctx;
 	}
 
 	size_t pages_count = size / PAGE_SIZE;
@@ -551,7 +555,8 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 					      &level);
 		if (entry == NULL) {
 			WARN("Address 0x%lx is not mapped.\n", base_va);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto xlat_chn_mem_attr_ctx;
 		}
 
 		desc = *entry;
@@ -566,7 +571,8 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 			     base_va);
 			WARN("Granularity is 0x%lx, should be 0x%lx.\n",
 			     XLAT_BLOCK_SIZE(level), PAGE_SIZE);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto xlat_chn_mem_attr_ctx;
 		}
 
 		/*
@@ -577,7 +583,8 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 			if ((attr & MT_EXECUTE_NEVER) == 0U) {
 				WARN("Setting device memory as executable at address 0x%lx.",
 				     base_va);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto xlat_chn_mem_attr_ctx;
 			}
 		}
 
@@ -638,5 +645,6 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 	/* Ensure that the last descriptor written is seen by the system. */
 	dsbish();
 
-	return 0;
+xlat_chn_mem_attr_ctx:
+	return ret;
 }
