@@ -24,8 +24,9 @@
 /* Helper function that cleans the data cache only if it is enabled. */
 static inline __attribute__((unused)) void xlat_clean_dcache_range(uintptr_t addr, size_t size)
 {
-	if (is_dcache_enabled())
+	if (is_dcache_enabled()) {
 		clean_dcache_range(addr, size);
+	}
 }
 
 #if PLAT_XLAT_TABLES_DYNAMIC
@@ -497,10 +498,11 @@ static action_t xlat_tables_map_region_action(const mmap_region_t *mm,
 				 */
 				if (((dest_pa & XLAT_BLOCK_MASK(level)) != 0U)
 				    || (level < MIN_LVL_BLOCK_DESC) ||
-				    (mm->granularity < XLAT_BLOCK_SIZE(level)))
+				    (mm->granularity < XLAT_BLOCK_SIZE(level))) {
 					return ACTION_CREATE_NEW_TABLE;
-				else
+				} else {
 					return ACTION_WRITE_BLOCK_ENTRY;
+				}
 
 			} else {
 				/*
@@ -631,8 +633,9 @@ static uintptr_t xlat_tables_map_region(xlat_ctx_t *ctx, mmap_region_t *mm,
 				XLAT_TABLE_ENTRIES * sizeof(uint64_t));
 #endif
 			if (end_va !=
-				(table_idx_va + XLAT_BLOCK_SIZE(level) - 1U))
+				(table_idx_va + XLAT_BLOCK_SIZE(level) - 1U)) {
 				return end_va;
+			}
 
 		} else if (action == ACTION_RECURSE_INTO_TABLE) {
 			uintptr_t end_va;
@@ -647,8 +650,9 @@ static uintptr_t xlat_tables_map_region(xlat_ctx_t *ctx, mmap_region_t *mm,
 				XLAT_TABLE_ENTRIES * sizeof(uint64_t));
 #endif
 			if (end_va !=
-				(table_idx_va + XLAT_BLOCK_SIZE(level) - 1U))
+				(table_idx_va + XLAT_BLOCK_SIZE(level) - 1U)) {
 				return end_va;
+			}
 
 		} else {
 
@@ -660,8 +664,9 @@ static uintptr_t xlat_tables_map_region(xlat_ctx_t *ctx, mmap_region_t *mm,
 		table_idx_va += XLAT_BLOCK_SIZE(level);
 
 		/* If reached the end of the region, exit */
-		if (mm_end_va <= table_idx_va)
+		if (mm_end_va <= table_idx_va) {
 			break;
+		}
 	}
 
 	return table_idx_va - 1U;
@@ -687,8 +692,9 @@ static int mmap_add_region_check(const xlat_ctx_t *ctx, const mmap_region_t *mm)
 	uintptr_t end_va = base_va + size - 1U;
 
 	if (!IS_PAGE_ALIGNED(base_pa) || !IS_PAGE_ALIGNED(base_va) ||
-			!IS_PAGE_ALIGNED(size))
+			!IS_PAGE_ALIGNED(size)) {
 		return -EINVAL;
+	}
 
 	if ((granularity != XLAT_BLOCK_SIZE(1U)) &&
 		(granularity != XLAT_BLOCK_SIZE(2U)) &&
@@ -697,18 +703,22 @@ static int mmap_add_region_check(const xlat_ctx_t *ctx, const mmap_region_t *mm)
 	}
 
 	/* Check for overflows */
-	if ((base_pa > end_pa) || (base_va > end_va))
+	if ((base_pa > end_pa) || (base_va > end_va)) {
 		return -ERANGE;
+	}
 
-	if (end_va > ctx->va_max_address)
+	if (end_va > ctx->va_max_address) {
 		return -ERANGE;
+	}
 
-	if (end_pa > ctx->pa_max_address)
+	if (end_pa > ctx->pa_max_address) {
 		return -ERANGE;
+	}
 
 	/* Check that there is space in the ctx->mmap array */
-	if (ctx->mmap[ctx->mmap_num - 1].size != 0U)
+	if (ctx->mmap[ctx->mmap_num - 1].size != 0U) {
 		return -ENOMEM;
+	}
 
 	/* Check for PAs and VAs overlaps with all other regions */
 	for (const mmap_region_t *mm_cursor = ctx->mmap;
@@ -737,16 +747,19 @@ static int mmap_add_region_check(const xlat_ctx_t *ctx, const mmap_region_t *mm)
 
 #if PLAT_XLAT_TABLES_DYNAMIC
 			if (((mm->attr & MT_DYNAMIC) != 0U) ||
-			    ((mm_cursor->attr & MT_DYNAMIC) != 0U))
+			    ((mm_cursor->attr & MT_DYNAMIC) != 0U)) {
 				return -EPERM;
+			}
 #endif /* PLAT_XLAT_TABLES_DYNAMIC */
 			if ((mm_cursor->base_va - mm_cursor->base_pa) !=
-							(base_va - base_pa))
+							(base_va - base_pa)) {
 				return -EPERM;
+			}
 
 			if ((base_va == mm_cursor->base_va) &&
-						(size == mm_cursor->size))
+						(size == mm_cursor->size)) {
 				return -EPERM;
+			}
 
 		} else {
 			/*
@@ -763,8 +776,9 @@ static int mmap_add_region_check(const xlat_ctx_t *ctx, const mmap_region_t *mm)
 			bool separated_va = (end_va < mm_cursor->base_va) ||
 				(base_va > mm_cursor_end_va);
 
-			if (!separated_va || !separated_pa)
+			if (!separated_va || !separated_pa) {
 				return -EPERM;
+			}
 		}
 	}
 
@@ -781,8 +795,9 @@ void mmap_add_region_ctx(xlat_ctx_t *ctx, const mmap_region_t *mm)
 	int ret;
 
 	/* Ignore empty regions */
-	if (mm->size == 0U)
+	if (mm->size == 0U) {
 		return;
+	}
 
 	/* Static regions must be added before initializing the xlat tables. */
 	assert(!ctx->initialized);
@@ -857,10 +872,13 @@ void mmap_add_region_ctx(xlat_ctx_t *ctx, const mmap_region_t *mm)
 
 	*mm_cursor = *mm;
 
-	if (end_pa > ctx->max_pa)
+	if (end_pa > ctx->max_pa) {
 		ctx->max_pa = end_pa;
-	if (end_va > ctx->max_va)
+	}
+
+	if (end_va > ctx->max_va) {
 		ctx->max_va = end_va;
+	}
 }
 
 /*
@@ -915,8 +933,9 @@ static void mmap_alloc_va_align_ctx(xlat_ctx_t *ctx, mmap_region_t *mm)
 	 */
 	for (unsigned int level = ctx->base_level; level <= 2U; ++level) {
 
-		if ((align_check & XLAT_BLOCK_MASK(level)) != 0U)
+		if ((align_check & XLAT_BLOCK_MASK(level)) != 0U) {
 			continue;
+		}
 
 		mm->base_va = round_up(mm->base_va, XLAT_BLOCK_SIZE(level));
 		return;
