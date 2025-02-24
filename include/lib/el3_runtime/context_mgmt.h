@@ -50,7 +50,7 @@ void cm_el1_sysregs_context_restore(uint32_t security_state);
 void cm_set_elr_el3(uint32_t security_state, uintptr_t entrypoint);
 void cm_set_elr_spsr_el3(uint32_t security_state,
 			uintptr_t entrypoint, uint32_t spsr);
-void cm_write_scr_el3_bit(uint32_t security_state,
+void cm_write_scr_el3_bit(size_t security_state,
 			  uint32_t bit_pos,
 			  uint32_t value);
 void cm_set_next_eret_context(uint32_t security_state);
