@@ -100,7 +100,7 @@ u_register_t get_scr_el3_from_routing_model(size_t security_state)
  ******************************************************************************/
 static void set_scr_el3_from_rm(uint32_t type,
 				uint32_t interrupt_type_flags,
-				uint32_t security_state)
+				size_t security_state)
 {
 	uint32_t flag, bit_pos;
 
@@ -140,8 +140,8 @@ int32_t set_routing_model(uint32_t type, uint32_t flags)
 
 	/* Update the routing model in internal data structures */
 	intr_type_descs[type].flags = flags;
-	set_scr_el3_from_rm(type, flags, SECURE);
-	set_scr_el3_from_rm(type, flags, NON_SECURE);
+	set_scr_el3_from_rm(type, flags, (size_t)SECURE);
+	set_scr_el3_from_rm(type, flags, (size_t)NON_SECURE);
 
 	return 0;
 }
@@ -152,7 +152,7 @@ int32_t set_routing_model(uint32_t type, uint32_t flags)
  * till the core powers down or till the next enable for that interrupt
  * type.
  *****************************************************************************/
-int disable_intr_rm_local(uint32_t type, uint32_t security_state)
+int disable_intr_rm_local(uint32_t type, size_t security_state)
 {
 	uint32_t bit_pos, flag;
 
@@ -170,7 +170,7 @@ int disable_intr_rm_local(uint32_t type, uint32_t security_state)
  * This function enables the routing model of interrupt 'type' from the
  * specified 'security_state' on the local core.
  *****************************************************************************/
-int enable_intr_rm_local(uint32_t type, uint32_t security_state)
+int enable_intr_rm_local(uint32_t type, size_t security_state)
 {
 	uint32_t bit_pos, flag;
 

@@ -1964,7 +1964,7 @@ void cm_set_elr_spsr_el3(uint32_t security_state,
  * pertaining to the given security state using the value and bit position
  * specified in the parameters. It preserves all other bits.
  ******************************************************************************/
-void cm_write_scr_el3_bit(uint32_t security_state,
+void cm_write_scr_el3_bit(size_t security_state,
 			  uint32_t bit_pos,
 			  uint32_t value)
 {

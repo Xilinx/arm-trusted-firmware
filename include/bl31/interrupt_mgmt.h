@@ -149,8 +149,8 @@ int32_t register_interrupt_type_handler(uint32_t type,
 					interrupt_type_handler_t handler,
 					uint32_t flags);
 interrupt_type_handler_t get_interrupt_type_handler(uint32_t type);
-int disable_intr_rm_local(uint32_t type, uint32_t security_state);
-int enable_intr_rm_local(uint32_t type, uint32_t security_state);
+int disable_intr_rm_local(uint32_t type, size_t security_state);
+int enable_intr_rm_local(uint32_t type, size_t security_state);
 
 #endif /*__ASSEMBLER__*/
 #endif /* INTERRUPT_MGMT_H */
