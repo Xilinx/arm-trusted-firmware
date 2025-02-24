@@ -215,7 +215,7 @@ uint32_t plat_ic_get_pending_interrupt_type(void)
 	return INTR_TYPE_INVAL;
 }
 
-uint32_t plat_interrupt_type_to_line(uint32_t type, uint32_t security_state)
+uint32_t plat_interrupt_type_to_line(uint32_t type, size_t security_state)
 {
 	assert((type == INTR_TYPE_S_EL1) || (type == INTR_TYPE_EL3) ||
 	       (type == INTR_TYPE_NS));
