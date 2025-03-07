@@ -108,11 +108,15 @@ int console_putc(int c)
 
 int putchar(int c)
 {
+	int ret = 0;
+
 	if (console_putc(c) == 0) {
-		return c;
+		ret = c;
 	} else {
-		return EOF;
+		ret = EOF;
 	}
+
+	return ret;
 }
 
 #if ENABLE_CONSOLE_GETC
