@@ -128,7 +128,7 @@ unsigned int gicv3_get_spi_limit(uintptr_t gicd_base)
 
 	/* Filter out special INTIDs 1020-1023 */
 	if (spi_limit > (MAX_SPI_ID + 1U)) {
-		return MAX_SPI_ID + 1U;
+		spi_limit = (MAX_SPI_ID + 1U);
 	}
 
 	return spi_limit;
