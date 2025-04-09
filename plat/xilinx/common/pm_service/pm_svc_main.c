@@ -302,7 +302,7 @@ int32_t pm_setup(void)
  * until their use case in linux driver changes.
  *
  */
-static uintptr_t eemi_for_compatibility(uint32_t api_id, uint32_t *pm_arg,
+static uintptr_t eemi_for_compatibility(uint32_t api_id, const uint32_t *pm_arg,
 					void *handle, uint32_t security_flag)
 {
 	enum pm_ret_status ret;
@@ -347,7 +347,7 @@ static uintptr_t eemi_for_compatibility(uint32_t api_id, uint32_t *pm_arg,
  * Return: If EEMI API found then, uintptr_t type address, else 0.
  *
  */
-static uintptr_t eemi_psci_debugfs_handler(uint32_t api_id, uint32_t *pm_arg,
+static uintptr_t eemi_psci_debugfs_handler(uint32_t api_id, const uint32_t *pm_arg,
 					   void *handle, uint32_t security_flag)
 {
 	enum pm_ret_status ret;
@@ -395,7 +395,7 @@ static uintptr_t eemi_psci_debugfs_handler(uint32_t api_id, uint32_t *pm_arg,
  * Return: If TF-A specific API found then, uintptr_t type address, else 0
  *
  */
-static uintptr_t TF_A_specific_handler(uint32_t api_id, uint32_t *pm_arg,
+static uintptr_t TF_A_specific_handler(uint32_t api_id, const uint32_t *pm_arg,
 				       void *handle, uint32_t security_flag)
 {
 	switch (api_id) {
@@ -462,7 +462,7 @@ static uintptr_t TF_A_specific_handler(uint32_t api_id, uint32_t *pm_arg,
  * Return: If EEMI API found then, uintptr_t type address, else 0
  *
  */
-static uintptr_t eemi_handler(uint32_t api_id, uint32_t *pm_arg,
+static uintptr_t eemi_handler(uint32_t api_id, const uint32_t *pm_arg,
 			      void *handle, uint32_t security_flag)
 {
 	enum pm_ret_status ret;
