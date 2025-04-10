@@ -130,7 +130,7 @@ static void setup_secure_context(cpu_context_t *ctx, const struct entry_point_in
 	 * SCR_EL3.IRQ, SCR_EL3.FIQ: Enable the physical FIQ and IRQ routing as
 	 * indicated by the interrupt routing model for BL31.
 	 */
-	scr_el3 |= get_scr_el3_from_routing_model(SECURE);
+	scr_el3 |= get_scr_el3_from_routing_model((size_t)SECURE);
 #endif
 
 	/* Allow access to Allocation Tags when FEAT_MTE2 is implemented and enabled. */
@@ -294,7 +294,7 @@ static void setup_ns_context(cpu_context_t *ctx, const struct entry_point_info *
 	 * SCR_EL3.IRQ, SCR_EL3.FIQ: Enable the physical FIQ and IRQ routing as
 	 *  indicated by the interrupt routing model for BL31.
 	 */
-	scr_el3 |= get_scr_el3_from_routing_model(NON_SECURE);
+	scr_el3 |= get_scr_el3_from_routing_model((size_t)NON_SECURE);
 #endif
 
 	if (is_feat_the_supported()) {
@@ -548,7 +548,7 @@ static void setup_context_common(cpu_context_t *ctx, const entry_point_info_t *e
 	if (is_feat_twed_supported()) {
 		/* Set delay in SCR_EL3 */
 		scr_el3 &= ~(SCR_TWEDEL_MASK << SCR_TWEDEL_SHIFT);
-		scr_el3 |= ((TWED_DELAY & SCR_TWEDEL_MASK)
+		scr_el3 |= ((ULL(TWED_DELAY) & SCR_TWEDEL_MASK)
 				<< SCR_TWEDEL_SHIFT);
 
 		/* Enable WFE delay */
@@ -628,7 +628,7 @@ static void setup_context_common(cpu_context_t *ctx, const entry_point_info_t *e
 	 * Use memcpy as we are in control of the layout of the structures
 	 */
 	gp_regs = get_gpregs_ctx(ctx);
-	memcpy((void *)gp_regs, (void *)&ep->args, sizeof(aapcs64_params_t));
+	memcpy(gp_regs, (const void *)&ep->args, sizeof(aapcs64_params_t));
 }
 
 /*******************************************************************************
@@ -669,7 +669,7 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 	 */
 	setup_context_common(ctx, ep);
 
-	security_state = GET_SECURITY_STATE(ep->h.attr);
+	security_state = (size_t)GET_SECURITY_STATE(ep->h.attr);
 
 	/* Perform security state specific initializations */
 	switch (security_state) {
@@ -1029,7 +1029,7 @@ static void manage_extensions_secure(cpu_context_t *ctx)
 void cm_init_my_context(const entry_point_info_t *ep)
 {
 	cpu_context_t *ctx;
-	ctx = cm_get_context(GET_SECURITY_STATE(ep->h.attr));
+	ctx = cm_get_context((size_t)GET_SECURITY_STATE(ep->h.attr));
 	cm_setup_context(ctx, ep);
 }
 
@@ -1727,9 +1727,9 @@ void cm_prepare_el3_exit_ns(void)
 
 	/* Restore EL2 sysreg contexts */
 	cm_el2_sysregs_context_restore(NON_SECURE);
-	cm_set_next_eret_context(NON_SECURE);
+	cm_set_next_eret_context((uint32_t)NON_SECURE);
 #else
-	cm_prepare_el3_exit(NON_SECURE);
+	cm_prepare_el3_exit((size_t)NON_SECURE);
 #endif /* (CTX_INCLUDE_EL2_REGS && IMAGE_BL31) */
 }
 
