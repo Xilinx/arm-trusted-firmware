@@ -1255,10 +1255,7 @@
 #define ZCR_EL2			S3_4_C1_C2_0
 
 /* ZCR_EL3 definitions */
-#define ZCR_EL3_LEN_MASK	U(0xf)
-
-/* ZCR_EL2 definitions */
-#define ZCR_EL2_LEN_MASK	U(0xf)
+#define ZCR_EL3_LEN_MASK	UL(0xf)
 
 /*******************************************************************************
  * Definitions for system register interface to SME as needed in EL3

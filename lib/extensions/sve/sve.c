@@ -20,7 +20,7 @@ CASSERT((SVE_VECTOR_LEN % 128) == 0, assert_sve_vl_granule);
  * Converts SVE vector size restriction in bytes to LEN according to ZCR_EL3 documentation.
  * VECTOR_SIZE = (LEN+1) * 128
  */
-#define CONVERT_SVE_LENGTH(x)	(((x / 128) - 1))
+#define CONVERT_SVE_LENGTH(x)	((UL(x) / UL(128)) - UL(1))
 
 void sve_init_el3(void)
 {
