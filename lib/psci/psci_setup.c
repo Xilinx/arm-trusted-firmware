@@ -79,7 +79,7 @@ static void __init psci_init_pwr_domain_node(uint16_t node_idx,
 
 		cm_set_context_by_index(node_idx,
 					(void *) &psci_ns_context[node_idx],
-					NON_SECURE);
+					(size_t)NON_SECURE);
 	}
 }
 
@@ -324,5 +324,5 @@ void psci_prepare_next_non_secure_ctx(entry_point_info_t *next_image_info)
 {
 	assert(GET_SECURITY_STATE(next_image_info->h.attr) == NON_SECURE);
 	cm_init_my_context(next_image_info);
-	cm_prepare_el3_exit(NON_SECURE);
+	cm_prepare_el3_exit((size_t)NON_SECURE);
 }
