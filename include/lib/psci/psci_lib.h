@@ -69,7 +69,7 @@ typedef struct psci_lib_args {
 		&& ((_p)->h.type == PARAM_PSCI_LIB_ARGS)	\
 		&& ((_p)->h.version == VERSION_1)		\
 		&& ((_p)->h.size == sizeof(*(_p)))		\
-		&& ((_p)->h.attr == 0)				\
+		&& ((_p)->h.attr == 0U)				\
 		&& ((_p)->mailbox_ep != NULL))
 
 /******************************************************************************
