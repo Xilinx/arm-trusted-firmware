@@ -140,6 +140,16 @@ void gicv3_distif_pre_save(unsigned int proc_num)
 	arm_gicv3_distif_pre_save(proc_num);
 }
 
+/*
+ * gicv3_distif_post_restore - Restores the state of the GIC distributor interface.
+ *
+ * Parameters:
+ * @proc_num: The processor number for which the distributor interface state
+ *            is being restored.
+ *
+ * Returns:
+ * None.
+ */
 void gicv3_distif_post_restore(unsigned int proc_num)
 {
 	arm_gicv3_distif_post_restore(proc_num);

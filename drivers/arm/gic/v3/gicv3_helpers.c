@@ -19,6 +19,17 @@
 #include "../common/gic_common_private.h"
 #include "gicv3_private.h"
 
+/*
+ * gicv3_get_multichip_base - Determines the base address for a GICv3 multichip
+ *			      configuration.
+ *
+ * Parameters:
+ * @spi_id: The SPI ID to get the GIC distributor base address for.
+ * @gicd_base: The default GIC distributor base address.
+ *
+ * Returns:
+ * The GIC distributor base address for the given SPI ID.
+ */
 uintptr_t gicv3_get_multichip_base(uint32_t spi_id, uintptr_t gicd_base)
 {
 #if GICV3_IMPL_GIC600_MULTICHIP
