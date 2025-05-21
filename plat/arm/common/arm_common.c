@@ -61,6 +61,15 @@ void arm_setup_romlib(void)
 #endif
 }
 
+/*
+ * plat_get_ns_image_entrypoint : Retrieves the entry point address for the non-secure (NS) image.
+ *
+ * Parameters:
+ * None.
+ *
+ * Return:
+ * The entry point address of the non-secure image.
+ */
 uintptr_t plat_get_ns_image_entrypoint(void)
 {
 #ifdef PRELOADED_BL33_BASE
