@@ -34,6 +34,19 @@ static const int *cci_slave_if_map;
 static size_t max_master_id;
 static int cci_num_slave_ports;
 
+/*
+ * validate_cci_map - Validates the mapping of master interfaces to slave interfaces
+ * in the CCI configuration.
+ *
+ * Parameters:
+ * @map: Pointer to an array representing the mapping of master interfaces
+ * to slave interfaces.
+ *
+ * Returns:
+ * true  - If the mapping is valid.
+ * false - If the mapping is invalid (e.g., invalid slave interface ID, duplicate
+ * assignments, or no valid mappings).
+ */
 static bool validate_cci_map(const int *map)
 {
 	unsigned int valid_cci_map = 0U;
@@ -44,22 +57,28 @@ static bool validate_cci_map(const int *map)
 	for (i = 0U; i <= max_master_id; i++) {
 		slave_if_id = map[i];
 
+		/* Check if the slave interface ID is valid */
 		if (slave_if_id < 0) {
 			continue;
 		}
 
+		/* Check if the slave interface ID is within the valid range */
 		if (slave_if_id >= cci_num_slave_ports) {
 			ERROR("Slave interface ID is invalid\n");
 			return false;
 		}
 
+		/* Check for duplicate assignments of slave interface IDs */
 		if ((valid_cci_map & (1UL << slave_if_id)) != 0U) {
 			ERROR("Multiple masters are assigned same slave interface ID\n");
 			return false;
 		}
+
+		/* Mark the slave interface ID as valid */
 		valid_cci_map |= 1UL << slave_if_id;
 	}
 
+	/* Check if at least one valid slave interface is assigned */
 	if (valid_cci_map == 0U) {
 		ERROR("No master is assigned a valid slave interface\n");
 		return false;
