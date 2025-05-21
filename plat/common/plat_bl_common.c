@@ -41,11 +41,33 @@ void plat_setup_log_gpt_corrupted(const struct plat_log_gpt_corrupted *log_gpt)
 	plat_log_gpt_ptr = log_gpt;
 }
 
+/*
+ * The plat_get_soc_version function returns an int32_t value indicating the
+ * soc version.
+ *
+ * Parameters:
+ * None.
+ *
+ * Return:
+ * - SMC_ARCH_CALL_NOT_SUPPORTED: Indicates that the SOC version retrieval
+ *   is not supported in this implementation.
+ */
 int32_t plat_get_soc_version(void)
 {
 	return SMC_ARCH_CALL_NOT_SUPPORTED;
 }
 
+/*
+ * The plat_get_soc_revision function returns an int32_t value indicating the
+ * soc revision.
+ *
+ * Parameters:
+ * None.
+ *
+ * Return:
+ * - SMC_ARCH_CALL_NOT_SUPPORTED: Indicates that the SOC revision retrieval
+ *   is not supported in this implementation.
+ */
 int32_t plat_get_soc_revision(void)
 {
 	return SMC_ARCH_CALL_NOT_SUPPORTED;
@@ -56,6 +78,17 @@ int32_t plat_get_soc_name(char *soc_name __unused)
 	return SMC_ARCH_CALL_NOT_SUPPORTED;
 }
 
+/*
+ * The plat_is_smccc_feature_available function checks the availability of a
+ * specified SMCCC feature based on the provided function ID (fid).
+ *
+ * Parameters:
+ * @fid: The function ID of the SMCCC feature to check.
+ *
+ * Return:
+ * - SMC_ARCH_CALL_NOT_SUPPORTED: Indicates that the SMCCC feature is not
+ *   supported in this implementation.
+ */
 int32_t plat_is_smccc_feature_available(u_register_t fid __unused)
 {
 	(void)fid;

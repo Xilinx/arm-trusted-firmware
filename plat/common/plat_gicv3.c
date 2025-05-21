@@ -248,6 +248,22 @@ void plat_ic_set_interrupt_priority(unsigned int id, unsigned int priority)
 	gicv3_set_interrupt_priority(id, plat_my_core_pos(), priority);
 }
 
+/*
+ * plat_ic_has_interrupt_type - Checks if the platform supports a specific interrupt type.
+ *
+ * This function determines whether the platform interrupt controller supports
+ * the specified interrupt type. The supported interrupt types include:
+ * - INTR_TYPE_EL3: EL3 interrupts.
+ * - INTR_TYPE_S_EL1: Secure EL1 interrupts.
+ * - INTR_TYPE_NS: Non-secure interrupts.
+ *
+ * Parameters:
+ * @type: The interrupt type to check (e.g., INTR_TYPE_EL3, INTR_TYPE_S_EL1, INTR_TYPE_NS).
+ *
+ * Returns:
+ * true  - If the specified interrupt type is supported.
+ * false - If the specified interrupt type is not supported.
+ */
 bool plat_ic_has_interrupt_type(unsigned int type)
 {
 	bool has_interrupt_type = false;
