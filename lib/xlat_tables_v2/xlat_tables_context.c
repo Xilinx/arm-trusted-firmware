@@ -36,6 +36,15 @@ void mmap_add_region(unsigned long long base_pa, uintptr_t base_va, size_t size,
 	mmap_add_region_ctx(&tf_xlat_ctx, &mm);
 }
 
+/*
+ * mmap_add : Adds a memory region to the translation context using a predefined
+ * region descriptor.
+ *
+ * Parameters:
+ * @mmap_region_t *mm: Pointer to the memory region descriptor.
+ *
+ * Return : None.
+ */
 void mmap_add(const mmap_region_t *mm)
 {
 	mmap_add_ctx(&tf_xlat_ctx, mm);
@@ -92,21 +101,45 @@ int mmap_remove_dynamic_region(uintptr_t base_va, size_t size)
 
 #endif /* PLAT_XLAT_TABLES_DYNAMIC */
 
+/*
+ * init_xlat_tables - Initializes translation tables for the current
+ * Exception Level (EL).
+ *
+ * This function sets up the translation context used for configuring
+ * the MMU by first asserting that no previous translation regime has
+ * been set. It then detects the current Exception Level (EL) at runtime
+ * using `xlat_arch_current_el()` and maps it to the appropriate translation
+ * regime (`EL1_EL0_REGIME`, `EL2_REGIME`, or `EL3_REGIME`). This regime is
+ * stored in the global translation context `tf_xlat_ctx`. Finally, it calls
+ * `init_xlat_tables_ctx()` to initialize the memory translation tables based
+ * on the identified regime.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Return:
+ * - None (void). Initializes translation tables or halts execution on assertion failure.
+ */
 void __init init_xlat_tables(void)
 {
+	/* Ensure that the translation context is not already initialized */
 	assert(tf_xlat_ctx.xlat_regime == EL_REGIME_INVALID);
 
+	/* Get the current Exception Level (EL) */
 	unsigned int current_el = xlat_arch_current_el();
 
+	/* Ensure that the current EL is valid (1, 2, or 3) */
 	if (current_el == 1U) {
 		tf_xlat_ctx.xlat_regime = EL1_EL0_REGIME;
 	} else if (current_el == 2U) {
 		tf_xlat_ctx.xlat_regime = EL2_REGIME;
 	} else {
+		/* Ensure that the current EL is 3 */
 		assert(current_el == 3U);
 		tf_xlat_ctx.xlat_regime = EL3_REGIME;
 	}
 
+	/* Initialize the translation context with the determined regime */
 	init_xlat_tables_ctx(&tf_xlat_ctx);
 }
 
@@ -208,6 +241,13 @@ int xlat_make_tables_readonly(void)
 
 #ifdef __aarch64__
 
+/*
+ * enable_mmu_el1 : Enables the MMU (Memory Management Unit) for EL1.
+ * Parameters:
+ * @ flags: Configuration flags for the MMU.
+ * Return:
+ * - None.
+ */
 void enable_mmu_el1(unsigned int flags)
 {
 	setup_mmu_cfg((uint64_t *)&mmu_cfg_params, flags,
@@ -216,6 +256,13 @@ void enable_mmu_el1(unsigned int flags)
 	enable_mmu_direct_el1(flags);
 }
 
+/*
+ * enable_mmu_el2 : Enables the MMU (Memory Management Unit) for EL2.
+ * Parameters:
+ *@ flags: Configuration flags for the MMU.
+ * Return:
+ * - None.
+ */
 void enable_mmu_el2(unsigned int flags)
 {
 	setup_mmu_cfg((uint64_t *)&mmu_cfg_params, flags,
@@ -224,6 +271,13 @@ void enable_mmu_el2(unsigned int flags)
 	enable_mmu_direct_el2(flags);
 }
 
+/*
+ * enable_mmu_el3 : Enables the MMU (Memory Management Unit) for EL3.
+ * Parameters:
+ * @ flags: Configuration flags for the MMU.
+ * Return:
+ * - None.
+ */
 void enable_mmu_el3(unsigned int flags)
 {
 	setup_mmu_cfg((uint64_t *)&mmu_cfg_params, flags,
@@ -232,19 +286,49 @@ void enable_mmu_el3(unsigned int flags)
 	enable_mmu_direct_el3(flags);
 }
 
+/*
+ * enable_mmu - Enables the Memory Management Unit (MMU) at the current
+ * Exception Level (EL).
+ *
+ * This function determines the current Exception Level (EL) at runtime using
+ * `get_current_el_maybe_constant()` and enables the MMU accordingly. Based on
+ * the EL, it calls the appropriate helper function (`enable_mmu_el1`,
+ * `enable_mmu_el2`, or `enable_mmu_el3`) with the provided configuration flags.
+ * These flags typically control memory attribute setup, cache enabling, and
+ * translation regime configuration for the target EL.
+ *
+ * If the current EL is unrecognized or unsupported (i.e., not EL1–EL3), the
+ * function invokes `panic()` to halt execution, ensuring the system does not
+ * continue in an invalid state. This runtime mechanism allows a single MMU
+ * initialization interface to adapt dynamically across different privilege
+ * levels, which is common in EL-agnostic platform code.
+ *
+ * Parameters:
+ * @flags - Configuration flags used by the MMU enabling routines at each EL.
+ * These may control cacheability, shareability, or memory attribute overrides
+ * as required by the platform.
+ *
+ * Return:
+ * - None (void). The function either enables the MMU or halts on error.
+ */
 void enable_mmu(unsigned int flags)
 {
+	/* Check the current Exception Level (EL) and enable MMU accordingly */
 	switch (get_current_el_maybe_constant()) {
 	case 1:
+		/* Enable MMU for EL1 */
 		enable_mmu_el1(flags);
 		break;
 	case 2:
+		/* Enable MMU for EL2 */
 		enable_mmu_el2(flags);
 		break;
 	case 3:
+		/* Enable MMU for EL3 */
 		enable_mmu_el3(flags);
 		break;
 	default:
+		/* Unsupported Exception Level, halt execution */
 		panic();
 	}
 }

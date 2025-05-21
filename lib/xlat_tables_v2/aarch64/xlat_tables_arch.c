@@ -139,41 +139,93 @@ uintptr_t xlat_get_min_virt_addr_space_size(void)
 }
 #endif /* ENABLE_ASSERTIONS*/
 
+/*
+ * is_mmu_enabled_ctx - Check if the MMU is enabled for a given translation context.
+ *
+ * This function checks whether the Memory Management Unit (MMU) is currently enabled
+ * in the context of a specific exception level (EL1, EL2, or EL3), based on the
+ * translation regime specified in the context.
+ *
+ * Each case includes an assertion to ensure that the current exception level is
+ * sufficient to access the corresponding system register.
+ *
+ * Parameters:
+ * @ctx: Pointer to the translation context structure which includes the translation regime.
+ *
+ * Returns:
+ * true  - If the MMU is enabled (M bit is set) for the specified regime.
+ * false - If the MMU is disabled (M bit is clear).
+ */
 bool is_mmu_enabled_ctx(const xlat_ctx_t *ctx)
 {
 	bool ret = false;
 
 	if (ctx->xlat_regime == EL1_EL0_REGIME) {
+		/* Ensure that the current exception level is at least EL1 */
 		assert(xlat_arch_current_el() >= 1U);
+		/* Read the SCTLR_EL1 register and check the M bit */
 		ret = ((read_sctlr_el1() & SCTLR_M_BIT) != 0U);
 	} else if (ctx->xlat_regime == EL2_REGIME) {
+		/* Ensure that the current exception level is at least EL2 */
 		assert(xlat_arch_current_el() >= 2U);
+		/* Read the SCTLR_EL2 register and check the M bit */
 		ret = ((read_sctlr_el2() & SCTLR_M_BIT) != 0U);
 	} else {
+		/* Ensure that the current exception level is at least EL3 */
 		assert(ctx->xlat_regime == EL3_REGIME);
 		assert(xlat_arch_current_el() >= 3U);
+		/* Read the SCTLR_EL3 register and check the M bit */
 		ret = ((read_sctlr_el3() & SCTLR_M_BIT) != 0U);
 	}
 
 	return ret;
 }
 
+/*
+ * is_dcache_enabled - Check if the data cache is enabled at the current exception level.
+ *
+ * This function determines whether the data cache is currently enabled by checking
+ * the SCTLR register corresponding to the current exception level (EL1, EL2, or EL3).
+ *
+ * The SCTLR register contains control bits for enabling/disabling cache and MMU.
+ * The bit of interest here is the C bit (SCTLR_C_BIT), which controls the data cache.
+ *
+ * Parameters:
+ * None.
+ *
+ * Returns:
+ * true  - If the data cache is enabled (C bit set).
+ * false - If the data cache is disabled (C bit clear).
+ */
 bool is_dcache_enabled(void)
 {
-	unsigned int el = get_current_el_maybe_constant();
+	unsigned int el = get_current_el_maybe_constant();  /* Get current exception level */
 	bool ret = false;
 
 	if (el == 1U) {
+		/* Ensure that the current exception level is at least EL1 */
 		ret = ((read_sctlr_el1() & SCTLR_C_BIT) != 0U);
 	} else if (el == 2U) {
+		/* Ensure that the current exception level is at least EL2 */
 		ret = ((read_sctlr_el2() & SCTLR_C_BIT) != 0U);
 	} else {
+		/* Ensure that the current exception level is at least EL3 */
 		ret = ((read_sctlr_el3() & SCTLR_C_BIT) != 0U);
 	}
 
 	return ret;
 }
 
+/*
+ * xlat_arch_regime_get_xn_desc : Retrieves the execute-never (XN)
+ * descriptor for a given translation regime.
+ *
+ * Parameters:
+ * @int xlat_regime: The translation regime (EL1/EL0, EL2, or EL3).
+ *
+ * Return:
+ * - uint64_t: The XN descriptor for the specified regime.
+ */
 uint64_t xlat_arch_regime_get_xn_desc(int xlat_regime)
 {
 	uint64_t ret = 0;
@@ -240,6 +292,12 @@ void xlat_arch_tlbi_va_sync(void)
 	isb();
 }
 
+/*
+ * xlat_arch_current_el : Retrieves the current exception level (EL) of the processor.
+ * Parameters : None.
+ * Return:
+ * - unsigned int: The current exception level (1, 2, or 3).
+ */
 unsigned int xlat_arch_current_el(void)
 {
 	unsigned int el = (unsigned int)GET_EL(read_CurrentEl());
