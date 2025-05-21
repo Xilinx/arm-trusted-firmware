@@ -49,6 +49,16 @@ struct dcc_console {
 	console_t console;
 };
 
+/*
+ * __dcc_getstatus - Reads the status of the DCC.
+ *
+ * This function retrieves the current status of the DCC by reading the
+ * read_mdccsr_el0 function.
+ * The status indicates whether the DCC is ready to transmit or receive data.
+ *
+ * Returns:
+ * The value of the MDCCSR_EL0 register, which contains the DCC status bits.
+ */
 static inline u_register_t __dcc_getstatus(void)
 {
 	return read_mdccsr_el0();
@@ -74,36 +84,72 @@ static inline void __dcc_putchar(char c)
 	write_dbgdtrtx_el0((unsigned char)c);
 }
 
+/*
+ * dcc_status_timeout repeatedly checks the status of the DCC by reading the
+ * MDCCSR_EL0 register and masking it with the provided `mask`. It waits until
+ * the specified bit(s) are cleared or the timeout period elapses.
+ *
+ * Parameters:
+ * @mask: The bitmask representing the DCC status bit(s) to monitor.
+ *
+ * Returns:
+ *  0           - If the specified bit(s) are cleared within the timeout period.
+ * -ETIMEDOUT   - If the timeout period elapses before the bit(s) are cleared.
+ */
 static int32_t dcc_status_timeout(uint32_t mask)
 {
 	const unsigned int timeout_count = TIMEOUT_COUNT_US;
 	uint64_t timeout;
 	u_register_t status;
 
+	/* Initialize the timeout value based on the specified count */
 	timeout = timeout_init_us(timeout_count);
 
 	do {
+		/* Read the DCC status and apply the mask */
 		status = (__dcc_getstatus() & mask);
+
+		/* If the timeout has elapsed, return -ETIMEDOUT */
 		if (timeout_elapsed(timeout)) {
 			return -ETIMEDOUT;
 		}
+	/*
+	 * If the status is zero, it means the DCC is ready for
+	 * transmission or reception, so we can exit the loop.
+	 */
 	} while ((status != 0U));
 
+	/* All required bits are cleared */
 	return 0;
 }
 
+/*
+ * dcc_console_putc - Writes a character to DCC.
+ *
+ * Parameters:
+ * @ch: The character to be transmitted.
+ * @console: Pointer to the console structure (not used in this implementation).
+ *
+ * Returns:
+ * The character (`ch`) if the transmission is successful.
+ * -ETIMEDOUT if the transmit status bit does not clear within the timeout period.
+ */
 static int32_t dcc_console_putc(int32_t ch, console_t *console)
 {
 	int32_t status;
 
 	(void)console;
 
+	/* Wait for the DCC to be ready to transmit, return error if not */
 	status = dcc_status_timeout(DCC_STATUS_TX);
 	if (status != 0U) {
 		return status;
 	}
+
+	/* Transmit the character */
 	__dcc_putchar(ch);
 
+	/* Return transmitted character on success */
 	return ch;
 }
 
@@ -152,9 +198,23 @@ static struct dcc_console dcc_console = {
 	},
 };
 
+/*
+ * console_dcc_register - Register the DCC console for debug output.
+ *
+ * Initializes and registers the given console_t structure for DCC use.
+ *
+ * Parameters:
+ * @console: Pointer to the console_t structure to register.
+ *
+ * Returns:
+ * 0 on success, negative error code on failure.
+ */
 int console_dcc_register(console_t *console)
 {
+	/* Copy predefined DCC console configuration into the provided structure */
 	memcpy(console, &dcc_console.console, sizeof(console_t));
+
+	/* Register the initialized console with the system */
 	return console_register(console);
 }
 
