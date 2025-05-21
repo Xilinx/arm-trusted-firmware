@@ -34,31 +34,71 @@
 #define CVE_FORMAT	"%s: %s: CPU workaround for CVE %u_%04u was %s\n"
 #define ERRATUM_FORMAT	"%s: %s: CPU workaround for erratum %u was %s\n"
 
-
+/*
+ * print_status - Logs the status of a CPU erratum or CVE mitigation.
+ *
+ * This function formats and prints the status of a CPU erratum (or CVE)
+ * based on the given status code.
+ *
+ * Parameters:
+ * @status   - Status code indicating if the erratum/CVE is missing, applied, or not applicable.
+ * @cpu_str  - String identifier for the CPU (e.g., "A55").
+ * @cve      - CVE number if applicable (0 if not a CVE).
+ * @id       - Erratum or CVE identifier number.
+ *
+ * Returns:
+ * - None (void).
+ */
 static __unused void print_status(int status, char *cpu_str, uint16_t cve, uint32_t id)
 {
 	if (status == ERRATA_MISSING) {
+		/* If the erratum is missing, print a warning message */
 		if (cve) {
+			 /* Print a warning for missing CVE */
 			WARN(CVE_FORMAT, BL_STRING, cpu_str, cve, id, "missing!");
 		} else {
+			/* Print a warning for missing erratum */
 			WARN(ERRATUM_FORMAT, BL_STRING, cpu_str, id, "missing!");
 		}
 	} else if (status == ERRATA_APPLIES) {
+		/* If the erratum is applicable, print an info message */
 		if (cve) {
+			/* Print an info message for applied CVE */
 			INFO(CVE_FORMAT, BL_STRING, cpu_str, cve, id, "applied");
 		}  else {
+			/* Print an info message for applied erratum */
 			INFO(ERRATUM_FORMAT, BL_STRING, cpu_str, id, "applied");
 		}
 	} else {
+		/* If the erratum is not applicable, print a verbose message */
 		if (cve) {
+			/* Print a verbose message for not applicable CVE */
 			VERBOSE(CVE_FORMAT, BL_STRING, cpu_str, cve, id, "not applicable");
 		}  else {
+			/* Print a verbose message for not applicable erratum */
 			VERBOSE(ERRATUM_FORMAT, BL_STRING, cpu_str, id, "not applicable");
 		}
 	}
 }
 
 #if !REPORT_ERRATA
+
+/*
+ * print_errata_status - Displays the errata status for the calling CPU
+ * and all other CPUs of the same MIDR (Main ID Register) value.
+ *
+ * This function is responsible for printing which errata are present or
+ * applicable for the current CPU type based on its MIDR. It iterates through
+ * errata checks and prints their enablement status for the local CPU and
+ * any matching CPU cores. When `REPORT_ERRATA` is not defined, this function
+ * is a stub that performs no operation.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Return:
+ * - None (void).
+ */
 void print_errata_status(void) {}
 #else /* !REPORT_ERRATA */
 /*
