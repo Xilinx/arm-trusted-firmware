@@ -14,6 +14,28 @@
 #include <lib/el3_runtime/context_mgmt.h>
 #include <lib/extensions/idte3.h>
 
+/*
+ * handle_sysreg_trap: Handle AArch64 system register traps from lower ELs.
+ *
+ * Called by the exception handler when a synchronous trap identifies as a
+ * system register trap (EC=0x18). ESR contains the encoding of the op[x] and
+ * CRm/CRn fields, to identify the system register, and the target/source
+ * GPR plus the direction (MRS/MSR). The lower EL's context can be altered
+ * by the function, to inject back the result of the emulation.
+ *
+ * Parameters:
+ * @esr_el3: The content of ESR_EL3, containing the trap syndrome information.
+ * @ctx: Pointer to the lower EL context, containing saved registers.
+ * @flags: Unused.
+ *
+ * Returns:
+ * int:
+ *   TRAP_RET_UNHANDLED(-1): trap is unhandled, trigger panic.
+ *   TRAP_RET_REPEAT(0): trap was handled, return to the trapping instruction
+ *   (repeating it).
+ *   TRAP_RET_CONTINUE(1): trap was handled, return to the next instruction
+ *   (continuing after it).
+ */
 int handle_sysreg_trap(uint64_t esr_el3, cpu_context_t *ctx,
 			u_register_t flags __unused)
 {
@@ -44,6 +66,18 @@ int handle_sysreg_trap(uint64_t esr_el3, cpu_context_t *ctx,
 	return TRAP_RET_UNHANDLED;
 }
 
+/*
+ * is_tge_enabled() - Checks if the TGE feature is enabled in the system.
+ * This static utility function reads the HCR_EL2 register and returns true if
+ * virtualisation host extensions (VHE) are present and the TGE bit is set.
+ *
+ * Parameters:
+ * None.
+ *
+ * Returns:
+ * true  - If TGE is enabled.
+ * false - If TGE is not enabled.
+ */
 static bool is_tge_enabled(void)
 {
 	u_register_t hcr_el2 = read_hcr_el2();
@@ -63,6 +97,21 @@ static bool is_secure_trap_without_sel2(u_register_t scr)
 	return ((scr & (SCR_NS_BIT | SCR_EEL2_BIT)) == 0);
 }
 
+/*
+ * target_el() - Determines the target exception level for exception injection.
+ *
+ * This function determines the target exception level (EL) based on the
+ * originating EL (`from_el`) and the system control register (`scr`).
+ * If `from_el` is higher than EL1, it is returned directly. Otherwise, it
+ * checks for TGE and secure context to decide between EL1 and EL2.
+ *
+ * Parameters:
+ * @from_el: The originating exception level.
+ * @scr: The value of the SCR_EL3 register.
+ *
+ * Returns:
+ * unsigned int: The target exception level (MODE_EL1 or MODE_EL2).
+ */
 static unsigned int target_el(unsigned int from_el, u_register_t scr)
 {
 	if (from_el > MODE_EL1) {
