@@ -954,6 +954,14 @@ void mmap_add_region_alloc_va_ctx(xlat_ctx_t *ctx, mmap_region_t *mm)
 	mmap_add_region_ctx(ctx, mm);
 }
 
+/*
+ * mmap_add_ctx : Adds multiple memory regions to the translation context.
+ * Parameters:
+ * @ctx: Pointer to the translation context.
+ * @mm: Pointer to an array of memory region descriptors.
+ *
+ * Return : None.
+ */
 void mmap_add_ctx(xlat_ctx_t *ctx, const mmap_region_t *mm)
 {
 	const mmap_region_t *mm_cursor = mm;
@@ -1202,8 +1210,24 @@ void xlat_setup_dynamic_ctx(xlat_ctx_t *ctx, unsigned long long pa_max,
 
 #endif /* PLAT_XLAT_TABLES_DYNAMIC */
 
+/*
+ * init_xlat_tables_ctx - Initialize translation tables for a given context.
+ *
+ * This function prepares the memory translation tables required to enable the MMU
+ * for the specified translation context. It performs validation of input parameters,
+ * clears all translation table entries, and maps the defined memory regions into the
+ * translation tables. This setup is essential before enabling the MMU, ensuring that
+ * the virtual-to-physical address mappings are consistent and valid.
+ *
+ * Parameters:
+ * @ctx - Pointer to the xlat_ctx_t structure representing the translation context.
+ *
+ * Returns:
+ * None. Halts execution via `panic()` if a critical setup step fails.
+ */
 void __init init_xlat_tables_ctx(xlat_ctx_t *ctx)
 {
+	/* Validate the input context and basic preconditions */
 	assert(ctx != NULL);
 	assert(!ctx->initialized);
 	assert((ctx->xlat_regime == EL3_REGIME) ||
@@ -1213,11 +1237,13 @@ void __init init_xlat_tables_ctx(xlat_ctx_t *ctx)
 
 	mmap_region_t *mm = ctx->mmap;
 
+	/* Validate virtual address space size */
 	assert(ctx->va_max_address >=
 		(xlat_get_min_virt_addr_space_size() - 1U));
 	assert(ctx->va_max_address <= (MAX_VIRT_ADDR_SPACE_SIZE - 1U));
-	assert(IS_POWER_OF_TWO(ctx->va_max_address + 1U));
+	assert(IS_POWER_OF_TWO(ctx->va_max_address + 1U));  /* Must be aligneed to power of 2 */
 
+	/* Validate physical address space size */
 	xlat_mmap_print(mm);
 
 	/* All tables must be zeroed before mapping any region. */
@@ -1231,13 +1257,24 @@ void __init init_xlat_tables_ctx(xlat_ctx_t *ctx)
 	}
 
 	while (mm->size != 0U) {
+		/* Attempt to map the region described by mm */
 		uintptr_t end_va = xlat_tables_map_region(ctx, mm, 0U,
 				ctx->base_table, ctx->base_table_entries,
 				ctx->base_level);
 #if !(HW_ASSISTED_COHERENCY || WARMBOOT_ENABLE_DCACHE_EARLY)
+		/*
+		 * Clean the cache for the base table after mapping the region.
+		 * This is needed to ensure that the MMU sees the new entries
+		 * when it is enabled.
+		 */
 		xlat_clean_dcache_range((uintptr_t)ctx->base_table,
 				   ctx->base_table_entries * sizeof(uint64_t));
 #endif
+		/*
+		 * If the mapping failed, it means that the region is too big
+		 * to fit in the available memory. The VA of the last byte that
+		 * was mapped is returned.
+		 */
 		if (end_va != (mm->base_va + mm->size - 1U)) {
 			ERROR("Not enough memory to map region:\n"
 			      " VA:0x%lx  PA:0x%llx  size:0x%zx  attr:0x%x\n",
@@ -1245,14 +1282,18 @@ void __init init_xlat_tables_ctx(xlat_ctx_t *ctx)
 			panic();
 		}
 
+		/* Move to the next region */
 		mm++;
 	}
 
+	/* Check that the maximum VA and PA are within the limits */
 	assert(ctx->pa_max_address <= xlat_arch_get_max_supported_pa());
 	assert(ctx->max_va <= ctx->va_max_address);
 	assert(ctx->max_pa <= ctx->pa_max_address);
 
+	/* Mark context as initialized */
 	ctx->initialized = true;
 
+	/* Print the translation tables */
 	xlat_tables_print(ctx);
 }
