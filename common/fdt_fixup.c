@@ -32,7 +32,7 @@
 
 static int append_psci_compatible(void *fdt, int offs, const char *str)
 {
-	return fdt_appendprop(fdt, offs, "compatible", str, strlen(str) + 1);
+	return fdt_appendprop(fdt, offs, "compatible", str, (int)strlen(str) + 1);
 }
 
 /*

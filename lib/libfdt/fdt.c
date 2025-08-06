@@ -121,7 +121,7 @@ int fdt_check_header(const void *fdt)
 	hdrsize = fdt_header_size(fdt);
 	if (!can_assume(VALID_DTB)) {
 		if ((fdt_totalsize(fdt) < hdrsize)
-		    || (fdt_totalsize(fdt) > INT_MAX)) {
+		    || (fdt_totalsize(fdt) > (uint32_t)INT_MAX)) {
 			return -FDT_ERR_TRUNCATED;
 		}
 
@@ -158,8 +158,8 @@ int fdt_check_header(const void *fdt)
 
 const void *fdt_offset_ptr(const void *fdt, int offset, unsigned int len)
 {
-	unsigned int uoffset = offset;
-	unsigned int absoffset = offset + fdt_off_dt_struct(fdt);
+	size_t uoffset = (size_t)offset;
+	size_t absoffset = (size_t)offset + fdt_off_dt_struct(fdt);
 
 	if (offset < 0) {
 		return NULL;
@@ -191,12 +191,12 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 	const char *p;
 
 	*nextoffset = -FDT_ERR_TRUNCATED;
-	tagp = fdt_offset_ptr(fdt, offset, FDT_TAGSIZE);
+	tagp = fdt_offset_ptr(fdt, offset, (unsigned int)FDT_TAGSIZE);
 	if (!can_assume(VALID_DTB) && (tagp == NULL)) {
 		return FDT_END; /* premature end */
 	}
 	tag = fdt32_to_cpu(*tagp);
-	offset += FDT_TAGSIZE;
+	offset += (int32_t)FDT_TAGSIZE;
 
 	*nextoffset = -FDT_ERR_BADSTRUCTURE;
 	switch (tag) {
@@ -217,7 +217,7 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 			}
 
 		len = fdt32_to_cpu(*lenp);
-		sum = len + offset;
+		sum = len + (uint32_t)offset;
 		if (!can_assume(VALID_DTB) &&
 		    (sum >= INT_MAX || sum < (uint32_t)offset)) {
 			return FDT_END; /* premature end */
@@ -253,7 +253,7 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 int fdt_check_node_offset_(const void *fdt, int offset)
 {
 	if (!can_assume(VALID_INPUT)
-	    && ((offset < 0) || ((offset % FDT_TAGSIZE) != 0))) {
+	    && ((offset < 0) || ((offset % (int32_t)FDT_TAGSIZE) != 0))) {
 		return -FDT_ERR_BADOFFSET;
 	}
 
@@ -267,7 +267,7 @@ int fdt_check_node_offset_(const void *fdt, int offset)
 int fdt_check_prop_offset_(const void *fdt, int offset)
 {
 	if (!can_assume(VALID_INPUT)
-	    && ((offset < 0) || ((offset % FDT_TAGSIZE) != 0))) {
+	    && ((offset < 0) || ((offset % (int32_t)FDT_TAGSIZE) != 0))) {
 		return -FDT_ERR_BADOFFSET;
 	}
 
