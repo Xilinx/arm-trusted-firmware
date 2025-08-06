@@ -170,7 +170,7 @@ int dt_add_psci_cpu_enable_methods(void *fdt)
 	return ret;
 }
 
-#define HIGH_BITS(x) ((sizeof(x) > 4) ? ((x) >> 32) : (typeof(x))0)
+#define HIGH_BITS_U32(x)		((sizeof(x) > 4U) ? (uint32_t)((x) >> 32) : (uint32_t)0)
 
 /*******************************************************************************
  * fdt_add_reserved_memory() - reserve (secure) memory regions in DT
@@ -204,13 +204,16 @@ int fdt_add_reserved_memory(void *dtb, const char *node_name,
 
 	ac = fdt_address_cells(dtb, 0);
 	sc = fdt_size_cells(dtb, 0);
+	if (ac < 0 || sc < 0) {
+		return -EINVAL;
+	}
 	if (offs < 0) {			/* create if not existing yet */
 		offs = fdt_add_subnode(dtb, 0, "reserved-memory");
 		if (offs < 0) {
 			return offs;
 		}
-		fdt_setprop_u32(dtb, offs, "#address-cells", ac);
-		fdt_setprop_u32(dtb, offs, "#size-cells", sc);
+		fdt_setprop_u32(dtb, offs, "#address-cells", (uint32_t)ac);
+		fdt_setprop_u32(dtb, offs, "#size-cells", (uint32_t)sc);
 		fdt_setprop(dtb, offs, "ranges", NULL, 0);
 	}
 
@@ -233,13 +236,13 @@ int fdt_add_reserved_memory(void *dtb, const char *node_name,
 	}
 
 	if (ac > 1) {
-		addresses[idx] = cpu_to_fdt32(HIGH_BITS(base));
+		addresses[idx] = cpu_to_fdt32(HIGH_BITS_U32(base));
 		idx++;
 	}
 	addresses[idx] = cpu_to_fdt32(base & 0xffffffff);
 	idx++;
 	if (sc > 1) {
-		addresses[idx] = cpu_to_fdt32(HIGH_BITS(size));
+		addresses[idx] = cpu_to_fdt32(HIGH_BITS_U32(size));
 		idx++;
 	}
 	addresses[idx] = cpu_to_fdt32(size & 0xffffffff);
