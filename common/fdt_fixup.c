@@ -76,20 +76,27 @@ int dt_add_psci_node(void *fdt)
 	offs = fdt_add_subnode(fdt, offs, "psci");
 	if (offs < 0)
 		return -1;
-	if (append_psci_compatible(fdt, offs, "arm,psci-1.0"))
+	if (append_psci_compatible(fdt, offs, "arm,psci-1.0") != 0) {
 		return -1;
-	if (append_psci_compatible(fdt, offs, "arm,psci-0.2"))
+	}
+	if (append_psci_compatible(fdt, offs, "arm,psci-0.2") != 0) {
 		return -1;
-	if (append_psci_compatible(fdt, offs, "arm,psci"))
+	}
+	if (append_psci_compatible(fdt, offs, "arm,psci") != 0) {
 		return -1;
-	if (fdt_setprop_string(fdt, offs, "method", "smc"))
+	}
+	if (fdt_setprop_string(fdt, offs, "method", "smc") != 0) {
 		return -1;
-	if (fdt_setprop_u32(fdt, offs, "cpu_suspend", PSCI_CPU_SUSPEND_FNID))
+	}
+	if (fdt_setprop_u32(fdt, offs, "cpu_suspend", PSCI_CPU_SUSPEND_FNID) != 0) {
 		return -1;
-	if (fdt_setprop_u32(fdt, offs, "cpu_off", PSCI_CPU_OFF))
+	}
+	if (fdt_setprop_u32(fdt, offs, "cpu_off", PSCI_CPU_OFF) != 0) {
 		return -1;
-	if (fdt_setprop_u32(fdt, offs, "cpu_on", PSCI_CPU_ON_FNID))
+	}
+	if (fdt_setprop_u32(fdt, offs, "cpu_on", PSCI_CPU_ON_FNID) != 0) {
 		return -1;
+	}
 	return 0;
 }
 
