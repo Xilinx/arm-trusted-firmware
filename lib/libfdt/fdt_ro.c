@@ -43,7 +43,7 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 		s = (const char *)fdt + fdt_off_dt_strings(fdt) + stroffset;
 
 		if (lenp != NULL) {
-			*lenp = strlen(s);
+			*lenp = (int)strlen(s);
 		}
 		return s;
 	}
@@ -58,7 +58,7 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 	if (absoffset >= (unsigned int)totalsize) {
 		goto fail;
 	}
-	len = totalsize - absoffset;
+	len = (uint32_t)totalsize - absoffset;
 
 	if (fdt_magic(fdt) == FDT_MAGIC) {
 		if (stroffset < 0) {
@@ -68,12 +68,12 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 			if ((unsigned int)stroffset >= fdt_size_dt_strings(fdt)) {
 				goto fail;
 			}
-			if ((fdt_size_dt_strings(fdt) - stroffset) < len) {
-				len = fdt_size_dt_strings(fdt) - stroffset;
+			if ((fdt_size_dt_strings(fdt) - (uint32_t)stroffset) < len) {
+				len = fdt_size_dt_strings(fdt) - (uint32_t)stroffset;
 			}
 		}
 	} else if (fdt_magic(fdt) == FDT_SW_MAGIC) {
-		unsigned int sw_stroffset = -stroffset;
+		unsigned int sw_stroffset = (unsigned int)(-stroffset);
 
 		if ((stroffset >= 0) ||
 		    (sw_stroffset > fdt_size_dt_strings(fdt))) {
@@ -88,7 +88,7 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 	}
 
 	s = (const char *)fdt + absoffset;
-	n = memchr(s, '\0', len);
+	n = memchr(s, (int)'\0', len);
 	if (n == NULL) {
 		/* missing terminating NULL */
 		err = -FDT_ERR_TRUNCATED;
@@ -265,7 +265,7 @@ int fdt_subnode_offset_namelen(const void *fdt, int offset,
 int fdt_subnode_offset(const void *fdt, int parentoffset,
 		       const char *name)
 {
-	return fdt_subnode_offset_namelen(fdt, parentoffset, name, strlen(name));
+	return fdt_subnode_offset_namelen(fdt, parentoffset, name, (int)strlen(name));
 }
 
 int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
@@ -281,7 +281,7 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 
 	/* see if we have an alias */
 	if (*path != '/') {
-		const char *q = memchr(path, '/', end - p);
+		const char *q = memchr(path, (int)'/', end - p);
 
 		if (q == NULL) {
 			q = end;
@@ -305,7 +305,7 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 				return offset;
 			}
 		}
-		q = memchr(p, '/', end - p);
+		q = memchr(p, (int)'/', end - p);
 		if (q == NULL) {
 			q = end;
 		}
@@ -323,7 +323,7 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 
 int fdt_path_offset(const void *fdt, const char *path)
 {
-	return fdt_path_offset_namelen(fdt, path, strlen(path));
+	return fdt_path_offset_namelen(fdt, path, (int)strlen(path));
 }
 
 const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
@@ -346,7 +346,7 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 		 * contents are loosely checked.
 		 */
 		const char *leaf;
-		leaf = strrchr(nameptr, '/');
+		leaf = strrchr(nameptr, (int)'/');
 		if (leaf == NULL) {
 			err = -FDT_ERR_BADSTRUCTURE;
 			goto fail;
@@ -355,7 +355,7 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 	}
 
 	if (len != NULL) {
-		*len = strlen(nameptr);
+		*len = (int)strlen(nameptr);
 	}
 
 	return nameptr;
@@ -406,7 +406,7 @@ static const struct fdt_property *fdt_get_property_by_offset_(const void *fdt,
 	prop = fdt_offset_ptr_(fdt, offset);
 
 	if (lenp != NULL) {
-		*lenp = fdt32_ld_(&prop->len);
+		*lenp = (int32_t)fdt32_ld_(&prop->len);
 	}
 
 	return prop;
@@ -484,7 +484,7 @@ const struct fdt_property *fdt_get_property(const void *fdt,
 					    const char *name, int *lenp)
 {
 	return fdt_get_property_namelen(fdt, nodeoffset, name,
-					strlen(name), lenp);
+					(int)strlen(name), lenp);
 }
 
 const void *fdt_getprop_namelen(const void *fdt, int nodeoffset,

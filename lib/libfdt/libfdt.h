@@ -1753,7 +1753,7 @@ static inline int fdt_setprop_u32(void *fdt, int nodeoffset, const char *name,
 				  uint32_t val)
 {
 	fdt32_t tmp = cpu_to_fdt32(val);
-	return fdt_setprop(fdt, nodeoffset, name, &tmp, sizeof(tmp));
+	return fdt_setprop(fdt, nodeoffset, name, &tmp, (int)sizeof(tmp));
 }
 
 /**
