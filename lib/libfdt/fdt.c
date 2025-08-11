@@ -17,7 +17,7 @@
  */
 int32_t fdt_ro_probe_(const void *fdt)
 {
-	uint32_t totalsize = fdt_totalsize(fdt);
+	int32_t totalsize = fdt_totalsize(fdt);
 
 	if (can_assume(VALID_DTB))
 		return totalsize;
@@ -50,13 +50,13 @@ int32_t fdt_ro_probe_(const void *fdt)
 		return -FDT_ERR_TRUNCATED;
 }
 
-static int check_off_(uint32_t hdrsize, uint32_t totalsize, uint32_t off)
+static int check_off_(size_t hdrsize, size_t totalsize, size_t off)
 {
 	return (off >= hdrsize) && (off <= totalsize);
 }
 
-static int check_block_(uint32_t hdrsize, uint32_t totalsize,
-			uint32_t base, uint32_t size)
+static int check_block_(size_t hdrsize, size_t totalsize,
+			size_t base, size_t size)
 {
 	if (check_off_(hdrsize, totalsize, base) == 0) {
 		return 0; /* block start out of bounds */
@@ -329,7 +329,7 @@ int fdt_next_subnode(const void *fdt, int offset)
 
 const char *fdt_find_string_(const char *strtab, int tabsize, const char *s)
 {
-	int len = strlen(s) + 1;
+	size_t len = strlen(s) + 1U;
 	const char *last = strtab + tabsize - len;
 	const char *p;
 
