@@ -7,7 +7,7 @@
  */
 #include <fdt.h>
 
-#define FDT_ALIGN(x, a)		(((x) + (a) - 1) & ~((a) - 1))
+#define FDT_ALIGN(x, a)		(((x) + (a) - 1U) & ~((a) - 1U))
 #define FDT_TAGALIGN(x)		(FDT_ALIGN((x), FDT_TAGSIZE))
 
 int32_t fdt_ro_probe_(const void *fdt);

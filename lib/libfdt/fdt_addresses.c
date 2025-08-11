@@ -18,8 +18,9 @@ static int fdt_cells(const void *fdt, int nodeoffset, const char *name)
 	int len;
 
 	c = fdt_getprop(fdt, nodeoffset, name, &len);
-	if (!c)
+	if (c == NULL) {
 		return len;
+	}
 
 	if (len != sizeof(*c))
 		return -FDT_ERR_BADNCELLS;
