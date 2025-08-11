@@ -188,8 +188,9 @@ static int fdt_resize_property_(void *fdt, int nodeoffset, const char *name,
 	int err;
 
 	*prop = fdt_get_property_w(fdt, nodeoffset, name, &oldlen);
-	if (!*prop)
+	if (*prop == NULL) {
 		return oldlen;
+	}
 
 	if ((err = fdt_splice_struct_(fdt, (*prop)->data, FDT_TAGALIGN(oldlen),
 				      FDT_TAGALIGN(len))))
@@ -221,8 +222,9 @@ static int fdt_add_property_(void *fdt, int nodeoffset, const char *name,
 	err = fdt_splice_struct_(fdt, *prop, 0, proplen);
 	if (err) {
 		/* Delete the string if we failed to add it */
-		if (!can_assume(NO_ROLLBACK) && allocated)
+		if (!can_assume(NO_ROLLBACK) && (allocated != 0)) {
 			fdt_del_last_string_(fdt, name);
+		}
 		return err;
 	}
 
@@ -443,7 +445,7 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 	}
 
 	if (can_assume(LIBFDT_ORDER) ||
-	    !fdt_blocks_misordered_(fdt, mem_rsv_size, struct_size)) {
+	    (fdt_blocks_misordered_(fdt, mem_rsv_size, struct_size) == 0)) {
 		/* no further work necessary */
 		err = fdt_move(fdt, buf, bufsize);
 		if (err)

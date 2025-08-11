@@ -81,7 +81,7 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 
 	s = (const char *)fdt + absoffset;
 	n = memchr(s, '\0', len);
-	if (!n) {
+	if (n == NULL) {
 		/* missing terminating NULL */
 		err = -FDT_ERR_TRUNCATED;
 		goto fail;
@@ -233,8 +233,9 @@ int fdt_subnode_offset_namelen(const void *fdt, int offset,
 	     (offset >= 0) && (depth >= 0);
 	     offset = fdt_next_node(fdt, offset, &depth))
 		if ((depth == 1)
-		    && fdt_nodename_eq_(fdt, offset, name, namelen))
+		    && ((fdt_nodename_eq_(fdt, offset, name, namelen)) != 0)) {
 			return offset;
+		}
 
 	if (depth < 0)
 		return -FDT_ERR_NOTFOUND;
@@ -262,12 +263,14 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 	if (*path != '/') {
 		const char *q = memchr(path, '/', end - p);
 
-		if (!q)
+		if (q == NULL) {
 			q = end;
+		}
 
 		p = fdt_get_alias_namelen(fdt, p, q - p);
-		if (!p)
+		if (p == NULL) {
 			return -FDT_ERR_BADPATH;
+		}
 		offset = fdt_path_offset(fdt, p);
 
 		p = q;
@@ -282,8 +285,9 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 				return offset;
 		}
 		q = memchr(p, '/', end - p);
-		if (! q)
+		if (q == NULL) {
 			q = end;
+		}
 
 		offset = fdt_subnode_offset_namelen(fdt, offset, p, q-p);
 		if (offset < 0)
@@ -459,13 +463,15 @@ const void *fdt_getprop_namelen(const void *fdt, int nodeoffset,
 
 	prop = fdt_get_property_namelen_(fdt, nodeoffset, name, namelen, lenp,
 					 &poffset);
-	if (!prop)
+	if (prop == NULL) {
 		return NULL;
+	}
 
 	/* Handle realignment */
 	if (!can_assume(LATEST) && fdt_version(fdt) < 0x10 &&
-	    (poffset + sizeof(*prop)) % 8 && fdt32_ld_(&prop->len) >= 8)
+	    (((poffset + sizeof(*prop)) % 8) != 0) && fdt32_ld_(&prop->len) >= 8) {
 		return prop->data + 4;
+	}
 	return prop->data;
 }
 
