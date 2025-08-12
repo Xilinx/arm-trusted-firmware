@@ -49,32 +49,39 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 	}
 	totalsize = fdt_ro_probe_(fdt);
 	err = totalsize;
-	if (totalsize < 0)
+	if (totalsize < 0) {
 		goto fail;
+	}
 
 	err = -FDT_ERR_BADOFFSET;
 	absoffset = stroffset + fdt_off_dt_strings(fdt);
-	if (absoffset >= (unsigned)totalsize)
+	if (absoffset >= (unsigned int)totalsize) {
 		goto fail;
+	}
 	len = totalsize - absoffset;
 
 	if (fdt_magic(fdt) == FDT_MAGIC) {
-		if (stroffset < 0)
+		if (stroffset < 0) {
 			goto fail;
+		}
 		if (can_assume(LATEST) || (fdt_version(fdt) >= 17)) {
-			if ((unsigned)stroffset >= fdt_size_dt_strings(fdt))
+			if ((unsigned int)stroffset >= fdt_size_dt_strings(fdt)) {
 				goto fail;
-			if ((fdt_size_dt_strings(fdt) - stroffset) < len)
+			}
+			if ((fdt_size_dt_strings(fdt) - stroffset) < len) {
 				len = fdt_size_dt_strings(fdt) - stroffset;
+			}
 		}
 	} else if (fdt_magic(fdt) == FDT_SW_MAGIC) {
 		unsigned int sw_stroffset = -stroffset;
 
 		if ((stroffset >= 0) ||
-		    (sw_stroffset > fdt_size_dt_strings(fdt)))
+		    (sw_stroffset > fdt_size_dt_strings(fdt))) {
 			goto fail;
-		if (sw_stroffset < len)
+		}
+		if (sw_stroffset < len) {
 			len = sw_stroffset;
+		}
 	} else {
 		err = -FDT_ERR_INTERNAL;
 		goto fail;
@@ -166,8 +173,9 @@ static const struct fdt_reserve_entry *fdt_mem_rsv(const void *fdt, int n)
 	unsigned int absoffset = fdt_off_mem_rsvmap(fdt) + offset;
 
 	if (!can_assume(VALID_INPUT)) {
-		if (absoffset < fdt_off_mem_rsvmap(fdt))
+		if (absoffset < fdt_off_mem_rsvmap(fdt)) {
 			return NULL;
+		}
 		if (absoffset > (fdt_totalsize(fdt) -
 		    sizeof(struct fdt_reserve_entry))) {
 			return NULL;
@@ -182,8 +190,9 @@ int fdt_get_mem_rsv(const void *fdt, int n, uint64_t *address, uint64_t *size)
 
 	FDT_RO_PROBE(fdt);
 	re = fdt_mem_rsv(fdt, n);
-	if (!can_assume(VALID_INPUT) && !re)
+	if (!can_assume(VALID_INPUT) && !re) {
 		return -FDT_ERR_BADOFFSET;
+	}
 
 	*address = fdt64_ld_(&re->address);
 	*size = fdt64_ld_(&re->size);
@@ -196,8 +205,9 @@ int fdt_num_mem_rsv(const void *fdt)
 	const struct fdt_reserve_entry *re;
 
 	for (i = 0; (re = fdt_mem_rsv(fdt, i)) != NULL; i++) {
-		if (fdt64_ld_(&re->size) == 0)
+		if (fdt64_ld_(&re->size) == 0) {
 			return i;
+		}
 	}
 	return -FDT_ERR_TRUNCATED;
 }
@@ -212,10 +222,11 @@ static int nextprop_(const void *fdt, int offset)
 
 		switch (tag) {
 		case FDT_END:
-			if (nextoffset >= 0)
+			if (nextoffset >= 0) {
 				return -FDT_ERR_BADSTRUCTURE;
-			else
+			} else {
 				return nextoffset;
+			}
 
 		case FDT_PROP:
 			return offset;
@@ -235,14 +246,16 @@ int fdt_subnode_offset_namelen(const void *fdt, int offset,
 
 	for (depth = 0;
 	     (offset >= 0) && (depth >= 0);
-	     offset = fdt_next_node(fdt, offset, &depth))
+	     offset = fdt_next_node(fdt, offset, &depth)) {
 		if ((depth == 1)
 		    && ((fdt_nodename_eq_(fdt, offset, name, namelen)) != 0)) {
 			return offset;
 		}
+	}
 
-	if (depth < 0)
+	if (depth < 0) {
 		return -FDT_ERR_NOTFOUND;
+	}
 	return offset; /* error */
 }
 
@@ -285,8 +298,9 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 
 		while (*p == '/') {
 			p++;
-			if (p == end)
+			if (p == end) {
 				return offset;
+			}
 		}
 		q = memchr(p, '/', end - p);
 		if (q == NULL) {
@@ -294,8 +308,9 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 		}
 
 		offset = fdt_subnode_offset_namelen(fdt, offset, p, q-p);
-		if (offset < 0)
+		if (offset < 0) {
 			return offset;
+		}
 
 		p = q;
 	}
@@ -315,8 +330,9 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 	int err;
 
 	if (((err = fdt_ro_probe_(fdt)) < 0)
-	    || ((err = fdt_check_node_offset_(fdt, nodeoffset)) < 0))
+	    || ((err = fdt_check_node_offset_(fdt, nodeoffset)) < 0)) {
 			goto fail;
+		}
 
 	nameptr = nh->name;
 
@@ -595,8 +611,9 @@ int fdt_get_path(const void *fdt, int nodeoffset, char *buf, int buflen)
 
 	FDT_RO_PROBE(fdt);
 
-	if (buflen < 2)
+	if (buflen < 2) {
 		return -FDT_ERR_NOSPACE;
+	}
 
 	for (offset = 0, depth = 0;
 	     (offset >= 0) && (offset <= nodeoffset);
@@ -647,32 +664,36 @@ int fdt_supernode_atdepth_offset(const void *fdt, int nodeoffset,
 
 	FDT_RO_PROBE(fdt);
 
-	if (supernodedepth < 0)
+	if (supernodedepth < 0) {
 		return -FDT_ERR_NOTFOUND;
+	}
 
 	for (offset = 0, depth = 0;
 	     (offset >= 0) && (offset <= nodeoffset);
 	     offset = fdt_next_node(fdt, offset, &depth)) {
-		if (depth == supernodedepth)
+		if (depth == supernodedepth) {
 			supernodeoffset = offset;
+		}
 
 		if (offset == nodeoffset) {
 			if (nodedepth != NULL) {
 				*nodedepth = depth;
 			}
 
-			if (supernodedepth > depth)
+			if (supernodedepth > depth) {
 				return -FDT_ERR_NOTFOUND;
-			else
+			} else {
 				return supernodeoffset;
+			}
 		}
 	}
 
 	if (!can_assume(VALID_INPUT)) {
-		if ((offset == -FDT_ERR_NOTFOUND) || (offset >= 0))
+		if ((offset == -FDT_ERR_NOTFOUND) || (offset >= 0)) {
 			return -FDT_ERR_BADOFFSET;
-		else if (offset == -FDT_ERR_BADOFFSET)
+		} else if (offset == -FDT_ERR_BADOFFSET) {
 			return -FDT_ERR_BADSTRUCTURE;
+		}
 	}
 
 	return offset; /* error from fdt_next_node() */
@@ -695,8 +716,9 @@ int fdt_parent_offset(const void *fdt, int nodeoffset)
 {
 	int nodedepth = fdt_node_depth(fdt, nodeoffset);
 
-	if (nodedepth < 0)
+	if (nodedepth < 0) {
 		return nodedepth;
+	}
 	return fdt_supernode_atdepth_offset(fdt, nodeoffset,
 					    nodedepth - 1, NULL);
 }
