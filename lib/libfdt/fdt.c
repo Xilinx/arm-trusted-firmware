@@ -23,7 +23,7 @@ int32_t fdt_ro_probe_(const void *fdt)
 		return totalsize;
 
 	/* The device tree must be at an 8-byte aligned address */
-	if ((uintptr_t)fdt & 7U) {
+	if (((uintptr_t)fdt & 7U) != 0U) {
 		return -FDT_ERR_ALIGNMENT;
 	}
 
@@ -94,7 +94,7 @@ int fdt_check_header(const void *fdt)
 	size_t hdrsize;
 
 	/* The device tree must be at an 8-byte aligned address */
-	if ((uintptr_t)fdt & 7U) {
+	if (((uintptr_t)fdt & 7U) != 0U) {
 		return -FDT_ERR_ALIGNMENT;
 	}
 
@@ -279,8 +279,9 @@ int fdt_next_node(const void *fdt, int offset, int *depth)
 			break;
 
 		case FDT_BEGIN_NODE:
-			if (depth)
+			if (depth != NULL) {
 				(*depth)++;
+			}
 			break;
 
 		case FDT_END_NODE:

@@ -683,9 +683,10 @@ int fdt_node_depth(const void *fdt, int nodeoffset)
 	int err;
 
 	err = fdt_supernode_atdepth_offset(fdt, nodeoffset, 0, &nodedepth);
-	if (err)
+	if (err != 0) {
 		return (can_assume(LIBFDT_FLAWLESS) || err < 0) ? err :
 			-FDT_ERR_INTERNAL;
+	}
 	return nodedepth;
 }
 
