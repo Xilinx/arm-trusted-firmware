@@ -263,10 +263,12 @@ int fdt_next_node(const void *fdt, int offset, int *depth)
 	int nextoffset = 0;
 	uint32_t tag;
 
-	if (offset >= 0)
-		if ((nextoffset = fdt_check_node_offset_(fdt, offset)) < 0)
+	if (offset >= 0) {
+		nextoffset = fdt_check_node_offset_(fdt, offset);
+		if (nextoffset < 0) {
 			return nextoffset;
-
+		}
+	}
 	do {
 		offset = nextoffset;
 		tag = fdt_next_tag(fdt, offset, &nextoffset);

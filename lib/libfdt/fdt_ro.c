@@ -349,18 +349,22 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 
 int fdt_first_property_offset(const void *fdt, int nodeoffset)
 {
-	int offset;
+	int offset = fdt_check_node_offset_(fdt, nodeoffset);
 
-	if ((offset = fdt_check_node_offset_(fdt, nodeoffset)) < 0)
+	if (offset < 0) {
 		return offset;
+	}
 
 	return nextprop_(fdt, offset);
 }
 
 int fdt_next_property_offset(const void *fdt, int offset)
 {
-	if ((offset = fdt_check_prop_offset_(fdt, offset)) < 0)
+	offset = fdt_check_prop_offset_(fdt, offset);
+
+	if (offset < 0) {
 		return offset;
+	}
 
 	return nextprop_(fdt, offset);
 }
@@ -369,11 +373,10 @@ static const struct fdt_property *fdt_get_property_by_offset_(const void *fdt,
 						              int offset,
 						              int *lenp)
 {
-	int err;
+	int err = fdt_check_prop_offset_(fdt, offset);
 	const struct fdt_property *prop;
 
-	if (!can_assume(VALID_INPUT) &&
-	    (err = fdt_check_prop_offset_(fdt, offset)) < 0) {
+	if (!can_assume(VALID_INPUT) && (err < 0)) {
 		if (lenp != NULL) {
 			*lenp = err;
 		}
