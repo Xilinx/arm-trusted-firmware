@@ -19,8 +19,9 @@ int32_t fdt_ro_probe_(const void *fdt)
 {
 	int32_t totalsize = fdt_totalsize(fdt);
 
-	if (can_assume(VALID_DTB))
+	if (can_assume(VALID_DTB)) {
 		return totalsize;
+	}
 
 	/* The device tree must be at an 8-byte aligned address */
 	if (((uintptr_t)fdt & 7U) != 0U) {
@@ -30,24 +31,28 @@ int32_t fdt_ro_probe_(const void *fdt)
 	if (fdt_magic(fdt) == FDT_MAGIC) {
 		/* Complete tree */
 		if (!can_assume(LATEST)) {
-			if (fdt_version(fdt) < FDT_FIRST_SUPPORTED_VERSION)
+			if (fdt_version(fdt) < FDT_FIRST_SUPPORTED_VERSION) {
 				return -FDT_ERR_BADVERSION;
+			}
 			if (fdt_last_comp_version(fdt) >
-					FDT_LAST_SUPPORTED_VERSION)
+					FDT_LAST_SUPPORTED_VERSION) {
 				return -FDT_ERR_BADVERSION;
+			}
 		}
 	} else if (fdt_magic(fdt) == FDT_SW_MAGIC) {
 		/* Unfinished sequential-write blob */
-		if (!can_assume(VALID_INPUT) && fdt_size_dt_struct(fdt) == 0)
+		if (!can_assume(VALID_INPUT) && fdt_size_dt_struct(fdt) == 0) {
 			return -FDT_ERR_BADSTATE;
+		}
 	} else {
 		return -FDT_ERR_BADMAGIC;
 	}
 
-	if (totalsize < INT32_MAX)
+	if (totalsize < INT32_MAX) {
 		return totalsize;
-	else
+	} else {
 		return -FDT_ERR_TRUNCATED;
+	}
 }
 
 static int check_off_(size_t hdrsize, size_t totalsize, size_t off)
@@ -61,8 +66,9 @@ static int check_block_(size_t hdrsize, size_t totalsize,
 	if (check_off_(hdrsize, totalsize, base) == 0) {
 		return 0; /* block start out of bounds */
 	}
-	if ((base + size) < base)
+	if ((base + size) < base) {
 		return 0; /* overflow */
+	}
 	if (check_off_(hdrsize, totalsize, base + size) == 0) {
 		return 0; /* block end out of bounds */
 	}
@@ -71,16 +77,17 @@ static int check_block_(size_t hdrsize, size_t totalsize,
 
 size_t fdt_header_size_(uint32_t version)
 {
-	if (version <= 1)
+	if (version <= 1) {
 		return FDT_V1_SIZE;
-	else if (version <= 2)
+	} else if (version <= 2) {
 		return FDT_V2_SIZE;
-	else if (version <= 3)
+	} else if (version <= 3) {
 		return FDT_V3_SIZE;
-	else if (version <= 16)
+	} else if (version <= 16) {
 		return FDT_V16_SIZE;
-	else
+	} else {
 		return FDT_V17_SIZE;
+	}
 }
 
 size_t fdt_header_size(const void *fdt)
@@ -98,21 +105,25 @@ int fdt_check_header(const void *fdt)
 		return -FDT_ERR_ALIGNMENT;
 	}
 
-	if (fdt_magic(fdt) != FDT_MAGIC)
+	if (fdt_magic(fdt) != FDT_MAGIC) {
 		return -FDT_ERR_BADMAGIC;
+	}
 	if (!can_assume(LATEST)) {
 		if ((fdt_version(fdt) < FDT_FIRST_SUPPORTED_VERSION)
 		    || (fdt_last_comp_version(fdt) >
-			FDT_LAST_SUPPORTED_VERSION))
+			FDT_LAST_SUPPORTED_VERSION)) {
 			return -FDT_ERR_BADVERSION;
-		if (fdt_version(fdt) < fdt_last_comp_version(fdt))
+		}
+		if (fdt_version(fdt) < fdt_last_comp_version(fdt)) {
 			return -FDT_ERR_BADVERSION;
+		}
 	}
 	hdrsize = fdt_header_size(fdt);
 	if (!can_assume(VALID_DTB)) {
 		if ((fdt_totalsize(fdt) < hdrsize)
-		    || (fdt_totalsize(fdt) > INT_MAX))
+		    || (fdt_totalsize(fdt) > INT_MAX)) {
 			return -FDT_ERR_TRUNCATED;
+		}
 
 		/* Bounds check memrsv block */
 		if (check_off_(hdrsize, fdt_totalsize(fdt),
@@ -150,19 +161,24 @@ const void *fdt_offset_ptr(const void *fdt, int offset, unsigned int len)
 	unsigned int uoffset = offset;
 	unsigned int absoffset = offset + fdt_off_dt_struct(fdt);
 
-	if (offset < 0)
+	if (offset < 0) {
 		return NULL;
+	}
 
-	if (!can_assume(VALID_INPUT))
+	if (!can_assume(VALID_INPUT)) {
 		if ((absoffset < uoffset)
 		    || ((absoffset + len) < absoffset)
-		    || (absoffset + len) > fdt_totalsize(fdt))
+		    || (absoffset + len) > fdt_totalsize(fdt)) {
 			return NULL;
+		}
+	}
 
-	if (can_assume(LATEST) || fdt_version(fdt) >= 0x11)
+	if (can_assume(LATEST) || fdt_version(fdt) >= 0x11) {
 		if (((uoffset + len) < uoffset)
-		    || ((uoffset + len) > fdt_size_dt_struct(fdt)))
+		    || ((uoffset + len) > fdt_size_dt_struct(fdt))) {
 			return NULL;
+		}
+	}
 
 	return fdt_offset_ptr_(fdt, offset);
 }
@@ -203,16 +219,18 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 		len = fdt32_to_cpu(*lenp);
 		sum = len + offset;
 		if (!can_assume(VALID_DTB) &&
-		    (INT_MAX <= sum || sum < (uint32_t) offset))
+		    (sum >= INT_MAX || sum < (uint32_t)offset)) {
 			return FDT_END; /* premature end */
+		}
 
 		/* skip-name offset, length and value */
 		offset += sizeof(struct fdt_property) - FDT_TAGSIZE + len;
 
 		if (!can_assume(LATEST) &&
 		    fdt_version(fdt) < 0x10 && len >= 8 &&
-		    ((offset - len) % 8) != 0)
+		    ((offset - len) % 8) != 0) {
 			offset += 4;
+		}
 		break;
 
 	case FDT_END:
@@ -239,8 +257,9 @@ int fdt_check_node_offset_(const void *fdt, int offset)
 		return -FDT_ERR_BADOFFSET;
 	}
 
-	if (fdt_next_tag(fdt, offset, &offset) != FDT_BEGIN_NODE)
+	if (fdt_next_tag(fdt, offset, &offset) != FDT_BEGIN_NODE) {
 		return -FDT_ERR_BADOFFSET;
+	}
 
 	return offset;
 }
@@ -252,8 +271,9 @@ int fdt_check_prop_offset_(const void *fdt, int offset)
 		return -FDT_ERR_BADOFFSET;
 	}
 
-	if (fdt_next_tag(fdt, offset, &offset) != FDT_PROP)
+	if (fdt_next_tag(fdt, offset, &offset) != FDT_PROP) {
 		return -FDT_ERR_BADOFFSET;
+	}
 
 	return offset;
 }
@@ -294,8 +314,9 @@ int fdt_next_node(const void *fdt, int offset, int *depth)
 			if ((nextoffset >= 0)
 			    || ((nextoffset == -FDT_ERR_TRUNCATED) && (depth != NULL))) {
 				return -FDT_ERR_NOTFOUND;
-			} else
+			} else {
 				return nextoffset;
+			}
 		}
 	} while (tag != FDT_BEGIN_NODE);
 
@@ -307,8 +328,9 @@ int fdt_first_subnode(const void *fdt, int offset)
 	int depth = 0;
 
 	offset = fdt_next_node(fdt, offset, &depth);
-	if (offset < 0 || depth != 1)
+	if (offset < 0 || depth != 1) {
 		return -FDT_ERR_NOTFOUND;
+	}
 
 	return offset;
 }
@@ -323,8 +345,9 @@ int fdt_next_subnode(const void *fdt, int offset)
 	 */
 	do {
 		offset = fdt_next_node(fdt, offset, &depth);
-		if (offset < 0 || depth < 1)
+		if (offset < 0 || depth < 1) {
 			return -FDT_ERR_NOTFOUND;
+		}
 	} while (depth > 1);
 
 	return offset;
@@ -336,21 +359,25 @@ const char *fdt_find_string_(const char *strtab, int tabsize, const char *s)
 	const char *last = strtab + tabsize - len;
 	const char *p;
 
-	for (p = strtab; p <= last; p++)
-		if (memcmp(p, s, len) == 0)
+	for (p = strtab; p <= last; p++) {
+		if (memcmp(p, s, len) == 0) {
 			return p;
+		}
+	}
 	return NULL;
 }
 
 int fdt_move(const void *fdt, void *buf, int bufsize)
 {
-	if (!can_assume(VALID_INPUT) && bufsize < 0)
+	if (!can_assume(VALID_INPUT) && bufsize < 0) {
 		return -FDT_ERR_NOSPACE;
+	}
 
 	FDT_RO_PROBE(fdt);
 
-	if (fdt_totalsize(fdt) > (unsigned int)bufsize)
+	if (fdt_totalsize(fdt) > (unsigned int)bufsize) {
 		return -FDT_ERR_NOSPACE;
+	}
 
 	memmove(buf, fdt, fdt_totalsize(fdt));
 	return 0;

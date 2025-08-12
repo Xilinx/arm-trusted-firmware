@@ -22,12 +22,14 @@ static int fdt_cells(const void *fdt, int nodeoffset, const char *name)
 		return len;
 	}
 
-	if (len != sizeof(*c))
+	if (len != sizeof(*c)) {
 		return -FDT_ERR_BADNCELLS;
+	}
 
 	val = fdt32_to_cpu(*c);
-	if (val > FDT_MAX_NCELLS)
+	if (val > FDT_MAX_NCELLS) {
 		return -FDT_ERR_BADNCELLS;
+	}
 
 	return (int)val;
 }
@@ -37,10 +39,12 @@ int fdt_address_cells(const void *fdt, int nodeoffset)
 	int val;
 
 	val = fdt_cells(fdt, nodeoffset, "#address-cells");
-	if (val == 0)
+	if (val == 0) {
 		return -FDT_ERR_BADNCELLS;
-	if (val == -FDT_ERR_NOTFOUND)
+	}
+	if (val == -FDT_ERR_NOTFOUND) {
 		return 2;
+	}
 	return val;
 }
 
@@ -49,8 +53,9 @@ int fdt_size_cells(const void *fdt, int nodeoffset)
 	int val;
 
 	val = fdt_cells(fdt, nodeoffset, "#size-cells");
-	if (val == -FDT_ERR_NOTFOUND)
+	if (val == -FDT_ERR_NOTFOUND) {
 		return 1;
+	}
 	return val;
 }
 

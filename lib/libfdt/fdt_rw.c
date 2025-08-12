@@ -24,18 +24,21 @@ static int fdt_blocks_misordered_(const void *fdt,
 
 static int fdt_rw_probe_(void *fdt)
 {
-	if (can_assume(VALID_DTB))
+	if (can_assume(VALID_DTB)) {
 		return 0;
+	}
 	FDT_RO_PROBE(fdt);
 
-	if (!can_assume(LATEST) && (fdt_version(fdt) < 17))
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 17)) {
 		return -FDT_ERR_BADVERSION;
+	}
 	if (fdt_blocks_misordered_(fdt, sizeof(struct fdt_reserve_entry),
 				   fdt_size_dt_struct(fdt)) != 0) {
 		return -FDT_ERR_BADLAYOUT;
 	}
-	if (!can_assume(LATEST) && (fdt_version(fdt) > 17))
+	if (!can_assume(LATEST) && (fdt_version(fdt) > 17)) {
 		fdt_set_version(fdt, 17);
+	}
 
 	return 0;
 }
@@ -223,8 +226,9 @@ static int fdt_add_property_(void *fdt, int nodeoffset, const char *name,
 	}
 
 	namestroff = fdt_find_add_string_(fdt, name, &allocated);
-	if (namestroff < 0)
+	if (namestroff < 0) {
 		return namestroff;
+	}
 
 	*prop = fdt_offset_ptr_w_(fdt, nextoffset);
 	proplen = sizeof(**prop) + FDT_TAGALIGN(len);
@@ -276,8 +280,10 @@ int fdt_setprop_placeholder(void *fdt, int nodeoffset, const char *name,
 	FDT_RW_PROBE(fdt);
 
 	err = fdt_resize_property_(fdt, nodeoffset, name, len, &prop);
-	if (err == -FDT_ERR_NOTFOUND)
+	if (err == -FDT_ERR_NOTFOUND) {
 		err = fdt_add_property_(fdt, nodeoffset, name, len, &prop);
+	}
+
 	if (err != 0) {
 		return err;
 	}
@@ -360,16 +366,19 @@ int fdt_add_subnode_namelen(void *fdt, int parentoffset,
 	FDT_RW_PROBE(fdt);
 
 	offset = fdt_subnode_offset_namelen(fdt, parentoffset, name, namelen);
-	if (offset >= 0)
+	if (offset >= 0) {
 		return -FDT_ERR_EXISTS;
-	else if (offset != -FDT_ERR_NOTFOUND)
+	} else if (offset != -FDT_ERR_NOTFOUND) {
 		return offset;
+	}
 
 	/* Try to place the new node after the parent's properties */
 	tag = fdt_next_tag(fdt, parentoffset, &nextoffset);
 	/* the fdt_subnode_offset_namelen() should ensure this never hits */
-	if (!can_assume(LIBFDT_FLAWLESS) && (tag != FDT_BEGIN_NODE))
+	if (!can_assume(LIBFDT_FLAWLESS) && (tag != FDT_BEGIN_NODE)) {
 		return -FDT_ERR_INTERNAL;
+	}
+
 	do {
 		offset = nextoffset;
 		tag = fdt_next_tag(fdt, offset, &nextoffset);
@@ -452,10 +461,14 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 		struct_size = fdt_size_dt_struct(fdt);
 	} else if (fdt_version(fdt) == 16) {
 		struct_size = 0;
-		while (fdt_next_tag(fdt, struct_size, &struct_size) != FDT_END)
+		while (fdt_next_tag(fdt, struct_size, &struct_size) != FDT_END) {
 			;
-		if (struct_size < 0)
+		}
+
+		if (struct_size < 0) {
 			return struct_size;
+		}
+
 	} else {
 		return -FDT_ERR_BADVERSION;
 	}
@@ -477,8 +490,9 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 	newsize = FDT_ALIGN(sizeof(struct fdt_header), 8) + mem_rsv_size
 		+ struct_size + fdt_size_dt_strings(fdt);
 
-	if (bufsize < newsize)
+	if (bufsize < newsize) {
 		return -FDT_ERR_NOSPACE;
+	}
 
 	/* First attempt to build converted tree at beginning of buffer */
 	tmp = buf;
@@ -486,8 +500,9 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 	if (((tmp + newsize) > fdtstart) && (tmp < fdtend)) {
 		/* Try right after the old tree instead */
 		tmp = (char *)(uintptr_t)fdtend;
-		if ((tmp + newsize) > ((char *)buf + bufsize))
+		if ((tmp + newsize) > ((char *)buf + bufsize)) {
 			return -FDT_ERR_NOSPACE;
+		}
 	}
 
 	fdt_packblocks_(fdt, tmp, mem_rsv_size, struct_size,
