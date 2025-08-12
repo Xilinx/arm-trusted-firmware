@@ -61,7 +61,7 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 	if (fdt_magic(fdt) == FDT_MAGIC) {
 		if (stroffset < 0)
 			goto fail;
-		if (can_assume(LATEST) || fdt_version(fdt) >= 17) {
+		if (can_assume(LATEST) || (fdt_version(fdt) >= 17)) {
 			if ((unsigned)stroffset >= fdt_size_dt_strings(fdt))
 				goto fail;
 			if ((fdt_size_dt_strings(fdt) - stroffset) < len)
@@ -168,9 +168,10 @@ static const struct fdt_reserve_entry *fdt_mem_rsv(const void *fdt, int n)
 	if (!can_assume(VALID_INPUT)) {
 		if (absoffset < fdt_off_mem_rsvmap(fdt))
 			return NULL;
-		if (absoffset > fdt_totalsize(fdt) -
-		    sizeof(struct fdt_reserve_entry))
+		if (absoffset > (fdt_totalsize(fdt) -
+		    sizeof(struct fdt_reserve_entry))) {
 			return NULL;
+			}
 	}
 	return fdt_mem_rsv_(fdt, n);
 }
@@ -319,7 +320,7 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 
 	nameptr = nh->name;
 
-	if (!can_assume(LATEST) && fdt_version(fdt) < 0x10) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10)) {
 		/*
 		 * For old FDT versions, match the naming conventions of V16:
 		 * give only the leaf name (after all /). The actual tree
@@ -447,7 +448,7 @@ const struct fdt_property *fdt_get_property_namelen(const void *fdt,
 {
 	/* Prior to version 16, properties may need realignment
 	 * and this API does not work. fdt_getprop_*() will, however. */
-	if (!can_assume(LATEST) && fdt_version(fdt) < 0x10) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10)) {
 		if (lenp != NULL) {
 			*lenp = -FDT_ERR_BADVERSION;
 		}
@@ -480,8 +481,8 @@ const void *fdt_getprop_namelen(const void *fdt, int nodeoffset,
 	}
 
 	/* Handle realignment */
-	if (!can_assume(LATEST) && fdt_version(fdt) < 0x10 &&
-	    (((poffset + sizeof(*prop)) % 8) != 0) && fdt32_ld_(&prop->len) >= 8) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10) &&
+	    (((poffset + sizeof(*prop)) % 8) != 0) && (fdt32_ld_(&prop->len) >= 8)) {
 		return prop->data + 4;
 	}
 	return prop->data;
@@ -684,7 +685,7 @@ int fdt_node_depth(const void *fdt, int nodeoffset)
 
 	err = fdt_supernode_atdepth_offset(fdt, nodeoffset, 0, &nodedepth);
 	if (err != 0) {
-		return (can_assume(LIBFDT_FLAWLESS) || err < 0) ? err :
+		return (can_assume(LIBFDT_FLAWLESS) || (err < 0)) ? err :
 			-FDT_ERR_INTERNAL;
 	}
 	return nodedepth;

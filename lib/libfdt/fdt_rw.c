@@ -28,12 +28,13 @@ static int fdt_rw_probe_(void *fdt)
 		return 0;
 	FDT_RO_PROBE(fdt);
 
-	if (!can_assume(LATEST) && fdt_version(fdt) < 17)
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 17))
 		return -FDT_ERR_BADVERSION;
 	if (fdt_blocks_misordered_(fdt, sizeof(struct fdt_reserve_entry),
 				   fdt_size_dt_struct(fdt)) != 0) {
 		return -FDT_ERR_BADLAYOUT;
-	if (!can_assume(LATEST) && fdt_version(fdt) > 17)
+	}
+	if (!can_assume(LATEST) && (fdt_version(fdt) > 17))
 		fdt_set_version(fdt, 17);
 
 	return 0;
@@ -58,12 +59,15 @@ static int fdt_splice_(void *fdt, void *splicepoint, int oldlen, int newlen)
 	unsigned int dsize = fdt_data_size_(fdt);
 	size_t soff = p - (char *)fdt;
 
-	if ((oldlen < 0) || (soff + oldlen < soff) || (soff + oldlen > dsize))
+	if ((oldlen < 0) || ((soff + oldlen) < soff) || ((soff + oldlen) > dsize)) {
 		return -FDT_ERR_BADOFFSET;
-	if ((p < (char *)fdt) || (dsize + newlen < (unsigned)oldlen))
+	}
+	if ((p < (char *)fdt) || ((dsize + newlen) < (unsigned int)oldlen)) {
 		return -FDT_ERR_BADOFFSET;
-	if (dsize - oldlen + newlen > fdt_totalsize(fdt))
+	}
+	if ((dsize - oldlen + newlen) > fdt_totalsize(fdt)) {
 		return -FDT_ERR_NOSPACE;
+	}
 	memmove(p + newlen, p + oldlen, ((char *)fdt + dsize) - (p + oldlen));
 	return 0;
 }
@@ -444,7 +448,7 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 	mem_rsv_size = (fdt_num_mem_rsv(fdt)+1)
 		* sizeof(struct fdt_reserve_entry);
 
-	if (can_assume(LATEST) || fdt_version(fdt) >= 17) {
+	if (can_assume(LATEST) || (fdt_version(fdt) >= 17)) {
 		struct_size = fdt_size_dt_struct(fdt);
 	} else if (fdt_version(fdt) == 16) {
 		struct_size = 0;
