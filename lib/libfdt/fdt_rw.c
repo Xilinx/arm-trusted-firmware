@@ -299,7 +299,7 @@ int fdt_appendprop(void *fdt, int nodeoffset, const char *name,
 	FDT_RW_PROBE(fdt);
 
 	prop = fdt_get_property_w(fdt, nodeoffset, name, &oldlen);
-	if (prop) {
+	if (prop != NULL) {
 		newlen = len + oldlen;
 		err = fdt_splice_struct_(fdt, prop->data,
 					 FDT_TAGALIGN(oldlen),

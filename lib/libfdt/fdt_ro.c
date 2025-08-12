@@ -42,8 +42,9 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 	if (can_assume(VALID_INPUT)) {
 		s = (const char *)fdt + fdt_off_dt_strings(fdt) + stroffset;
 
-		if (lenp)
+		if (lenp != NULL) {
 			*lenp = strlen(s);
+		}
 		return s;
 	}
 	totalsize = fdt_ro_probe_(fdt);
@@ -87,13 +88,15 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 		goto fail;
 	}
 
-	if (lenp)
+	if (lenp != NULL) {
 		*lenp = n - s;
+	}
 	return s;
 
 fail:
-	if (lenp)
+	if (lenp != NULL) {
 		*lenp = err;
+	}
 	return NULL;
 }
 
@@ -331,14 +334,16 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 		nameptr = leaf+1;
 	}
 
-	if (len)
+	if (len != NULL) {
 		*len = strlen(nameptr);
+	}
 
 	return nameptr;
 
  fail:
-	if (len)
+	if (len != NULL) {
 		*len = err;
+	}
 	return NULL;
 }
 
@@ -369,15 +374,17 @@ static const struct fdt_property *fdt_get_property_by_offset_(const void *fdt,
 
 	if (!can_assume(VALID_INPUT) &&
 	    (err = fdt_check_prop_offset_(fdt, offset)) < 0) {
-		if (lenp)
+		if (lenp != NULL) {
 			*lenp = err;
+		}
 		return NULL;
 	}
 
 	prop = fdt_offset_ptr_(fdt, offset);
 
-	if (lenp)
+	if (lenp != NULL) {
 		*lenp = fdt32_ld_(&prop->len);
+	}
 
 	return prop;
 }
@@ -423,8 +430,9 @@ static const struct fdt_property *fdt_get_property_namelen_(const void *fdt,
 		}
 	}
 
-	if (lenp)
+	if (lenp != NULL) {
 		*lenp = offset;
+	}
 	return NULL;
 }
 
@@ -437,8 +445,9 @@ const struct fdt_property *fdt_get_property_namelen(const void *fdt,
 	/* Prior to version 16, properties may need realignment
 	 * and this API does not work. fdt_getprop_*() will, however. */
 	if (!can_assume(LATEST) && fdt_version(fdt) < 0x10) {
-		if (lenp)
+		if (lenp != NULL) {
 			*lenp = -FDT_ERR_BADVERSION;
+		}
 		return NULL;
 	}
 
@@ -644,8 +653,9 @@ int fdt_supernode_atdepth_offset(const void *fdt, int nodeoffset,
 			supernodeoffset = offset;
 
 		if (offset == nodeoffset) {
-			if (nodedepth)
+			if (nodedepth != NULL) {
 				*nodedepth = depth;
+			}
 
 			if (supernodedepth > depth)
 				return -FDT_ERR_NOTFOUND;
