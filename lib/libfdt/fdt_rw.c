@@ -41,9 +41,10 @@ static int fdt_rw_probe_(void *fdt)
 
 #define FDT_RW_PROBE(fdt) \
 	{ \
-		int err_; \
-		if ((err_ = fdt_rw_probe_(fdt)) != 0) \
+		int err_ = fdt_rw_probe_(fdt); \
+		if (err_ != 0) { \
 			return err_; \
+		} \
 	}
 
 static inline unsigned int fdt_data_size_(void *fdt)
@@ -84,10 +85,11 @@ static int fdt_splice_struct_(void *fdt, void *p,
 			      int oldlen, int newlen)
 {
 	int delta = newlen - oldlen;
-	int err;
+	int err = fdt_splice_(fdt, p, oldlen, newlen);
 
-	if ((err = fdt_splice_(fdt, p, oldlen, newlen)))
+	if (err != 0) {
 		return err;
+	}
 
 	fdt_set_size_dt_struct(fdt, fdt_size_dt_struct(fdt) + delta);
 	fdt_set_off_dt_strings(fdt, fdt_off_dt_strings(fdt) + delta);
@@ -209,8 +211,11 @@ static int fdt_add_property_(void *fdt, int nodeoffset, const char *name,
 	int err;
 	int allocated;
 
-	if ((nextoffset = fdt_check_node_offset_(fdt, nodeoffset)) < 0)
+	nextoffset = fdt_check_node_offset_(fdt, nodeoffset);
+
+	if (nextoffset < 0) {
 		return nextoffset;
+	}
 
 	namestroff = fdt_find_add_string_(fdt, name, &allocated);
 	if (namestroff < 0)
