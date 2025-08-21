@@ -71,11 +71,13 @@ int dt_add_psci_node(void *fdt)
 	}
 
 	offs = fdt_path_offset(fdt, "/");
-	if (offs < 0)
+	if (offs < 0) {
 		return -1;
+	}
 	offs = fdt_add_subnode(fdt, offs, "psci");
-	if (offs < 0)
+	if (offs < 0) {
 		return -1;
+	}
 	if (append_psci_compatible(fdt, offs, "arm,psci-1.0") != 0) {
 		return -1;
 	}
@@ -168,8 +170,9 @@ int dt_add_psci_cpu_enable_methods(void *fdt)
 
 	do {
 		offs = fdt_path_offset(fdt, "/cpus");
-		if (offs < 0)
+		if (offs < 0) {
 			return offs;
+		}
 
 		ret = dt_update_one_cpu_node(fdt, offs);
 	} while (ret > 0);
