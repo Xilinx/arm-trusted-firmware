@@ -117,21 +117,28 @@ uint32_t plat_ic_acknowledge_interrupt(void)
 uint32_t plat_ic_get_interrupt_type(uint32_t id)
 {
 	unsigned int group;
+	uint32_t interrupt_type = INTR_TYPE_EL3;
 
 	assert(IS_IN_EL3());
 	group = gicv3_get_interrupt_group(id, plat_my_core_pos());
 
 	switch (group) {
+
 	case INTR_GROUP0:
-		return INTR_TYPE_EL3;
+		interrupt_type = INTR_TYPE_EL3;
+		break;
 	case INTR_GROUP1S:
-		return INTR_TYPE_S_EL1;
+		interrupt_type = INTR_TYPE_S_EL1;
+		break;
 	case INTR_GROUP1NS:
-		return INTR_TYPE_NS;
+		interrupt_type = INTR_TYPE_NS;
+		break;
 	default:
 		assert(false); /* Unreachable */
-		return INTR_TYPE_EL3;
+		break;
 	}
+
+	return interrupt_type;
 }
 
 /*
@@ -156,6 +163,8 @@ void plat_ic_end_of_interrupt(uint32_t id)
 uint32_t plat_interrupt_type_to_line(uint32_t type,
 				size_t security_state)
 {
+	uint64_t scr_bit = 0U;
+
 	assert((type == INTR_TYPE_S_EL1) ||
 	       (type == INTR_TYPE_EL3) ||
 	       (type == INTR_TYPE_NS));
@@ -170,31 +179,33 @@ uint32_t plat_interrupt_type_to_line(uint32_t type,
 		 * and as FIQ in the NS-EL0/1/2 contexts
 		 */
 		if (security_state == SECURE) {
-			return __builtin_ctz(SCR_IRQ_BIT);
+			scr_bit = SCR_IRQ_BIT;
 		} else {
-			return __builtin_ctz(SCR_FIQ_BIT);
+			scr_bit = SCR_FIQ_BIT;
 		}
-		assert(0); /* Unreachable */
+		break;
 	case INTR_TYPE_NS:
 		/*
 		 * The Non secure interrupts will be signaled as FIQ in S-EL0/1
 		 * contexts and as IRQ in the NS-EL0/1/2 contexts.
 		 */
 		if (security_state == SECURE) {
-			return __builtin_ctz(SCR_FIQ_BIT);
+			scr_bit = SCR_FIQ_BIT;
 		} else {
-			return __builtin_ctz(SCR_IRQ_BIT);
+			scr_bit = SCR_IRQ_BIT;
 		}
-		assert(0); /* Unreachable */
+		break;
 	case INTR_TYPE_EL3:
 		/*
 		 * The EL3 interrupts are signaled as FIQ in both S-EL0/1 and
 		 * NS-EL0/1/2 contexts
 		 */
-		return __builtin_ctz(SCR_FIQ_BIT);
+		scr_bit = SCR_FIQ_BIT;
+		break;
 	default:
 		panic();
 	}
+	return __builtin_ctz(scr_bit);
 }
 
 unsigned int plat_ic_get_running_priority(void)
@@ -239,12 +250,13 @@ void plat_ic_set_interrupt_priority(unsigned int id, unsigned int priority)
 
 bool plat_ic_has_interrupt_type(unsigned int type)
 {
+	bool has_interrupt_type = false;
 	if ((type == INTR_TYPE_EL3) || (type == INTR_TYPE_S_EL1) ||
 			(type == INTR_TYPE_NS)) {
-		return true;
+		has_interrupt_type = true;
 	}
 
-	return false;
+	return has_interrupt_type;
 }
 
 void plat_ic_set_interrupt_type(unsigned int id, unsigned int type)
