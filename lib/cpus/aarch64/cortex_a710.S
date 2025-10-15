@@ -271,6 +271,34 @@ workaround_reset_end cortex_a710,  CVE(2024, 5660)
 
 check_erratum_ls cortex_a710, CVE(2024, 5660), CPU_REV(2, 1)
 
+	/*
+	 * Instruction patch sequence to trap 'cpp rctx' instructions to EL3.
+	 * Enables mitigation for CVE-2025-0647.
+	 */
+workaround_reset_start cortex_a710, CVE(2025, 647), WORKAROUND_CVE_2025_0647
+#if IMAGE_BL31
+	mov	x0, #(WA_USE_T32_OPCODE | WA_PATCH_SLOT(0))
+	bl	wa_cve_2025_0647_instruction_patch
+#endif /* IMAGE_BL31 */
+workaround_reset_end cortex_a710, CVE(2025, 647)
+
+check_erratum_chosen cortex_a710, CVE(2025, 647), WORKAROUND_CVE_2025_0647
+
+#if WORKAROUND_CVE_2025_0647
+func cortex_a710_impl_defined_el3_handler
+	mov	x0, #WA_LS_RCG_EN
+
+	/* See if this call came from trap handler. */
+	cmp	x1, #EC_IMP_DEF_EL3
+	bne	wa_cve_2025_0647_do_cpp_wa
+	orr	x0, x0, #WA_IS_TRAP_HANDLER
+	b	wa_cve_2025_0647_do_cpp_wa
+endfunc cortex_a710_impl_defined_el3_handler
+#endif
+
+add_erratum_entry cortex_a710, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+check_erratum_chosen cortex_a710, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+
 	/* ----------------------------------------------------
 	 * HW will do the cache maintenance while powering down
 	 * ----------------------------------------------------

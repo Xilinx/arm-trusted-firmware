@@ -62,6 +62,9 @@ workaround_reset_end cortex_x1, CVE(2024, 5660)
 
 check_erratum_ls cortex_x1, CVE(2024, 5660), CPU_REV(1, 2)
 
+add_erratum_entry cortex_x1, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+check_erratum_chosen cortex_x1, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+
 cpu_reset_func_start cortex_x1
 cpu_reset_func_end cortex_x1
 

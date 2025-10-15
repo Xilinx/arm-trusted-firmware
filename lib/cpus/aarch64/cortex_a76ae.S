@@ -29,6 +29,70 @@ cpu_reset_prologue cortex_a76ae
 
 check_erratum_chosen cortex_a76ae, CVE(2022, 23960), WORKAROUND_CVE_2022_23960
 
+workaround_reset_start cortex_a76ae, ERRATUM(1931427), ERRATA_A76AE_1931427
+	sysreg_bit_set CORTEX_A76AE_CPUACTLR2_EL1, BIT(2)
+workaround_reset_end cortex_a76ae, ERRATUM(1931427)
+
+check_erratum_ls cortex_a76ae, ERRATUM(1931427), CPU_REV(1, 0)
+
+workaround_reset_start cortex_a76ae, ERRATUM(1931435), ERRATA_A76AE_1931435
+	sysreg_bit_set CORTEX_A76AE_CPUACTLR_EL1, BIT(13)
+workaround_reset_end cortex_a76ae, ERRATUM(1931435)
+
+check_erratum_ls cortex_a76ae, ERRATUM(1931435), CPU_REV(1, 0)
+
+workaround_reset_start cortex_a76ae, ERRATUM(1969401), ERRATA_A76AE_1969401
+	ldr x0,=0x3
+	msr CORTEX_A76AE_CPUPSELR_EL3,x0
+	ldr x0,=0x10E3900002
+	msr CORTEX_A76AE_CPUPOR_EL3,x0
+	ldr x0,=0x10FFF00083
+	msr CORTEX_A76AE_CPUPMR_EL3,x0
+	ldr x0,=0x2001003FF
+	msr CORTEX_A76AE_CPUPCR_EL3,x0
+
+	ldr x0,=0x4
+	msr CORTEX_A76AE_CPUPSELR_EL3,x0
+	ldr x0,=0x10E3800082
+	msr CORTEX_A76AE_CPUPOR_EL3,x0
+	ldr x0,= 0x10FFF00083
+	msr CORTEX_A76AE_CPUPMR_EL3,x0
+	ldr x0,=0x2001003FF
+	msr CORTEX_A76AE_CPUPCR_EL3,x0
+
+	ldr x0,=0x5
+	msr CORTEX_A76AE_CPUPSELR_EL3,x0
+	ldr x0,=0x10E3800200
+	msr CORTEX_A76AE_CPUPOR_EL3,x0
+	ldr x0,=0x10FFF003E0
+	msr CORTEX_A76AE_CPUPMR_EL3,x0
+	ldr x0,=0x2001003FF
+	msr CORTEX_A76AE_CPUPCR_EL3,x0
+workaround_reset_end cortex_a76ae, ERRATUM(1969401)
+
+check_erratum_ls cortex_a76ae, ERRATUM(1969401), CPU_REV(1, 0)
+
+workaround_reset_start cortex_a76ae, ERRATUM(2371140), ERRATA_A76AE_2371140
+	sysreg_bit_set CORTEX_A76AE_CPUACTLR2_EL1, BIT(0)
+workaround_reset_end cortex_a76ae, ERRATUM(2371140)
+
+check_erratum_ls cortex_a76ae, ERRATUM(2371140), CPU_REV(1, 1)
+
+workaround_runtime_start cortex_a76ae, ERRATUM(2753838), ERRATA_A76AE_2753838
+	dsb sy
+workaround_runtime_end cortex_a76ae, ERRATUM(2753838)
+
+check_erratum_ls cortex_a76ae, ERRATUM(2753838), CPU_REV(1, 1)
+
+workaround_reset_start cortex_a76ae, ERRATUM(3888014), ERRATA_A76AE_3888014
+	sysreg_bit_set CORTEX_A76AE_CPUACTLR2_EL1, BIT(22)
+workaround_reset_end cortex_a76ae, ERRATUM(3888014)
+
+check_erratum_chosen cortex_a76ae, ERRATUM(3888014), ERRATA_A76AE_3888014
+
+add_erratum_entry cortex_a76ae, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+check_erratum_chosen cortex_a76ae, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+
 workaround_reset_start cortex_a76ae, CVE(2022, 23960), WORKAROUND_CVE_2022_23960
 #if IMAGE_BL31
 	/*

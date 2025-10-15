@@ -63,6 +63,9 @@ workaround_reset_end neoverse_v3, CVE(2024, 7881)
 
 check_erratum_chosen neoverse_v3, CVE(2024, 7881), WORKAROUND_CVE_2024_7881
 
+add_erratum_entry neoverse_v3, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+check_erratum_chosen neoverse_v3, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+
 	/* ---------------------------------------------
 	 * HW will do the cache maintenance while powering down
 	 * ---------------------------------------------

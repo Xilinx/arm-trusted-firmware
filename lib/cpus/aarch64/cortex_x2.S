@@ -246,6 +246,9 @@ workaround_reset_end cortex_x2, CVE(2024, 5660)
 
 check_erratum_ls cortex_x2, CVE(2024, 5660), CPU_REV(2, 1)
 
+add_erratum_entry cortex_x2, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+check_erratum_chosen cortex_x2, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+
 	/* ----------------------------------------------------
 	 * HW will do the cache maintenance while powering down
 	 * ----------------------------------------------------

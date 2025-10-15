@@ -242,6 +242,34 @@ workaround_reset_end neoverse_n2, CVE(2024, 5660)
 
 check_erratum_ls neoverse_n2, CVE(2024, 5660), CPU_REV(0, 3)
 
+	/*
+	 * Instruction patch sequence to trap 'cpp rctx' instructions to EL3.
+	 * Enables mitigation for CVE-2025-0647.
+	 */
+workaround_reset_start neoverse_n2, CVE(2025, 647), WORKAROUND_CVE_2025_0647
+#if IMAGE_BL31
+	mov	x0, #(WA_USE_T32_OPCODE | WA_PATCH_SLOT(0))
+	bl	wa_cve_2025_0647_instruction_patch
+#endif /* IMAGE_BL31 */
+workaround_reset_end neoverse_n2, CVE(2025, 647)
+
+check_erratum_chosen neoverse_n2, CVE(2025, 647), WORKAROUND_CVE_2025_0647
+
+#if WORKAROUND_CVE_2025_0647
+func neoverse_n2_impl_defined_el3_handler
+	mov	x0, #WA_LS_RCG_EN
+
+	/* See if this call came from trap handler. */
+	cmp	x1, #EC_IMP_DEF_EL3
+	bne	wa_cve_2025_0647_do_cpp_wa
+	orr	x0, x0, #WA_IS_TRAP_HANDLER
+	b	wa_cve_2025_0647_do_cpp_wa
+endfunc neoverse_n2_impl_defined_el3_handler
+#endif
+
+add_erratum_entry neoverse_n2, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+check_erratum_chosen neoverse_n2, CVE(2025, 10263), WORKAROUND_CVE_2025_10263
+
 	/* -------------------------------------------
 	 * The CPU Ops reset function for Neoverse N2.
 	 * -------------------------------------------
