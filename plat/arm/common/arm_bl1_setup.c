@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,7 +15,7 @@
 #include <lib/fconf/fconf.h>
 #include <lib/fconf/fconf_dyn_cfg_getter.h>
 #if TRANSFER_LIST
-#include <lib/transfer_list.h>
+#include <transfer_list.h>
 #endif
 #include <lib/utils.h>
 #include <lib/xlat_tables/xlat_tables_compat.h>
@@ -64,9 +64,7 @@ static meminfo_t bl1_tzram_layout;
 /* Boolean variable to hold condition whether firmware update needed or not */
 static bool is_fwu_needed;
 
-#if TRANSFER_LIST
-static struct transfer_list_header *secure_tl;
-#endif
+struct transfer_list_header *secure_tl;
 
 struct meminfo *bl1_plat_sec_mem_layout(void)
 {
@@ -90,12 +88,18 @@ void arm_bl1_early_platform_setup(void)
 	/* Allow BL1 to see the whole Trusted RAM */
 	bl1_tzram_layout.total_base = ARM_BL_RAM_BASE;
 	bl1_tzram_layout.total_size = ARM_BL_RAM_SIZE;
+
+#if TRANSFER_LIST
+	secure_tl = transfer_list_init((void *)PLAT_ARM_EL3_FW_HANDOFF_BASE,
+					 PLAT_ARM_FW_HANDOFF_SIZE);
+	assert(secure_tl != NULL);
+#endif
 }
 
 void bl1_early_platform_setup(void)
 {
 	arm_bl1_early_platform_setup();
-
+#if !HW_ASSISTED_COHERENCY
 	/*
 	 * Initialize Interconnect for this cluster during cold boot.
 	 * No need for locks as no other CPU is active.
@@ -105,6 +109,7 @@ void bl1_early_platform_setup(void)
 	 * Enable Interconnect coherency for the primary CPU's cluster.
 	 */
 	plat_arm_interconnect_enter_coherency();
+#endif
 }
 
 /******************************************************************************
@@ -158,7 +163,7 @@ void arm_bl1_platform_setup(void)
 
 	image_desc_t *desc;
 
-	int err = -1;
+	int err __unused = 1;
 
 	/* Initialise the IO layer and register platform IO devices */
 	plat_arm_io_setup();
@@ -171,35 +176,24 @@ void arm_bl1_platform_setup(void)
 	}
 
 #if TRANSFER_LIST
-	secure_tl = transfer_list_init((void *)PLAT_ARM_EL3_FW_HANDOFF_BASE,
-				       PLAT_ARM_FW_HANDOFF_SIZE);
-
-	if (secure_tl == NULL) {
-		ERROR("Secure transfer list initialisation failed!\n");
-		panic();
-	}
-
-	te = transfer_list_add(secure_tl, TL_TAG_TB_FW_CONFIG,
-			       ARM_TB_FW_CONFIG_MAX_SIZE, NULL);
+#if CRYPTO_SUPPORT
+	te = transfer_list_add(secure_tl, TL_TAG_MBEDTLS_HEAP_INFO,
+			       sizeof(struct crypto_heap_info), NULL);
 	assert(te != NULL);
 
+	struct crypto_heap_info *heap_info =
+		(struct crypto_heap_info *)transfer_list_entry_data(te);
+	arm_get_mbedtls_heap(&heap_info->addr, &heap_info->size);
+#endif /* CRYPTO_SUPPORT */
+
+	desc = bl1_plat_get_image_desc(BL2_IMAGE_ID);
+
 	/*
-	 * Set the load address of TB_FW_CONFIG in the data section of the TE just
-	 * allocated in the secure transfer list.
+	 * The event log might have been updated prior to this, make sure we have an
+	 * up to date tl before setting the handoff arguments.
 	 */
-	SET_PARAM_HEAD(&config_image_info, PARAM_IMAGE_BINARY, VERSION_2, 0);
-	config_image_info.image_base = (uintptr_t)transfer_list_entry_data(te);
-	config_image_info.image_max_size = te->data_size;
-
-	VERBOSE("FCONF: Loading config with image ID: %u\n", TB_FW_CONFIG_ID);
-	err = load_auth_image(TB_FW_CONFIG_ID, &config_image_info);
-	if (err != 0) {
-		VERBOSE("Failed to load config %u\n", TB_FW_CONFIG_ID);
-		plat_error_handler(err);
-	}
-
 	transfer_list_update_checksum(secure_tl);
-	fconf_populate("TB_FW", (uintptr_t)transfer_list_entry_data(te));
+	transfer_list_set_handoff_args(secure_tl, &desc->ep_info);
 #else
 	/* Set global DTB info for fixed fw_config information */
 	fw_config_max_size = ARM_FW_CONFIG_LIMIT - ARM_FW_CONFIG_BASE;
@@ -234,22 +228,18 @@ void arm_bl1_platform_setup(void)
 		ERROR("Invalid FW_CONFIG address\n");
 		plat_error_handler(err);
 	}
-#endif /* TRANSFER_LIST */
 
 	desc = bl1_plat_get_image_desc(BL2_IMAGE_ID);
 
-#if TRANSFER_LIST
-	transfer_list_set_handoff_args(secure_tl, &desc->ep_info);
-#else
 	/* The BL2 ep_info arg0 is modified to point to FW_CONFIG */
 	assert(desc != NULL);
 	desc->ep_info.args.arg0 = config_info->config_addr;
-#endif /* TRANSFER_LIST */
 
 #if CRYPTO_SUPPORT
 	/* Share the Mbed TLS heap info with other images */
 	arm_bl1_set_mbedtls_heap();
 #endif /* CRYPTO_SUPPORT */
+#endif /* TRANSFER_LIST */
 
 	/*
 	 * Allow access to the System counter timer module and program
@@ -300,18 +290,17 @@ unsigned int bl1_plat_get_next_image_id(void)
 	return  is_fwu_needed ? NS_BL1U_IMAGE_ID : BL2_IMAGE_ID;
 }
 
-// Use the default implementation of this function when Firmware Handoff is
-// disabled to avoid duplicating its logic.
 #if TRANSFER_LIST
 int bl1_plat_handle_post_image_load(unsigned int image_id)
 {
-	image_desc_t *image_desc __unused;
-
-	assert(image_id == BL2_IMAGE_ID);
 	struct transfer_list_entry *te;
 
+	if (image_id != BL2_IMAGE_ID) {
+		return 0;
+	}
+
 	/* Convey this information to BL2 via its TL. */
-	te = transfer_list_add(secure_tl, TL_TAG_SRAM_LAYOUT64,
+	te = transfer_list_add(secure_tl, TL_TAG_SRAM_LAYOUT,
 			       sizeof(meminfo_t), NULL);
 	assert(te != NULL);
 
@@ -328,3 +317,9 @@ int bl1_plat_handle_post_image_load(unsigned int image_id)
 	return 0;
 }
 #endif /* TRANSFER_LIST*/
+
+/* For ARM platform, the NV ctr is shared among all components */
+bool bl1_plat_is_shared_nv_ctr(void)
+{
+	return true;
+}

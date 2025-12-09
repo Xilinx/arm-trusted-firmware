@@ -110,6 +110,12 @@ struct mailbox {
 
 	/* Lock access to mailbox. */
 	spinlock_t lock;
+
+	/* The offset of the last transmitted RX fragment */
+	uint32_t last_rx_fragment_offset;
+
+	/* The offset of the next RX fragment to transmit */
+	uint32_t next_rx_fragment_offset;
 };
 
 /*
@@ -134,6 +140,13 @@ struct sp_exec_ctx {
 
 	/* Track the source partition ID to validate a direct response. */
 	uint16_t dir_req_origin_id;
+
+	/* Track direct message function id to validate a direct response. */
+	uint16_t dir_req_funcid;
+};
+
+struct ffa_uuid {
+	uint32_t uuid[4];
 };
 
 /*
@@ -153,8 +166,11 @@ struct secure_partition_desc {
 	/* Runtime EL. */
 	enum sp_runtime_el runtime_el;
 
-	/* Partition UUID. */
-	uint32_t uuid[4];
+	/* Partition UUID array. */
+	struct ffa_uuid uuid_array[SPMC_AT_EL3_PARTITION_MAX_UUIDS];
+
+	/* Number of UUIDs in uuid array. */
+	uint32_t num_uuids;
 
 	/* Partition Properties. */
 	uint32_t properties;

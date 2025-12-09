@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2023-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -21,15 +21,12 @@
 
 /* The number of CPU operations allowed */
 #define CPU_MAX_PWR_DWN_OPS		2
-/* Special constant to specify that CPU has no reset function */
-#define CPU_NO_RESET_FUNC		0
-
-#if __aarch64__
-#define CPU_NO_EXTRA1_FUNC		0
-#define CPU_NO_EXTRA2_FUNC		0
-#define CPU_NO_EXTRA3_FUNC		0
-#endif /* __aarch64__ */
-
+/*
+ * value needs to be distinct from CPUPWRCTLR_EL1 likely values: its top bits
+ * are RES0 and its bottom bits will be written to power down. Pick the opposite
+ * with something that looks like "abandon" in the middle.
+ */
+#define PABANDON_ACK			0xffaba4d4aba4d400
 
 /*
  * Define the sizes of the fields in the cpu_ops structure. Word size is set per
@@ -42,9 +39,6 @@
 #else
 #define CPU_RESET_FUNC_SIZE	0
 #endif /* IMAGE_AT_EL3 */
-#define CPU_EXTRA1_FUNC_SIZE	CPU_WORD_SIZE
-#define CPU_EXTRA2_FUNC_SIZE	CPU_WORD_SIZE
-#define CPU_EXTRA3_FUNC_SIZE	CPU_WORD_SIZE
 #define CPU_E_HANDLER_FUNC_SIZE CPU_WORD_SIZE
 /* The power down core and cluster is needed only in BL31 and BL32 */
 #if defined(IMAGE_BL31) || defined(IMAGE_BL32)
@@ -86,10 +80,7 @@
 #define CPU_MIDR		0
 #define CPU_RESET_FUNC		CPU_MIDR + CPU_MIDR_SIZE
 #if __aarch64__
-#define CPU_EXTRA1_FUNC		CPU_RESET_FUNC + CPU_RESET_FUNC_SIZE
-#define CPU_EXTRA2_FUNC		CPU_EXTRA1_FUNC + CPU_EXTRA1_FUNC_SIZE
-#define CPU_EXTRA3_FUNC		CPU_EXTRA2_FUNC + CPU_EXTRA2_FUNC_SIZE
-#define CPU_E_HANDLER_FUNC	CPU_EXTRA3_FUNC + CPU_EXTRA3_FUNC_SIZE
+#define CPU_E_HANDLER_FUNC	CPU_RESET_FUNC + CPU_RESET_FUNC_SIZE
 #define CPU_PWR_DWN_OPS		CPU_E_HANDLER_FUNC + CPU_E_HANDLER_FUNC_SIZE
 #else
 #define CPU_PWR_DWN_OPS		CPU_RESET_FUNC + CPU_RESET_FUNC_SIZE
@@ -116,13 +107,10 @@ struct cpu_ops {
 	void (*reset_func)(void);
 #endif /* IMAGE_AT_EL3 */
 #if __aarch64__
-	void (*extra1_func)(void);
-	void (*extra2_func)(void);
-	void (*extra3_func)(void);
 	void (*e_handler_func)(long es);
 #endif /* __aarch64__ */
 #if (defined(IMAGE_BL31) || defined(IMAGE_BL32)) && CPU_MAX_PWR_DWN_OPS
-	void (*pwr_dwn_ops[CPU_MAX_PWR_DWN_OPS])(void);
+	u_register_t (*pwr_dwn_ops[CPU_MAX_PWR_DWN_OPS])();
 #endif /* (defined(IMAGE_BL31) || defined(IMAGE_BL32)) && CPU_MAX_PWR_DWN_OPS */
 	void *errata_list_start;
 	void *errata_list_end;
@@ -136,7 +124,7 @@ struct cpu_ops {
 #if defined(IMAGE_BL31) && CRASH_REPORTING
 	void (*reg_dump)(void);
 #endif /* defined(IMAGE_BL31) && CRASH_REPORTING */
-} __packed;
+} __packed __aligned(CPU_WORD_SIZE);
 
 CASSERT(sizeof(struct cpu_ops) == CPU_OPS_SIZE,
 	assert_cpu_ops_asm_c_different_sizes);

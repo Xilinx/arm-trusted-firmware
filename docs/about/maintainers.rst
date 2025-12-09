@@ -58,6 +58,8 @@ Maintainers
 :|M|: Govindraj Raja <govindraj.raja@arm.com>
 :|G|: `govindraj-arm`_
 
+.. _lts maintainers:
+
 LTS Maintainers
 ---------------
 
@@ -71,6 +73,8 @@ LTS Maintainers
 :|G|: `vwadekar`_
 :|M|: Yann Gautier <yann.gautier@st.com>
 :|G|: `Yann-lms`_
+:|M|: Govindraj Raja <govindraj.raja@arm.com>
+:|G|: `govindraj-arm`_
 
 .. _code owners:
 
@@ -107,8 +111,6 @@ Trusted Boot
 :|G|: `ManishVB-Arm`_
 :|M|: Lauren Wehrmeister <Lauren.Wehrmeister@arm.com>
 :|G|: `laurenw-arm`_
-:|M|: Jimmy Brisson <jimmy.brisson@arm.com>
-:|G|: `jimmy-brisson`_
 :|F|: drivers/auth/
 
 Secure Partition Manager Core (EL3 FF-A SPMC)
@@ -220,10 +222,10 @@ JTAG DCC console driver
 ^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Michal Simek <michal.simek@amd.com>
 :|G|: `michalsimek`_
-:|M|: Amit Nagal <amit.nagal@amd.com>
-:|G|: `amit-nagal`_
 :|M|: Akshay Belsare <akshay.belsare@amd.com>
 :|G|: `Akshay-Belsare`_
+:|M|: Maheedhar Sai Bollapalli <maheedharsai.bollapalli@amd.com>
+:|G|: `maheedhar-bollapalli`_
 :|F|: drivers/arm/dcc/
 :|F|: include/drivers/arm/dcc.h
 
@@ -235,6 +237,8 @@ Power State Coordination Interface (PSCI)
 :|G|: `madhukar-Arm`_
 :|M|: Lauren Wehrmeister <Lauren.Wehrmeister@arm.com>
 :|G|: `laurenw-arm`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/psci/
 :|F|: include/lib/psci/
 
@@ -278,6 +282,8 @@ Arm CPU libraries
 :|G|: `bipinravi-arm`_
 :|M|: Lauren Wehrmeister <Lauren.Wehrmeister@arm.com>
 :|G|: `laurenw-arm`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/cpus/
 :|F|: include/lib/cpus/
 
@@ -287,6 +293,8 @@ Reliability Availability Serviceabilty (RAS) framework
 :|G|: `manish-pandey-arm`_
 :|M|: Olivier Deprez <olivier.deprez@arm.com>
 :|G|: `odeprez`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/extensions/ras/
 
 Activity Monitors Unit (AMU) extensions
@@ -295,24 +303,32 @@ Activity Monitors Unit (AMU) extensions
 :|G|: `AlexeiFedorov`_
 :|M|: Chris Kay <chris.kay@arm.com>
 :|G|: `CJKay`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/extensions/amu/
 
 Memory Partitioning And Monitoring (MPAM) extensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Manish Pandey <manish.pandey2@arm.com>
 :|G|: `manish-pandey-arm`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/extensions/mpam/
 
 Pointer Authentication (PAuth) and Branch Target Identification (BTI) extensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Alexei Fedorov <Alexei.Fedorov@arm.com>
 :|G|: `AlexeiFedorov`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/extensions/pauth/
 
 Statistical Profiling Extension (SPE)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Manish Pandey <manish.pandey2@arm.com>
 :|G|: `manish-pandey-arm`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: lib/extensions/spe/
 
 Standard C library
@@ -355,7 +371,17 @@ GIC driver
 :|G|: `madhukar-Arm`_
 :|M|: Olivier Deprez <olivier.deprez@arm.com>
 :|G|: `odeprez`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: drivers/arm/gic/
+
+GICv5 driver
+^^^^^^^^^^^^
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
+:|F|: drivers/arm/gicv5
+:|F|: plat/common/plat_gicv5.c
+:|F|: plat/arm/board/fvp/gicv5_config.yaml
 
 Message Handling Unit (MHU) driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -381,7 +407,7 @@ Libfdt wrappers
 
 Firmware Encryption Framework
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-:|M|: Sumit Garg <sumit.garg@linaro.org>
+:|M|: Sumit Garg <sumit.garg@kernel.org>
 :|G|: `b49020`_
 :|F|: drivers/io/io_encrypted.c
 :|F|: include/drivers/io/io_encrypted.h
@@ -393,8 +419,8 @@ Measured Boot
 :|G|: `sandrine-bailleux-arm`_
 :|M|: Manish Badarkhe <manish.badarkhe@arm.com>
 :|G|: `ManishVB-Arm`_
-:|M|: Jimmy Brisson <jimmy.brisson@arm.com>
-:|G|: `jimmy-brisson`_
+:|M|: Harrison Mutai <harrison.mutai@arm.com>
+:|G|: `harrisonmutai-arm`_
 :|F|: drivers/measured_boot
 :|F|: include/drivers/measured_boot
 :|F|: docs/components/measured_boot
@@ -423,8 +449,8 @@ Platform Security Architecture (PSA) APIs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Sandrine Bailleux <sandrine.bailleux@arm.com>
 :|G|: `sandrine-bailleux-arm`_
-:|M|: Jimmy Brisson <jimmy.brisson@arm.com>
-:|G|: `jimmy-brisson`_
+:|M|: Manish Badarkhe <manish.badarkhe@arm.com>
+:|G|: `ManishVB-Arm`_
 :|F|: include/lib/psa
 :|F|: lib/psa
 
@@ -441,8 +467,7 @@ Max Power Mitigation Mechanism (MPMM)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Chris Kay <chris.kay@arm.com>
 :|G|: `CJKay`_
-:|F|: include/lib/mpmm/
-:|F|: lib/mpmm/
+:|F|: include/lib/cpus/aarch64/cpu_macros.S
 
 Granule Protection Tables Library (GPT-RME)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -470,6 +495,8 @@ Context Management
 :|G|: `manish-pandey-arm`_
 :|M|: Madhukar Pappireddy <Madhukar.Pappireddy@arm.com>
 :|G|: `madhukar-Arm`_
+:|M|: Boyan Karatotev <boyan.karatotev@arm.com>
+:|G|: `loosper-arm`_
 :|F|: bl1/aarch32/bl1_context_mgmt.c
 :|F|: bl1/aarch64/bl1_context_mgmt.c
 :|F|: bl31/bl31_context_mgmt.c
@@ -487,6 +514,28 @@ Runtime Services
 :|F|: include/common/runtime_svc.h
 :|F|: include/services/arm_arch_svc.h
 :|F|: include/services/std_svc.h
+
+Live Firmware Activation Service
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:|M|: Manish Badarkhe <manish.badarkhe@arm.com>
+:|G|: `ManishVB-Arm`_
+:|F|: services/std_svc/lfa
+:|F|: include/plat/common/plat_lfa.h
+:|F|: include/services/lfa_svc.h
+
+Per-CPU Framework
+^^^^^^^^^^^^^^^^^
+:|M|: Rohit Mathew <rohit.mathew@arm.com>
+:|G|: `rohit-arm`_
+:|M|: Sammit Joshi <sammit.joshi@arm.com>
+:|G|: `sammit-arm`_
+:|M|: Manish Pandey <manish.pandey2@arm.com>
+:|G|: `manish-pandey-arm`_
+:|M|: Chris Kay <chris.kay@arm.com>
+:|G|: `CJKay`_
+:|F|: include/lib/per_cpu
+:|F|: lib/per_cpu
+:|F|: docs/components/numa-per-cpu.rst
 
 Platform Ports
 ~~~~~~~~~~~~~~
@@ -544,6 +593,8 @@ Arm FVP Platform port
 :|G|: `manish-pandey-arm`_
 :|M|: Madhukar Pappireddy <Madhukar.Pappireddy@arm.com>
 :|G|: `madhukar-Arm`_
+:|M|: Harrison Mutai <harrison.mutai@arm.com>
+:|G|: `harrisonmutai-arm`_
 :|F|: plat/arm/board/fvp
 
 Arm Juno Platform port
@@ -582,18 +633,15 @@ Arm Reference Design platform ports
 :|M|: Rohit Mathew <Rohit.Mathew@arm.com>
 :|G|: `rohit-arm`_
 :|F|: plat/arm/board/neoverse_rd/common
-:|F|: plat/arm/board/neoverse_rd/platform/rdn1edge/
 :|F|: plat/arm/board/neoverse_rd/platform/rdn2/
-:|F|: plat/arm/board/neoverse_rd/platform/rdv1/
-:|F|: plat/arm/board/neoverse_rd/platform/rdv1mc/
-:|F|: plat/arm/board/neoverse_rd/platform/sgi575/
+:|F|: plat/arm/board/neoverse_rd/platform/rdv3/
 
 Arm Total Compute platform port
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-:|M|: Vishnu Banavath <vishnu.banavath@arm.com>
-:|G|: `vishnu-banavath`_
-:|M|: Rupinderjit Singh <rupinderjit.singh@arm.com>
-:|G|: `rupsin01`_
+:|M|: Artem Kopotev <artem.kopotev@arm.com>
+:|G|: `artkopotev`_
+:|M|: Oleksandr Tarhunakov <Oleksandr.Tarhunakov@arm.com>
+:|G|: `o-tarhunakov`_
 :|F|: plat/arm/board/tc
 
 Arm Automotive RD platform port
@@ -605,6 +653,9 @@ Arm Automotive RD platform port
 :|M|: Divin Raj <divin.raj@arm.com>
 :|G|: `divin-raj`_
 :|F|: plat/arm/board/automotive_rd
+:|M|: Ahmed Azeem <ahmed.azeem@arm.com>
+:|G|: `Ahmed-Azeem`_
+:|F|: plat/arm/board/automotive_rd/rdaspen
 
 Aspeed platform port
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -653,8 +704,8 @@ MediaTek platform ports
 
 Marvell platform ports and SoC drivers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-:|M|: Konstantin Porotchkin <kostap@marvell.com>
-:|G|: `kostapr`_
+:|M|: Jaiprakash Singh <jaiprakashs@marvell.com>
+:|G|: `sjaypee208`_
 :|F|: docs/plat/marvell/
 :|F|: plat/marvell/
 :|F|: drivers/marvell/
@@ -722,6 +773,8 @@ NXP i.MX9 platform port
 :|G|: `JackyBai`_
 :|F|: docs/plat/imx9.rst
 :|F|: plat/imx/imx93/
+:|F|: plat/imx/imx9/imx94/
+:|F|: plat/imx/imx9/imx95/
 
 NXP QorIQ Layerscape common code for platform ports
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -793,16 +846,18 @@ QEMU platform port
 
 QTI platform port
 ^^^^^^^^^^^^^^^^^
-:|M|: Saurabh Gorecha <sgorecha@codeaurora.org>
-:|G|: `sgorecha`_
 :|M|: Lachit Patel <lpatel@codeaurora.org>
 :|G|: `lachitp`_
 :|M|: Sreevyshanavi Kare <skare@codeaurora.org>
 :|G|: `sreekare`_
 :|M|: Muhammad Arsath K F <quic_mkf@quicinc.com>
 :|G|: `quic_mkf`_
+:|M|: Saurabh Gorecha <quic_sgorecha@quicinc.com>
+:|G|: `quic_sgorecha`_
+:|M|: Sumit Garg <sumit.garg@oss.qualcomm.com>
+:|G|: `b49020`_
 :|M|: QTI TF Maintainers <qti.trustedfirmware.maintainers@codeaurora.org>
-:|F|: docs/plat/qti.rst
+:|F|: docs/plat/qti/
 :|F|: plat/qti/
 
 QTI MSM8916 platform port
@@ -811,7 +866,7 @@ QTI MSM8916 platform port
 :|G|: `stephan-gh`_
 :|M|: Nikita Travkin <nikita@trvn.ru>
 :|G|: `TravMurav`_
-:|F|: docs/plat/qti-msm8916.rst
+:|F|: docs/plat/qti/msm8916.rst
 :|F|: plat/qti/mdm9607/
 :|F|: plat/qti/msm8909/
 :|F|: plat/qti/msm8916/
@@ -890,7 +945,7 @@ STMicroelectronics platform ports
 
 Synquacer platform port
 ^^^^^^^^^^^^^^^^^^^^^^^
-:|M|: Sumit Garg <sumit.garg@linaro.org>
+:|M|: Sumit Garg <sumit.garg@kernel.org>
 :|G|: `b49020`_
 :|M|: Masahisa Kojima <kojima.masahisa@socionext.com>
 :|G|: `masahisak`_
@@ -910,15 +965,17 @@ UniPhier platform port
 :|F|: docs/plat/socionext-uniphier.rst
 :|F|: plat/socionext/uniphier/
 
-Xilinx platform port
-^^^^^^^^^^^^^^^^^^^^
+AMD-Xilinx platform port
+^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Michal Simek <michal.simek@amd.com>
 :|G|: `michalsimek`_
-:|M|: Amit Nagal <amit.nagal@amd.com>
-:|G|: `amit-nagal`_
 :|M|: Akshay Belsare <akshay.belsare@amd.com>
 :|G|: `Akshay-Belsare`_
+:|M|: Maheedhar Sai Bollapalli <maheedharsai.bollapalli@amd.com>
+:|G|: `maheedhar-bollapalli`_
+:|F|: docs/plat/amd\*
 :|F|: docs/plat/xilinx\*
+:|F|: plat/amd/
 :|F|: plat/xilinx/
 
 
@@ -985,13 +1042,11 @@ Cert_create tool
 :|G|: `ManishVB-Arm`_
 :|M|: Lauren Wehrmeister <Lauren.Wehrmeister@arm.com>
 :|G|: `laurenw-arm`_
-:|M|: Jimmy Brisson <jimmy.brisson@arm.com>
-:|G|: `jimmy-brisson`_
 :|F|: tools/cert_create/
 
 Encrypt_fw tool
 ^^^^^^^^^^^^^^^
-:|M|: Sumit Garg <sumit.garg@linaro.org>
+:|M|: Sumit Garg <sumit.garg@kernel.org>
 :|G|: `b49020`_
 :|F|: tools/encrypt_fw/
 
@@ -1033,9 +1088,9 @@ Conventional Changelog Extensions
 .. _abdellatif-elkhlifi: https://github.com/abdellatif-elkhlifi
 .. _Akshay-Belsare: https://github.com/Akshay-Belsare
 .. _AlexeiFedorov: https://github.com/AlexeiFedorov
-.. _amit-nagal: https://github.com/amit-nagal
 .. _andersdellien-arm: https://github.com/andersdellien-arm
 .. _Andre-ARM: https://github.com/Andre-ARM
+.. _Ahmed-Azeem: https://github.com/ahmed-azeem
 .. _Anson-Huang: https://github.com/Anson-Huang
 .. _anukou: https://github.com/anukou
 .. _arugan02: https://github.com/arugan02
@@ -1073,7 +1128,6 @@ Conventional Changelog Extensions
 .. _jcorbier: https://github.com/jcorbier
 .. _jenswi-linaro: https://github.com/jenswi-linaro
 .. _JiafeiPan: https://github.com/JiafeiPan
-.. _jimmy-brisson: https://github.com/theotherjimmy
 .. _joannafarley-arm: https://github.com/joannafarley-arm
 .. _jslater8: https://github.com/jslater8
 .. _jwerner-chromium: https://github.com/jwerner-chromium
@@ -1082,7 +1136,9 @@ Conventional Changelog Extensions
 .. _laurenw-arm: https://github.com/laurenw-arm
 .. _leon-chen-mtk: https://github.com/leon-chen-mtk
 .. _linyidi: https://github.com/linyidi
+.. _loosper-arm: https://github.com/loosper-arm
 .. _madhukar-Arm: https://github.com/madhukar-Arm
+.. _maheedhar-bollapalli: https://github.com/maheedhar-bollapalli
 .. _manish-pandey-arm: https://github.com/manish-pandey-arm
 .. _ManishVB-Arm: https://github.com/ManishVB-Arm
 .. _marcbonnici: https://github.com/marcbonnici
@@ -1104,15 +1160,16 @@ Conventional Changelog Extensions
 .. _pangupta: https://github.com/pangupta
 .. _prabhakarlad: https://github.com/prabhakarlad
 .. _quic_mkf: https://github.com/quicmkf
+.. _quic_sgorecha: https://github.com/sgorecha
 .. _raghuncstate: https://github.com/raghuncstate
 .. _raymo200915: https://github.com/raymo200915
 .. _remi-triplefault: https://github.com/repk
 .. _rockchip-linux: https://github.com/rockchip-linux
 .. _rohit-arm: https://github.com/rohit-arm
-.. _rupsin01: https://github.com/rupsin01
+.. _o-tarhunakov: https://github.com/o-tarhunakov
 .. _rutigl: https://github.com/rutigl
+.. _sammit-arm: https://github.com/sammit-arm
 .. _sandrine-bailleux-arm: https://github.com/sandrine-bailleux-arm
-.. _sgorecha: https://github.com/sgorecha
 .. _shawnguo2: https://github.com/shawnguo2
 .. _sieumunt: https://github.com/sieumunt
 .. _smaeul: https://github.com/smaeul
@@ -1125,10 +1182,11 @@ Conventional Changelog Extensions
 .. _TravMurav: https://github.com/TravMurav
 .. _uarif1: https://github.com/uarif1
 .. _vijayenthiran-arm: https://github.com/vijayenthiran-arm
-.. _vishnu-banavath: https://github.com/vishnu-banavath
+.. _artkopotev: https://github.com/artkopotev
 .. _vwadekar: https://github.com/vwadekar
 .. _Yann-lms: https://github.com/Yann-lms
+.. _sjaypee208: https://github.com/sjaypee208
 
 --------------
 
-*Copyright (c) 2019-2024, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2019-2025, Arm Limited and Contributors. All rights reserved.*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,12 +8,38 @@
 #include <drivers/arm/gic600_multichip.h>
 #include <drivers/arm/rse_comms.h>
 #include <drivers/arm/smmu_v3.h>
-
+#include <lib/per_cpu/per_cpu.h>
 #include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
+
+#include <nrd_css_fw_def3.h>
 #include <nrd_plat.h>
 #include <nrd_variant.h>
 #include <rdv3_rse_comms.h>
+
+#define RT_OWNER 0
+
+/*
+ * Base addr of the frame that allocated by the platform
+ * intended for remote gic to local gic interrupt
+ * message communication
+ */
+#define NRD_RGIC2LGIC_MESSREG_HNI_BASE		UL(0x5FFF0000)
+
+#if (PLATFORM_NODE_COUNT > 1)
+/*
+ * NUMA node related information for a platform could be populated in by any
+ * means. This could come in via device tree, transfer list or could even be
+ * hardcoded. For rdv3cfg2, this is statically defined at the moment.
+ */
+const uintptr_t per_cpu_nodes_base[] = {
+	(uintptr_t)PER_CPU_START,
+	(uintptr_t)NRD_REMOTE_CHIP_MEM_OFFSET(1),
+	(uintptr_t)NRD_REMOTE_CHIP_MEM_OFFSET(2),
+	(uintptr_t)NRD_REMOTE_CHIP_MEM_OFFSET(3)
+
+};
+#endif
 
 #if (NRD_PLATFORM_VARIANT == 2)
 static const mmap_region_t rdv3mc_dynamic_mmap[] = {
@@ -32,19 +58,62 @@ static const mmap_region_t rdv3mc_dynamic_mmap[] = {
 };
 
 static struct gic600_multichip_data rdv3mc_multichip_data __init = {
-	.rt_owner_base = PLAT_ARM_GICD_BASE,
-	.rt_owner = 0,
-	.chip_count = NRD_CHIP_COUNT,
-	.chip_addrs = {
-		PLAT_ARM_GICD_BASE >> 16,
+	.base_addrs = {
+		PLAT_ARM_GICD_BASE,
 #if NRD_CHIP_COUNT > 1
-		(PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(1)) >> 16,
+		PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(1),
 #endif
 #if NRD_CHIP_COUNT > 2
-		(PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(2)) >> 16,
+		PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(2),
 #endif
 #if NRD_CHIP_COUNT > 3
-		(PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(3)) >> 16,
+		PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(3),
+#endif
+	},
+	.rt_owner = RT_OWNER,
+	.chip_count = NRD_CHIP_COUNT,
+	.chip_addrs = {
+		{
+			NRD_RGIC2LGIC_MESSREG_HNI_BASE >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(1)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(2)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(3)) >> 16,
+		},
+#if NRD_CHIP_COUNT > 1
+		{
+			NRD_RGIC2LGIC_MESSREG_HNI_BASE >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(1)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(2)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(3)) >> 16,
+		},
+#endif
+#if NRD_CHIP_COUNT > 2
+		{
+			NRD_RGIC2LGIC_MESSREG_HNI_BASE >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(1)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(2)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(3)) >> 16,
+		},
+#endif
+#if NRD_CHIP_COUNT > 3
+		{
+			NRD_RGIC2LGIC_MESSREG_HNI_BASE >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(1)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(2)) >> 16,
+			(NRD_RGIC2LGIC_MESSREG_HNI_BASE
+				+ NRD_REMOTE_CHIP_MEM_OFFSET(3)) >> 16,
+		}
 #endif
 	},
 	.spi_ids = {
@@ -60,10 +129,12 @@ static struct gic600_multichip_data rdv3mc_multichip_data __init = {
 #endif
 	}
 };
+#endif /* NRD_PLATFORM_VARIANT == 2 */
 
 static uintptr_t rdv3mc_multichip_gicr_frames[] = {
 	/* Chip 0's GICR Base */
 	PLAT_ARM_GICR_BASE,
+#if (NRD_PLATFORM_VARIANT == 2)
 #if NRD_CHIP_COUNT > 1
 	/* Chip 1's GICR BASE */
 	PLAT_ARM_GICR_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(1),
@@ -76,9 +147,33 @@ static uintptr_t rdv3mc_multichip_gicr_frames[] = {
 	/* Chip 3's GICR BASE */
 	PLAT_ARM_GICR_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(3),
 #endif
+#endif /* NRD_PLATFORM_VARIANT == 2 */
 	UL(0)	/* Zero Termination */
 };
-#endif /* NRD_PLATFORM_VARIANT == 2 */
+
+#if (NRD_PLATFORM_VARIANT == 2)
+void __init bl31_plat_arch_setup(void)
+{
+#if (PLATFORM_NODE_COUNT > 1)
+	int ret;
+#endif
+	arm_bl31_plat_arch_setup();
+#if (PLATFORM_NODE_COUNT > 1)
+	/* Add mmap for all remote chips */
+	for (int i = 1; i < ARRAY_SIZE(per_cpu_nodes_base); i++) {
+		ret = mmap_add_dynamic_region(
+		NRD_REMOTE_CHIP_MEM_OFFSET(i),
+		NRD_REMOTE_CHIP_MEM_OFFSET(i),
+		NRD_CSS_PAGE_ALIGN_CEIL((PER_CPU_END - PER_CPU_START)),
+		MT_MEMORY | MT_RW | EL3_PAS);
+		if (ret != 0) {
+			ERROR("Failed to add per-cpu mmap (ret=%d)", ret);
+			panic();
+		}
+	}
+#endif
+}
+#endif
 
 void bl31_platform_setup(void)
 {
@@ -119,12 +214,13 @@ void bl31_platform_setup(void)
 			}
 		}
 
-		plat_arm_override_gicr_frames(
-			rdv3mc_multichip_gicr_frames);
 		gic600_multichip_init(&rdv3mc_multichip_data);
 	}
 #endif /* NRD_PLATFORM_VARIANT == 2 */
 	nrd_bl31_common_platform_setup();
+
+	gic_set_gicr_frames(
+		rdv3mc_multichip_gicr_frames);
 
 	if (plat_rse_comms_init() != 0) {
 		WARN("Failed initializing AP-RSE comms.\n");

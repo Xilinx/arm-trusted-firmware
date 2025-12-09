@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -142,6 +142,10 @@ typedef struct el2_sctlr2_regs {
 	uint64_t sctlr2_el2;
 } el2_sctlr2_regs_t;
 
+typedef struct el2_brbe_regs {
+	uint64_t brbcr_el2;
+} el2_brbe_regs_t;
+
 typedef struct el2_sysregs {
 
 	el2_common_regs_t common;
@@ -214,6 +218,10 @@ typedef struct el2_sysregs {
 	el2_sctlr2_regs_t sctlr2;
 #endif
 
+#if ENABLE_BRBE_FOR_NS
+	el2_brbe_regs_t brbe;
+#endif
+
 } el2_sysregs_t;
 
 /*
@@ -225,7 +233,7 @@ typedef struct el2_sysregs {
 #define write_el2_ctx_common(ctx, reg, val)	((((ctx)->common).reg)	\
 							= (uint64_t) (val))
 
-#define write_el2_ctx_sysreg128(ctx, reg, val)	((((ctx)->common).reg)	\
+#define write_el2_ctx_common_sysreg128(ctx, reg, val)	((((ctx)->common).reg)	\
 							= (sysreg_t) (val))
 
 #if ENABLE_FEAT_MTE2
@@ -268,12 +276,12 @@ typedef struct el2_sysregs {
 #define read_el2_ctx_vhe(ctx, reg)		(((ctx)->vhe).reg)
 #define write_el2_ctx_vhe(ctx, reg, val)	((((ctx)->vhe).reg)	\
 							= (uint64_t) (val))
-
 #define write_el2_ctx_vhe_sysreg128(ctx, reg, val)	((((ctx)->vhe).reg)	\
-								= (sysreg_t) (val))
+							= (sysreg_t) (val))
 #else
 #define read_el2_ctx_vhe(ctx, reg)		ULL(0)
 #define write_el2_ctx_vhe(ctx, reg, val)
+#define write_el2_ctx_vhe_sysreg128(ctx, reg, val)
 #endif /* ENABLE_FEAT_VHE */
 
 #if ENABLE_FEAT_RAS
@@ -383,6 +391,15 @@ typedef struct el2_sysregs {
 #define read_el2_ctx_sctlr2(ctx, reg)		ULL(0)
 #define write_el2_ctx_sctlr2(ctx, reg, val)
 #endif /* ENABLE_FEAT_SCTLR2 */
+
+#if ENABLE_BRBE_FOR_NS
+#define read_el2_ctx_brbe(ctx, reg)		(((ctx)->brbe).reg)
+#define write_el2_ctx_brbe(ctx, reg, val)	((((ctx)->brbe).reg)	\
+							= (uint64_t) (val))
+#else
+#define read_el2_ctx_brbe(ctx, reg)		ULL(0)
+#define write_el2_ctx_brbe(ctx, reg, val)
+#endif /* ENABLE_BRBE_FOR_NS */
 
 /******************************************************************************/
 

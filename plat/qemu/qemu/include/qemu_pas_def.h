@@ -102,6 +102,10 @@
 							       QEMU_PAS_RMM_SHARED_SIZE, \
 							       GPT_GPI_REALM)
 
+/* Cover 1TB with L0GTP */
+#define PLAT_QEMU_GPCCR_PPS		GPCCR_PPS_1TB
+#define PLAT_QEMU_PPS			SZ_1T
+
 /* GPT Configuration options */
 #define PLATFORM_L0GPTSZ		GPCCR_L0GPTSZ_30BITS
 

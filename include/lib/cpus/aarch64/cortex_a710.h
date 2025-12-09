@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -44,6 +44,11 @@
 #define CORTEX_A710_CPUACTLR3_EL1				S3_0_C15_C1_2
 
 /*******************************************************************************
+ * CPU Auxiliary Control register 4 specific definitions.
+ ******************************************************************************/
+#define CORTEX_A710_CPUACTLR4_EL1                               S3_0_C15_C1_3
+
+/*******************************************************************************
  * CPU Auxiliary Control register 5 specific definitions.
  ******************************************************************************/
 #define CORTEX_A710_CPUACTLR5_EL1				S3_0_C15_C8_0
@@ -52,19 +57,15 @@
 #define CORTEX_A710_CPUACTLR5_EL1_BIT_44			(ULL(1) << 44)
 
 /*******************************************************************************
- * CPU Auxiliary Control register specific definitions.
- ******************************************************************************/
-#define CORTEX_A710_CPUECTLR2_EL1				S3_0_C15_C1_5
-#define CORTEX_A710_CPUECTLR2_EL1_PF_MODE_CNSRV			ULL(9)
-#define CPUECTLR2_EL1_PF_MODE_LSB				U(11)
-#define CPUECTLR2_EL1_PF_MODE_WIDTH				U(4)
-
-/*******************************************************************************
  * CPU Selected Instruction Private register specific definitions.
  ******************************************************************************/
 #define CORTEX_A710_CPUPSELR_EL3				S3_6_C15_C8_0
 #define CORTEX_A710_CPUPCR_EL3					S3_6_C15_C8_1
 #define CORTEX_A710_CPUPOR_EL3					S3_6_C15_C8_2
 #define CORTEX_A710_CPUPMR_EL3					S3_6_C15_C8_3
+
+#ifndef __ASSEMBLER__
+long check_erratum_cortex_a710_3701772(long cpu_rev);
+#endif /* __ASSEMBLER__ */
 
 #endif /* CORTEX_A710_H */

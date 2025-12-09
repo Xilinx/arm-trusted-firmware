@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,9 @@
 #include <arch_helpers.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
+#if TRANSFER_LIST
+#include <transfer_list.h>
+#endif
 #include <lib/xlat_tables/xlat_tables_compat.h>
 #include <plat/common/platform.h>
 #include <services/arm_arch_svc.h>
@@ -28,6 +31,15 @@
 #pragma weak plat_is_smccc_feature_available
 #pragma weak plat_get_soc_version
 #pragma weak plat_get_soc_revision
+#pragma weak plat_get_soc_name
+
+/* Pointer and function to register platform function to log GPT corruption */
+const struct plat_log_gpt_corrupted *plat_log_gpt_ptr;
+
+void plat_setup_log_gpt_corrupted(const struct plat_log_gpt_corrupted *log_gpt)
+{
+	plat_log_gpt_ptr = log_gpt;
+}
 
 int32_t plat_get_soc_version(void)
 {
@@ -35,6 +47,11 @@ int32_t plat_get_soc_version(void)
 }
 
 int32_t plat_get_soc_revision(void)
+{
+	return SMC_ARCH_CALL_NOT_SUPPORTED;
+}
+
+int32_t plat_get_soc_name(char *soc_name __unused)
 {
 	return SMC_ARCH_CALL_NOT_SUPPORTED;
 }
@@ -141,3 +158,13 @@ void __init setup_page_tables(const mmap_region_t *bl_regions,
 	/* Create the page tables to reflect the above mappings */
 	init_xlat_tables();
 }
+
+#if ((MEASURED_BOOT || DICE_PROTECTION_ENVIRONMENT) && TRANSFER_LIST)
+int plat_handoff_mboot(const void *data, uint32_t data_size, void *tl_base)
+{
+	if (!transfer_list_add(tl_base, TL_TAG_TPM_EVLOG, data_size, data))
+		return -1;
+
+	return 0;
+}
+#endif

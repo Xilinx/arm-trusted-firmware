@@ -12,8 +12,7 @@
 
 #include <assert.h>
 
-#include <drivers/arm/gic_common.h>
-#include <drivers/arm/gicv3.h>
+#include <drivers/arm/gic.h>
 #include <lib/bakery_lock.h>
 #include <lib/mmio.h>
 #include <lib/spinlock.h>

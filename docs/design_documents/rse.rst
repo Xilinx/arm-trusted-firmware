@@ -25,9 +25,15 @@ RSE communication layer
 -----------------------
 
 The communication between RSE and other subsystems are primarily relying on the
-Message Handling Unit (MHU) module. The number of MHU interfaces between RSE
-and other cores is IMPDEF. Besides MHU other modules also could take part in
-the communication. RSE is capable of mapping the AP memory to its address space.
+Message Handling Unit (MHU) module.
+
+However, this is possible to use this communication protocol with a different
+mailbox than MHU, by setting the flag ``PLAT_MHU=NO_MHU`` and implementing the
+APIs given in the file: ``include/drivers/arm/rse_comms.h``.
+
+The number of MHU interfaces between RSE and other cores is IMPDEF. Besides MHU
+other modules also could take part in the communication. RSE is capable of
+mapping the AP memory to its address space.
 Thereby either RSE core itself or a DMA engine if it is present, can move the
 data between memory belonging to RSE or AP. In this way, a bigger amount of data
 can be transferred in a short time.
@@ -781,6 +787,21 @@ Arm CCA platform:
 - ``ROTPK for secure firmware.``
 - ``ROTPK for non-secure firmware.``
 
+Get entropy API
+^^^^^^^^^^^^^^^
+
+AP/RSE interface for reading the entropy is as follows.
+
+Defined here:
+
+- ``include/lib/psa/rse_platform_api.h``
+
+.. code-block:: c
+
+    psa_status_t rse_platform_get_entropy(uint8_t *data, size_t data_size)
+
+Through this service, we can read an entropy generated from RSE.
+
 References
 ----------
 
@@ -789,11 +810,12 @@ References
 .. [3] https://trustedfirmware-m.readthedocs.io/projects/tf-m-extras/en/latest/partitions/measured_boot_integration_guide.html
 .. [4] https://trustedfirmware-m.readthedocs.io/projects/tf-m-extras/en/latest/partitions/delegated_attestation/delegated_attest_integration_guide.html
 .. [5] https://trustedfirmware-m.readthedocs.io/en/latest/platform/arm/rse/rse_key_management.html
-.. [6] https://developer.arm.com/-/media/Files/pdf/PlatformSecurityArchitecture/Architect/DEN0063-PSA_Firmware_Framework-1.0.0-2.pdf?revision=2d1429fa-4b5b-461a-a60e-4ef3d8f7f4b4&hash=3BFD6F3E687F324672F18E5BE9F08EDC48087C93
+.. [6] https://developer.arm.com/documentation/den0063
 .. [7] https://developer.arm.com/documentation/DEN0096/A_a/?lang=en
 .. [8] https://trustedfirmware-m.readthedocs.io/projects/tf-m-extras/en/latest/partitions/dice_protection_environment/dice_protection_environment.html
 
 --------------
 
-*Copyright (c) 2023-2024, Arm Limited. All rights reserved.*
+*Copyright (c) 2023-2025, Arm Limited. All rights reserved.*
 *Copyright (c) 2024, Linaro Limited. All rights reserved.*
+*Copyright (c) 2025, STMicroelectronics - All Rights Reserved*

@@ -25,9 +25,9 @@ endif
 
 # Specify mbed TLS configuration file
 ifeq (${PSA_CRYPTO},1)
-  MBEDTLS_CONFIG_FILE    ?=    "<drivers/auth/mbedtls/psa_mbedtls_config.h>"
+  MBEDTLS_CONFIG_FILE    ?=    "<drivers/auth/mbedtls/default_psa_mbedtls_config.h>"
 else
-  MBEDTLS_CONFIG_FILE    ?=    "<drivers/auth/mbedtls/mbedtls_config-3.h>"
+  MBEDTLS_CONFIG_FILE    ?=    "<drivers/auth/mbedtls/default_mbedtls_config.h>"
 endif
 
 $(eval $(call add_define,MBEDTLS_CONFIG_FILE))
@@ -78,6 +78,11 @@ LIBMBEDTLS_SRCS         += $(addprefix ${MBEDTLS_DIR}/library/,    	\
 					psa_util.c			\
 					)
 endif
+
+# This is a temporary workaround due to changes in the locations of helper
+# function declarations in Mbed-TLS version 3.6.4
+# TODO: remove this once the related Mbedt-TLS issue is resolved
+LIBMBEDTLS_CFLAGS	+=	-Wno-error=redundant-decls
 
 # The platform may define the variable 'TF_MBEDTLS_KEY_ALG' to select the key
 # algorithm to use. If the variable is not defined, select it based on

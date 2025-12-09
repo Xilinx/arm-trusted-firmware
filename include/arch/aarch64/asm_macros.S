@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,6 +8,7 @@
 
 #include <arch.h>
 #include <common/asm_macros_common.S>
+#include <lib/cpus/cpu_ops.h>
 #include <lib/spinlock.h>
 
 /*
@@ -225,18 +226,11 @@
 	.endm
 
 	/*
-	 * With RAS extension executes esb instruction, else NOP
-	 */
-	.macro esb
-	.inst	0xd503221f
-	.endm
-
-	/*
 	 * Helper macro to read system register value into x0
 	 */
 	.macro	read reg:req
 #if ENABLE_BTI
-	bti	j
+	BTI	j
 #endif
 	mrs	x0, \reg
 	ret
@@ -247,7 +241,7 @@
 	 */
 	.macro	write reg:req
 #if ENABLE_BTI
-	bti	j
+	BTI	j
 #endif
 	msr	\reg, x1
 	ret
@@ -265,6 +259,14 @@
 	msr	SYSREG_SB, xzr
 	.endm
 
+	.macro psb_csync
+	hint #17 /* use the hint synonym for compatibility */
+	.endm
+
+	.macro tsb_csync
+	hint #18 /* use the hint synonym for compatibility */
+	.endm
+
 	/*
 	 * Macro for using speculation barrier instruction introduced by
 	 * FEAT_SB, if it's enabled.
@@ -276,6 +278,14 @@
 	dsb	sy
 	isb
 #endif
+	.endm
+
+	/*
+	 * Clear Branch History instruction, translates to NOP on CPUs
+	 * that don't implement the clrbhb instruction.
+	 */
+	.macro clrbhb
+	hint	#22
 	.endm
 
 	/*
@@ -325,4 +335,54 @@
 	adrp	\dst, \sym
 	add	\dst, \dst, :lo12:\sym
 	.endm
+
+	/*
+	* is_feat_XYZ_present_asm - Set flags and reg if FEAT_XYZ
+	* is enabled at runtime.
+	*
+	* Arguments:
+	* reg: Register for temporary use.
+	*
+	* Clobbers: reg
+	*/
+	.macro is_feat_sysreg128_present_asm reg:req
+	mrs	\reg, ID_AA64ISAR2_EL1
+	ands	\reg, \reg, #(ID_AA64ISAR2_SYSREG128_MASK << ID_AA64ISAR2_SYSREG128_SHIFT)
+	.endm
+
+	.macro is_feat_pauth_present_asm reg:req, clobber:req
+	mrs	\reg, ID_AA64ISAR1_EL1
+	mov_imm	\clobber, ((ID_AA64ISAR1_GPI_MASK << ID_AA64ISAR1_GPI_SHIFT) \
+			 | (ID_AA64ISAR1_GPA_MASK << ID_AA64ISAR1_GPA_SHIFT) \
+			 | (ID_AA64ISAR1_API_MASK << ID_AA64ISAR1_API_SHIFT) \
+			 | (ID_AA64ISAR1_APA_MASK << ID_AA64ISAR1_APA_SHIFT))
+	tst	\reg, \clobber
+	.endm
+
+	.macro is_feat_sctlr2_present_asm reg:req
+	mrs	\reg, ID_AA64MMFR3_EL1
+	ands	\reg, \reg, #(ID_AA64MMFR3_EL1_SCTLR2_MASK << ID_AA64MMFR3_EL1_SCTLR2_SHIFT)
+	.endm
+
+.macro call_reset_handler
+#if defined(IMAGE_BL1) || defined(IMAGE_BL31) || (defined(IMAGE_BL2) && RESET_TO_BL2)
+	/* ---------------------------------------------------------------------
+	 * It is a cold boot.
+	 * Perform any processor specific actions upon reset e.g. cache, TLB
+	 * invalidations etc.
+	 * ---------------------------------------------------------------------
+	 */
+	/* The plat_reset_handler can clobber x0 - x18, x30 */
+	bl	plat_reset_handler
+
+	/* Get the matching cpu_ops pointer */
+	bl	get_cpu_ops_ptr
+
+	/* Get the cpu_ops reset handler */
+	ldr	x2, [x0, #CPU_RESET_FUNC]
+
+	/* The cpu_ops reset handler can clobber x0 - x19, x30 */
+	blr	x2
+#endif
+.endm
 #endif /* ASM_MACROS_S */

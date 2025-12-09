@@ -226,10 +226,24 @@ static void __dead2 k3_system_reset(void)
 		wfi();
 }
 
-static int k3_validate_power_state(unsigned int power_state,
-				   psci_power_state_t *req_state)
+static int k3_validate_power_state(unsigned int power_state, psci_power_state_t *req_state)
 {
-	/* TODO: perform the proper validation */
+	unsigned int pwr_lvl = psci_get_pstate_pwrlvl(power_state);
+	unsigned int pstate = psci_get_pstate_type(power_state);
+
+	if (pwr_lvl > PLAT_MAX_PWR_LVL)
+		return PSCI_E_INVALID_PARAMS;
+
+	if (pstate == PSTATE_TYPE_STANDBY) {
+		/*
+		 * It's possible to enter standby only on power level 0
+		 * Ignore any other power level.
+		 */
+		if (pwr_lvl != MPIDR_AFFLVL0)
+			return PSCI_E_INVALID_PARAMS;
+
+		CORE_PWR_STATE(req_state) = PLAT_MAX_RET_STATE;
+	}
 
 	return PSCI_E_SUCCESS;
 }

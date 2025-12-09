@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2024, Arm Limited. All rights reserved.
+# Copyright (c) 2016-2025, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -9,6 +9,9 @@
 # Makefile, after this file is included. This ensures that the former is better
 # poised to handle dependencies, as all build variables would have a default
 # value by then.
+
+# Warning level to give to the compiler
+W				:= 0
 
 # Use T32 by default
 AARCH32_INSTRUCTION_SET		:= T32
@@ -85,9 +88,6 @@ DYN_DISABLE_AUTH		:= 0
 # Enable the Maximum Power Mitigation Mechanism on supporting cores.
 ENABLE_MPMM			:= 0
 
-# Enable MPMM configuration via FCONF.
-ENABLE_MPMM_FCONF		:= 0
-
 # Flag to Enable Position Independant support (PIE)
 ENABLE_PIE			:= 0
 
@@ -105,6 +105,10 @@ ENABLE_STACK_PROTECTOR		:= 0
 
 # Flag to enable exception handling in EL3
 EL3_EXCEPTION_HANDLING		:= 0
+
+# Flag to include all errata for all CPUs TF-A implements workarounds for
+# Its supposed to be used only for testing.
+ENABLE_ERRATA_ALL		:= 0
 
 # By default BL31 encryption disabled
 ENCRYPT_BL31			:= 0
@@ -136,6 +140,9 @@ FIP_NAME			:= fip.bin
 # Default FWU_FIP file name
 FWU_FIP_NAME			:= fwu_fip.bin
 
+# Default BL2 FIP file name
+BL2_FIP_NAME			:= bl2_fip.bin
+
 # By default firmware encryption with SSK
 FW_ENC_STATUS			:= 0
 
@@ -152,12 +159,18 @@ RME_GPT_MAX_BLOCK		:= 512
 # default, they are for Secure EL1.
 GICV2_G0_FOR_EL3		:= 0
 
+# Generic implementation of a GICvX driver
+USE_GIC_DRIVER			:= 0
+
 # Route NS External Aborts to EL3. Disabled by default; External Aborts are handled
 # by lower ELs.
 HANDLE_EA_EL3_FIRST_NS		:= 0
 
 # Enable Handoff protocol using transfer lists
 TRANSFER_LIST			:= 0
+
+# Enable HOB list to generate boot information
+HOB_LIST			:= 0
 
 # Enables support for the gcc compiler option "-mharden-sls=all".
 # By default, disables all SLS hardening.
@@ -185,10 +198,13 @@ endif
 # Option to build TF with Measured Boot support
 MEASURED_BOOT			:= 0
 
+# Option to build TF with Discrete TPM support
+DISCRETE_TPM			:= 0
+
 # Option to enable the DICE Protection Environmnet as a Measured Boot backend
 DICE_PROTECTION_ENVIRONMENT	:=0
 
-# NS timer register save and restore
+# NS timer register save and restore (deprecated)
 NS_TIMER_SWITCH			:= 0
 
 # Include lib/libc in the final image
@@ -207,6 +223,9 @@ PSCI_EXTENDED_STATE_ID		:= 0
 # Enable PSCI OS-initiated mode support
 PSCI_OS_INIT_MODE		:= 0
 
+# SMCCC_ARCH_FEATURE_AVAILABILITY support
+ARCH_FEATURE_AVAILABILITY	:= 0
+
 # By default, BL1 acts as the reset handler, not BL31
 RESET_TO_BL31			:= 0
 
@@ -215,6 +234,9 @@ SAVE_KEYS			:= 0
 
 # Software Delegated Exception support
 SDEI_SUPPORT			:= 0
+
+# Number of UUIDs allowed for a physical partition
+SPMC_AT_EL3_PARTITION_MAX_UUIDS := 4
 
 # True Random Number firmware Interface support
 TRNG_SUPPORT			:= 0
@@ -280,6 +302,10 @@ USE_COHERENT_MEM		:= 1
 # Build option to add debugfs support
 USE_DEBUGFS			:= 0
 
+# Build option to enable passing the FDT in x0 to BL33, following the kernel
+# convention.
+USE_KERNEL_DT_CONVENTION	:= 0
+
 # Build option to fconf based io
 ARM_IO_IN_DTB			:= 0
 
@@ -330,13 +356,11 @@ ENABLE_LTO			:= 0
 # CTX_INCLUDE_EL2_REGS.
 CTX_INCLUDE_EL2_REGS		:= 0
 
-# Enable Memory tag extension which is supported for architecture greater
-# than Armv8.5-A
-# By default it is set to "no"
-SUPPORT_STACK_MEMTAG		:= no
-
 # Select workaround for AT speculative behaviour.
 ERRATA_SPECULATIVE_AT		:= 0
+
+# select workaround for SME aborting powerdown
+ERRATA_SME_POWER_DOWN		:= 0
 
 # Trap RAS error record access from Non secure
 RAS_TRAP_NS_ERR_REC_ACCESS	:= 0
@@ -407,6 +431,9 @@ CTX_INCLUDE_MPAM_REGS		:= 0
 # Enable context memory usage reporting during BL31 setup.
 PLATFORM_REPORT_CTX_MEM_USE	:= 0
 
+# Request a custom addition to the BL31 linker script
+PLAT_EXTRA_LD_SCRIPT		:= 0
+
 # Enable early console
 EARLY_CONSOLE			:= 0
 
@@ -416,3 +443,21 @@ PRESERVE_DSU_PMU_REGS		:= 0
 
 # Enable RMMD to forward attestation requests from RMM to EL3.
 RMMD_ENABLE_EL3_TOKEN_SIGN	:= 0
+
+# Enable RMMD to program and manage IDE Keys at the PCIe Root Port(RP).
+# This flag is temporary and it is expected once the interface is
+# finalized, this flag will be removed.
+RMMD_ENABLE_IDE_KEY_PROG	:= 0
+
+# Live firmware activation support
+LFA_SUPPORT			:= 0
+
+# Enable support for arm DSU driver.
+USE_DSU_DRIVER			:= 0
+
+# Define the separation of BL2 flag, by default it is disabled.
+SEPARATE_BL2_FIP		:=	0
+
+# Disable NUMA awareness for per-CPU framework by default. Platforms should
+# enable this feature by setting PLATFORM_NODE_COUNT > 1
+PLATFORM_NODE_COUNT		:= 1

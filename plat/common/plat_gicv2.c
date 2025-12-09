@@ -140,7 +140,7 @@ void plat_ic_end_of_interrupt(uint32_t id)
  * as the bit position of the IRQ or FIQ bit in the SCR_EL3.
  */
 uint32_t plat_interrupt_type_to_line(uint32_t type,
-				size_t security_state)
+				uint32_t security_state)
 {
 	assert((type == INTR_TYPE_S_EL1) || (type == INTR_TYPE_EL3) ||
 	       (type == INTR_TYPE_NS));

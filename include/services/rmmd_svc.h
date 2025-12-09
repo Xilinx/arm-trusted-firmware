@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -92,6 +92,8 @@
 #define E_RMM_NOMEM			-4
 #define E_RMM_INVAL			-5
 #define E_RMM_AGAIN			-6
+#define E_RMM_FAULT			-7
+#define E_RMM_IN_PROGRESS		-8
 
 /* Return error codes from RMI SMCs */
 #define RMI_SUCCESS			0
@@ -161,11 +163,114 @@
 #define RMM_EL3_TOKEN_SIGN_PULL_RESP_OP         U(2)
 #define RMM_EL3_TOKEN_SIGN_GET_RAK_PUB_OP       U(3)
 
+/* Starting RMM-EL3 interface version 0.5 */
+
+/*
+ * Function code to support update of MEC keys.
+ * The arguments of this SMC are:
+ * 	arg0 - Function ID.
+ * 	arg1 - [63:48]: Res0, [47:32]: MECID, [31:1]: Res0, [0]: MEC refresh
+ * 	       reason
+ * The return arguments are:
+ * 	ret0 - Status/Error
+ */
+#define RMM_MEC_REFRESH				SMC64_RMMD_EL3_FID(U(6))
+
 /* ECC Curve types for attest key generation */
 #define ATTEST_KEY_CURVE_ECC_SECP384R1		U(0)
 
 /* Identifier for the hash algorithm used for attestation signing */
 #define EL3_TOKEN_SIGN_HASH_ALG_SHA384		U(1)
+
+/* Starting RMM-EL3 interface version 0.6 */
+/*
+ * Function codes to support RMM IDE Key management Interface.
+ * The arguments to this SMC are:
+ *     arg0 - Function ID.
+ *     arg1 - Enhanced Configuration Access Mechanism address
+ *     arg2 - Root Port ID
+ *     arg3 - IDE selective stream info
+ *     arg4 - Quad word of key[63:0]
+ *     arg5 - Quad word of key[127:64]
+ *     arg6 - Quad word of key[191:128]
+ *     arg7 - Quad word of key[255:192]
+ *     arg8 - Quad word of IV [63:0]
+ *     arg9 - Quad word of IV [95:64]
+ *     arg10 - request_id
+ *     arg11 - cookie
+ * The return arguments are:
+ *     ret0 - Status/Error
+ */
+#define RMM_IDE_KEY_PROG			SMC64_RMMD_EL3_FID(U(7))
+
+/*******************************************************************************
+ * Structure to hold el3_ide_key info
+ ******************************************************************************/
+#ifndef __ASSEMBLER__
+typedef struct rp_ide_key_info {
+	uint64_t keyqw0;
+	uint64_t keyqw1;
+	uint64_t keyqw2;
+	uint64_t keyqw3;
+	uint64_t ifvqw0;
+	uint64_t ifvqw1;
+} rp_ide_key_info_t;
+#endif /* __ASSEMBLER__ */
+
+/*
+ * Function codes to support RMM IDE Key management Interface.
+ * The arguments to this SMC are:
+ *     arg0 - Function ID.
+ *     arg1 - Enhanced Configuration Access Mechanism address
+ *     arg2 - Root Port ID
+ *     arg3 - IDE selective stream info
+ *     arg4 - request_id
+ *     arg5 - cookie
+ * The return arguments are:
+ *     ret0 - Status/Error
+ */
+#define RMM_IDE_KEY_SET_GO			SMC64_RMMD_EL3_FID(U(8))
+
+/*
+ * Function codes to support RMM IDE Key management Interface.
+ * The arguments to this SMC are:
+ *     arg0 - Function ID.
+ *     arg1 - Enhanced Configuration Access Mechanism address
+ *     arg2 - Root Port ID
+ *     arg3 - IDE selective stream info
+ *     arg4 - request_id
+ *     arg5 - cookie
+ * The return arguments are:
+ *     ret0 - Status/Error
+ */
+#define RMM_IDE_KEY_SET_STOP			SMC64_RMMD_EL3_FID(U(9))
+
+/*
+ * Function codes to support RMM IDE Key management Interface.
+ * The arguments to this SMC are:
+ *     arg0 - Function ID.
+ *     arg1 - Enhanced Configuration Access Mechanism address
+ *     arg2 - Root Port ID
+ * The return arguments are:
+ *     ret0 - Status/Error
+ *     ret1 - Retrieved response corresponding to the previous request.
+ *     ret2 - request_id
+ *     ret3 - cookie
+ */
+#define RMM_IDE_KM_PULL_RESPONSE		SMC64_RMMD_EL3_FID(U(10))
+
+/* Starting RMM-EL3 interface version 0.7 */
+/*
+ * Reserve memory for the RMM.
+ * The arguments to this SMC are:
+ *     arg0 - Function ID.
+ *     arg1 - Size of memory to be reserved (in bytes).
+ *     arg2 - Flags and alignment requirements.
+ * The return arguments are:
+ *     ret0 - Status/error.
+ *     ret1 - Physical address of the reserved memory area.
+ */
+#define RMM_RESERVE_MEMORY			SMC64_RMMD_EL3_FID(U(11))
 
 /*
  * RMM_BOOT_COMPLETE originates on RMM when the boot finishes (either cold
@@ -188,7 +293,7 @@
  * Increase this when a bug is fixed, or a feature is added without
  * breaking compatibility.
  */
-#define RMM_EL3_IFC_VERSION_MINOR	(U(4))
+#define RMM_EL3_IFC_VERSION_MINOR	(U(8))
 
 #define RMM_EL3_INTERFACE_VERSION				\
 	(((RMM_EL3_IFC_VERSION_MAJOR << 16) & 0x7FFFF) |	\
@@ -202,6 +307,8 @@
 #include <stdint.h>
 
 int rmmd_setup(void);
+int rmmd_primary_activate(void);
+int rmmd_secondary_activate(void);
 uint64_t rmmd_rmi_handler(uint32_t smc_fid,
 		uint64_t x1,
 		uint64_t x2,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2023, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,6 +11,52 @@
 #include <common/bl_common.h>
 #include <lib/cpus/cpu_ops.h>
 #include <lib/el3_runtime/cpu_data.h>
+
+	/*
+	 * The below function returns the cpu_ops structure matching the
+	 * midr of the core. It reads the MIDR and finds the matching
+	 * entry in cpu_ops entries. Only the implementation and part number
+	 * are used to match the entries.
+	 * Return :
+	 *     r0 - The matching cpu_ops pointer on Success
+	 *     r0 - 0 on failure.
+	 * Clobbers: r0 - r5
+	 */
+.macro get_cpu_ops_ptr_impl
+	/* Get the cpu_ops start and end locations */
+	ldr	r4, =(__CPU_OPS_START__ + CPU_MIDR)
+	ldr	r5, =(__CPU_OPS_END__ + CPU_MIDR)
+
+	/* Initialize the return parameter */
+	mov	r0, #0
+
+	/* Read the MIDR_EL1 */
+	ldcopr	r2, MIDR
+	ldr	r3, =CPU_IMPL_PN_MASK
+
+	/* Retain only the implementation and part number using mask */
+	and	r2, r2, r3
+1:
+	/* Check if we have reached end of list */
+	cmp	r4, r5
+	bhs	error_exit\@
+
+	/* load the midr from the cpu_ops */
+	ldr	r1, [r4], #CPU_OPS_SIZE
+	and	r1, r1, r3
+
+	/* Check if midr matches to midr of this core */
+	cmp	r1, r2
+	bne	1b
+
+	/* Subtract the increment and offset to get the cpu-ops pointer */
+	sub	r0, r4, #(CPU_OPS_SIZE + CPU_MIDR)
+#if ENABLE_ASSERTIONS
+	cmp	r0, #0
+	ASM_ASSERT(ne)
+#endif
+error_exit\@:
+.endm
 
 #if defined(IMAGE_BL1) || defined(IMAGE_BL32) || \
 	(defined(IMAGE_BL2) && RESET_TO_BL2)
@@ -30,7 +76,7 @@ func reset_handler
 	bl	plat_reset_handler
 
 	/* Get the matching cpu_ops pointer (clobbers: r0 - r5) */
-	bl	get_cpu_ops_ptr
+	get_cpu_ops_ptr_impl
 
 #if ENABLE_ASSERTIONS
 	cmp	r0, #0
@@ -47,117 +93,12 @@ endfunc reset_handler
 
 #endif
 
-#ifdef IMAGE_BL32 /* The power down core and cluster is needed only in  BL32 */
-	/*
-	 * void prepare_cpu_pwr_dwn(unsigned int power_level)
-	 *
-	 * Prepare CPU power down function for all platforms. The function takes
-	 * a domain level to be powered down as its parameter. After the cpu_ops
-	 * pointer is retrieved from cpu_data, the handler for requested power
-	 * level is called.
-	 */
-	.globl	prepare_cpu_pwr_dwn
-func prepare_cpu_pwr_dwn
-	/*
-	 * If the given power level exceeds CPU_MAX_PWR_DWN_OPS, we call the
-	 * power down handler for the last power level
-	 */
-	mov	r2, #(CPU_MAX_PWR_DWN_OPS - 1)
-	cmp	r0, r2
-	movhi	r0, r2
-
-	push	{r0, lr}
-	bl	_cpu_data
-	pop	{r2, lr}
-
-	ldr	r0, [r0, #CPU_DATA_CPU_OPS_PTR]
-#if ENABLE_ASSERTIONS
-	cmp	r0, #0
-	ASM_ASSERT(ne)
-#endif
-
-	/* Get the appropriate power down handler */
-	mov	r1, #CPU_PWR_DWN_OPS
-	add	r1, r1, r2, lsl #2
-	ldr	r1, [r0, r1]
-#if ENABLE_ASSERTIONS
-	cmp	r1, #0
-	ASM_ASSERT(ne)
-#endif
-	bx	r1
-endfunc prepare_cpu_pwr_dwn
-
-	/*
-	 * Initializes the cpu_ops_ptr if not already initialized
-	 * in cpu_data. This must only be called after the data cache
-	 * is enabled. AAPCS is followed.
-	 */
-	.globl	init_cpu_ops
-func init_cpu_ops
-	push	{r4 - r6, lr}
-	bl	_cpu_data
-	mov	r6, r0
-	ldr	r1, [r0, #CPU_DATA_CPU_OPS_PTR]
-	cmp	r1, #0
-	bne	1f
-	bl	get_cpu_ops_ptr
-#if ENABLE_ASSERTIONS
-	cmp	r0, #0
-	ASM_ASSERT(ne)
-#endif
-	str	r0, [r6, #CPU_DATA_CPU_OPS_PTR]!
-1:
-	pop	{r4 - r6, pc}
-endfunc init_cpu_ops
-
-#endif /* IMAGE_BL32 */
-
-	/*
-	 * The below function returns the cpu_ops structure matching the
-	 * midr of the core. It reads the MIDR and finds the matching
-	 * entry in cpu_ops entries. Only the implementation and part number
-	 * are used to match the entries.
-	 * Return :
-	 *     r0 - The matching cpu_ops pointer on Success
-	 *     r0 - 0 on failure.
-	 * Clobbers: r0 - r5
-	 */
 	.globl	get_cpu_ops_ptr
+/* performs an AAPCS compliant call to get_cpu_ops_ptr_impl */
 func get_cpu_ops_ptr
-	/* Get the cpu_ops start and end locations */
-	ldr	r4, =(__CPU_OPS_START__ + CPU_MIDR)
-	ldr	r5, =(__CPU_OPS_END__ + CPU_MIDR)
-
-	/* Initialize the return parameter */
-	mov	r0, #0
-
-	/* Read the MIDR_EL1 */
-	ldcopr	r2, MIDR
-	ldr	r3, =CPU_IMPL_PN_MASK
-
-	/* Retain only the implementation and part number using mask */
-	and	r2, r2, r3
-1:
-	/* Check if we have reached end of list */
-	cmp	r4, r5
-	bhs	error_exit
-
-	/* load the midr from the cpu_ops */
-	ldr	r1, [r4], #CPU_OPS_SIZE
-	and	r1, r1, r3
-
-	/* Check if midr matches to midr of this core */
-	cmp	r1, r2
-	bne	1b
-
-	/* Subtract the increment and offset to get the cpu-ops pointer */
-	sub	r0, r4, #(CPU_OPS_SIZE + CPU_MIDR)
-#if ENABLE_ASSERTIONS
-	cmp	r0, #0
-	ASM_ASSERT(ne)
-#endif
-error_exit:
-	bx	lr
+	push	{r4 - r5, lr}
+	get_cpu_ops_ptr_impl
+	pop	{r4 - r5, pc}
 endfunc get_cpu_ops_ptr
 
 /*

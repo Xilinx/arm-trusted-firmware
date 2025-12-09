@@ -141,52 +141,41 @@ uintptr_t xlat_get_min_virt_addr_space_size(void)
 
 bool is_mmu_enabled_ctx(const xlat_ctx_t *ctx)
 {
-	bool ret = false;
-
 	if (ctx->xlat_regime == EL1_EL0_REGIME) {
 		assert(xlat_arch_current_el() >= 1U);
-		ret = ((read_sctlr_el1() & SCTLR_M_BIT) != 0U);
+		return (read_sctlr_el1() & SCTLR_M_BIT) != 0U;
 	} else if (ctx->xlat_regime == EL2_REGIME) {
 		assert(xlat_arch_current_el() >= 2U);
-		ret = ((read_sctlr_el2() & SCTLR_M_BIT) != 0U);
+		return (read_sctlr_el2() & SCTLR_M_BIT) != 0U;
 	} else {
 		assert(ctx->xlat_regime == EL3_REGIME);
 		assert(xlat_arch_current_el() >= 3U);
-		ret = ((read_sctlr_el3() & SCTLR_M_BIT) != 0U);
+		return (read_sctlr_el3() & SCTLR_M_BIT) != 0U;
 	}
-
-	return ret;
 }
 
 bool is_dcache_enabled(void)
 {
 	unsigned int el = get_current_el_maybe_constant();
-	bool ret = false;
 
 	if (el == 1U) {
-		ret = ((read_sctlr_el1() & SCTLR_C_BIT) != 0U);
+		return (read_sctlr_el1() & SCTLR_C_BIT) != 0U;
 	} else if (el == 2U) {
-		ret = ((read_sctlr_el2() & SCTLR_C_BIT) != 0U);
+		return (read_sctlr_el2() & SCTLR_C_BIT) != 0U;
 	} else {
-		ret = ((read_sctlr_el3() & SCTLR_C_BIT) != 0U);
+		return (read_sctlr_el3() & SCTLR_C_BIT) != 0U;
 	}
-
-	return ret;
 }
 
 uint64_t xlat_arch_regime_get_xn_desc(int xlat_regime)
 {
-	uint64_t ret = 0;
-
 	if (xlat_regime == EL1_EL0_REGIME) {
-		ret = (UPPER_ATTRS(UXN) | UPPER_ATTRS(PXN));
+		return UPPER_ATTRS(UXN) | UPPER_ATTRS(PXN);
 	} else {
 		assert((xlat_regime == EL2_REGIME) ||
 		       (xlat_regime == EL3_REGIME));
-		ret = UPPER_ATTRS(XN);
+		return UPPER_ATTRS(XN);
 	}
-
-	return ret;
 }
 
 void xlat_arch_tlbi_va(uintptr_t va, int xlat_regime)

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2019-2020, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2022, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -26,6 +26,9 @@ uint32_t arm_get_spsr_for_bl33_entry(void);
 
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
+
+/* Clear SMMU Cache Unlock */
+static void configure_smmu_cache_unlock(uintptr_t smmu_base);
 
 entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 {
@@ -52,12 +55,27 @@ void setup_smmu_secure_context(void)
 
 	/*
 	 * Program SCR1 register (0xFA000004)
-	 * to set NSNUMSMRGO bit[14:8] to 0x4 which stream mapping register
+	 * to set NSNUMSMRGO bit[14:8] to 0x20 which stream mapping register
 	 * for non-secure context and the rest will be secure context
-	 * to set NSNUMCBO bit[5:0] to 0x4 which allocate context bank
+	 * to set NSNUMCBO bit[5:0] to 0x10 which allocate context bank
 	 * for non-secure context and the rest will be secure context
 	 */
-	mmio_write_32(0xFA000004, 0x00000404);
+	mmio_write_32(0xFA000004, 0x00002010);
+}
+
+
+static void configure_smmu_cache_unlock(uintptr_t smmu_base)
+{
+	uint32_t version = 0;
+
+	version = mmio_read_32(smmu_base + SMMU_IDR7);
+	VERBOSE("SOCFPGA: SMMU(0x%lx) r%dp%d\n", smmu_base,
+		SMMU_IDR7_MAJOR(version), SMMU_IDR7_MINOR(version));
+
+	/* For SMMU r2p0+ clear CACHE_LOCK to allow writes to CBn_ACTLR */
+	if (SMMU_IDR7_MAJOR(version) >= 2) {
+		mmio_clrbits_32(smmu_base + SMMU_SACR, SMMU_SACR_CACHE_LOCK);
+	}
 }
 
 void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
@@ -67,6 +85,11 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	mmio_write_64(PLAT_SEC_ENTRY, PLAT_SEC_WARM_ENTRY);
 	console_16550_register(PLAT_INTEL_UART_BASE, PLAT_UART_CLOCK,
 		PLAT_BAUDRATE, &console);
+
+	/* Enable TF-A BL31 logs when running from non-secure world also. */
+	console_set_scope(&console,
+		(CONSOLE_FLAG_BOOT | CONSOLE_FLAG_RUNTIME | CONSOLE_FLAG_CRASH));
+
 	/*
 	 * Check params passed from BL31 should not be NULL,
 	 */
@@ -170,10 +193,21 @@ void bl31_platform_setup(void)
 	gicv2_pcpu_distif_init();
 	gicv2_cpuif_enable();
 	setup_smmu_secure_context();
+	configure_smmu_cache_unlock(SMMU_REG_BASE);
 
 	/* Signal secondary CPUs to jump to BL31 (BL2 = U-boot SPL) */
 	mmio_write_64(PLAT_CPU_RELEASE_ADDR,
 		(uint64_t)plat_secondary_cpus_bl31_entry);
+
+#if SIP_SVC_V3
+	/*
+	 * Re-initialize the mailbox to include V3 specific routines.
+	 * In V3, this re-initialize is required because prior to BL31, U-Boot
+	 * SPL has its own mailbox settings and this initialization will
+	 * override to those settings as required by the V3 framework.
+	 */
+	mailbox_init();
+#endif
 
 	mailbox_hps_stage_notify(HPS_EXECUTION_STATE_SSBL);
 }

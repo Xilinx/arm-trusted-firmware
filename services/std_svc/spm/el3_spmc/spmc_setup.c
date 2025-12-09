@@ -1,18 +1,26 @@
 /*
- * Copyright (c) 2022-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2022-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 
 #include <arch.h>
 #include <arch_helpers.h>
 #include <common/debug.h>
 #include <common/fdt_wrappers.h>
+
 #include <context.h>
 #include <lib/el3_runtime/context_mgmt.h>
+#if HOB_LIST
+#include <lib/hob/hob.h>
+#include <lib/hob/hob_guid.h>
+#include <lib/hob/mmram.h>
+#include <lib/hob/mpinfo.h>
+#endif
 #include <lib/utils.h>
 #include <lib/xlat_tables/xlat_tables_v2.h>
 #include <libfdt.h>
@@ -22,14 +30,25 @@
 #include "spm_common.h"
 #include "spm_shim_private.h"
 #include "spmc.h"
+#if TRANSFER_LIST
+#include <transfer_list.h>
+#include <tpm_event_log.h>
+#endif
 #include <tools_share/firmware_image_package.h>
 
 #include <platform_def.h>
 
+#define FFA_BOOT_INFO_SIZE	(PAGE_SIZE * 2)
+
 /*
  * Statically allocate a page of memory for passing boot information to an SP.
  */
-static uint8_t ffa_boot_info_mem[PAGE_SIZE] __aligned(PAGE_SIZE);
+static uint8_t ffa_boot_info_mem[FFA_BOOT_INFO_SIZE] __aligned(PAGE_SIZE);
+
+#if HOB_LIST
+static void *tpm_evtlog_addr;
+static size_t tpm_evtlog_size;
+#endif
 
 /*
  * We need to choose one execution context from all those available for a S-EL0
@@ -51,6 +70,251 @@ enum sp_memory_region_type {
 	SP_MEM_REGION_NOT_SPECIFIED
 };
 
+#if HOB_LIST
+#if TRANSFER_LIST
+static void get_tpm_event_log(void *secure_tl)
+{
+	struct transfer_list_entry *te;
+	void *evlog;
+
+	if (secure_tl == NULL) {
+		tpm_evtlog_addr = NULL;
+		tpm_evtlog_size = 0;
+		return;
+	}
+
+	te = transfer_list_find((struct transfer_list_header *)secure_tl,
+				TL_TAG_TPM_EVLOG);
+	if (te == NULL) {
+		tpm_evtlog_addr = NULL;
+		tpm_evtlog_size = 0;
+		return;
+	}
+
+	evlog = transfer_list_entry_data(te);
+	assert(evlog != NULL);
+
+	tpm_evtlog_addr = evlog + EVENT_LOG_RESERVED_BYTES;
+	tpm_evtlog_size = te->data_size - EVENT_LOG_RESERVED_BYTES;
+}
+#else
+static void get_tpm_event_log(void *secure_tl)
+{
+	tpm_evtlog_addr = NULL;
+	tpm_evtlog_size = 0;
+}
+#endif
+
+static int get_memory_region_info(void *sp_manifest, int mem_region_node,
+		const char *name, uint32_t granularity,
+		uint64_t *base_address, uint32_t *size)
+{
+	char *property;
+	int node, ret;
+
+	if (name != NULL) {
+		node = fdt_subnode_offset_namelen(sp_manifest, mem_region_node,
+				name, strlen(name));
+		if (node < 0) {
+			ERROR("Not found '%s' region in memory regions configuration for SP.\n",
+					name);
+			return -ENOENT;
+		}
+	} else {
+		node = mem_region_node;
+	}
+
+	property = "base-address";
+	ret = fdt_read_uint64(sp_manifest, node, property, base_address);
+	if (ret < 0) {
+		ERROR("Not found property(%s) in memory region(%s).\n",
+				property, name);
+		return -ENOENT;
+	}
+
+	property = "pages-count";
+	ret = fdt_read_uint32(sp_manifest, node, property, size);
+	if (ret < 0) {
+		ERROR("Not found property(%s) in memory region(%s).\n",
+				property, name);
+		return -ENOENT;
+	}
+
+	*size = ((*size) << (PAGE_SIZE_SHIFT + (granularity << 1)));
+
+	return 0;
+}
+
+static struct efi_hob_handoff_info_table *build_sp_boot_hob_list(
+		void *secure_tl, void *sp_manifest,
+		uintptr_t hob_table_start, size_t *hob_table_size)
+{
+	struct efi_hob_handoff_info_table *hob_table;
+	uintptr_t base_address;
+	int mem_region_node;
+	int32_t node, ret;
+	const char *name;
+	uint32_t granularity, size;
+	uint32_t mem_region_num;
+	struct efi_guid ns_buf_guid = MM_NS_BUFFER_GUID;
+	struct efi_guid mmram_resv_guid = MM_PEI_MMRAM_MEMORY_RESERVE_GUID;
+	struct efi_guid tpm_evtlog_guid = MM_TPM_EVENT_LOG_GUID;
+	struct efi_mmram_descriptor *mmram_desc_data;
+	struct efi_mmram_hob_descriptor_block *mmram_hob_desc_data;
+
+	if (sp_manifest == NULL || hob_table_size == NULL || *hob_table_size == 0) {
+		return NULL;
+	}
+
+	node = fdt_path_offset(sp_manifest, "/");
+	if (node < 0) {
+		ERROR("Failed to get root in sp_manifest.\n");
+		return NULL;
+	}
+
+	ret = fdt_read_uint32(sp_manifest, node, "xlat-granule", &granularity);
+	if (ret < 0) {
+		ERROR("Not found property(xlat-granule) in sp_manifest.\n");
+		return NULL;
+	}
+
+	if (granularity > 0x02) {
+		ERROR("Invalid granularity value: 0x%x\n", granularity);
+		return NULL;
+	}
+
+	mem_region_node = fdt_subnode_offset_namelen(sp_manifest, 0, "memory-regions",
+			sizeof("memory-regions") - 1);
+	if (node < 0) {
+		ERROR("Not found memory-region configuration for SP.\n");
+		return NULL;
+	}
+
+	INFO("Generating PHIT_HOB...\n");
+
+	hob_table = create_hob_list(BL32_BASE, BL32_LIMIT,
+			hob_table_start, *hob_table_size);
+	if (hob_table == NULL) {
+		ERROR("Failed to create Hob Table.\n");
+		return NULL;
+	}
+
+	/*
+	 * Create fv hob.
+	 */
+	ret = get_memory_region_info(sp_manifest, mem_region_node,
+			"stmm_region", granularity, &base_address, &size);
+	if (ret < 0) {
+		return NULL;
+	}
+
+	if (base_address != BL32_BASE &&
+			base_address + size > BL32_LIMIT) {
+		ERROR("Image is ouf of bound(0x%lx/0x%x), should be in (0x%llx/0x%llx)\n",
+				base_address, size, BL32_BASE, BL32_LIMIT - BL32_BASE);
+		return NULL;
+	}
+
+	ret = create_fv_hob(hob_table, base_address, size);
+	if (ret < 0) {
+		ERROR("Failed to create fv hob... ret:%d\n", ret);
+		return NULL;
+	}
+
+	INFO("Success to create FV hob(0x%lx/0x%x).\n", base_address, size);
+
+	/*
+	 * Create Ns Buffer hob.
+	 */
+	ret = get_memory_region_info(sp_manifest, mem_region_node,
+			"ns_comm_buffer", granularity, &base_address, &size);
+	if (ret < 0) {
+		return NULL;
+	}
+
+	ret = create_guid_hob(hob_table, &ns_buf_guid,
+			sizeof(struct efi_mmram_descriptor), (void **) &mmram_desc_data);
+	if (ret < 0) {
+		ERROR("Failed to create ns buffer hob\n");
+		return NULL;
+	}
+
+	mmram_desc_data->physical_start = base_address;
+	mmram_desc_data->physical_size = size;
+	mmram_desc_data->cpu_start = base_address;
+	mmram_desc_data->region_state = EFI_CACHEABLE | EFI_ALLOCATED;
+
+	/*
+	 * Create mmram_resv hob.
+	 */
+	for (node = fdt_first_subnode(sp_manifest, mem_region_node), mem_region_num = 0;
+			node >= 0;
+			node = fdt_next_subnode(sp_manifest, node), mem_region_num++) {
+		ret = get_memory_region_info(sp_manifest, node, NULL, granularity,
+				&base_address, &size);
+		if (ret < 0) {
+			name = fdt_get_name(sp_manifest, node, NULL);
+			ERROR("Invalid memory region(%s) found!\n", name);
+			return NULL;
+		}
+	}
+
+	ret = create_guid_hob(hob_table, &mmram_resv_guid,
+			(sizeof(struct efi_mmram_hob_descriptor_block) +
+			 (sizeof(struct efi_mmram_descriptor) * (mem_region_num))),
+			(void **) &mmram_hob_desc_data);
+	if (ret < 0) {
+		ERROR("Failed to create mmram_resv hob. ret: %d\n", ret);
+		return NULL;
+	}
+
+	mmram_hob_desc_data->number_of_mm_reserved_regions = mem_region_num;
+
+	for (node = fdt_first_subnode(sp_manifest, mem_region_node), mem_region_num = 0;
+			node >= 0;
+			node = fdt_next_subnode(sp_manifest, node), mem_region_num++) {
+		get_memory_region_info(sp_manifest, node, NULL, granularity,
+				&base_address, &size);
+		name = fdt_get_name(sp_manifest, node, NULL);
+
+		mmram_desc_data = &mmram_hob_desc_data->descriptor[mem_region_num];
+		mmram_desc_data->physical_start = base_address;
+		mmram_desc_data->physical_size = size;
+		mmram_desc_data->cpu_start = base_address;
+
+		if (!strcmp(name, "heap")) {
+			mmram_desc_data->region_state = EFI_CACHEABLE;
+		} else {
+			mmram_desc_data->region_state = EFI_CACHEABLE | EFI_ALLOCATED;
+		}
+	}
+
+	/*
+	 * Add tpm mmram descriptor.
+	 */
+	get_tpm_event_log(secure_tl);
+
+	if (tpm_evtlog_addr != NULL && tpm_evtlog_size != 0) {
+		ret = create_guid_hob(hob_table, &tpm_evtlog_guid,
+				sizeof(struct efi_mmram_descriptor), (void **) &mmram_desc_data);
+		if (ret < 0) {
+			ERROR("Failed to create tpm_event_log hob\n");
+			return NULL;
+		}
+
+		mmram_desc_data->physical_start = (uintptr_t)tpm_evtlog_addr;
+		mmram_desc_data->physical_size = tpm_evtlog_size;
+		mmram_desc_data->cpu_start = (uintptr_t)tpm_evtlog_addr;
+		mmram_desc_data->region_state = EFI_CACHEABLE | EFI_ALLOCATED;
+	}
+
+	*hob_table_size = hob_table->efi_free_memory_bottom -
+		(efi_physical_address_t) hob_table;
+
+  return hob_table;
+}
+#endif
+
 /*
  * This function creates a initialization descriptor in the memory reserved
  * for passing boot information to an SP. It then copies the partition manifest
@@ -62,14 +326,28 @@ static void spmc_create_boot_info(entry_point_info_t *ep_info,
 {
 	struct ffa_boot_info_header *boot_header;
 	struct ffa_boot_info_desc *boot_descriptor;
-	uintptr_t manifest_addr;
+	uintptr_t content_addr;
+	void *sp_manifest;
+	void *tl __maybe_unused;
+#if TRANSFER_LIST && !RESET_TO_BL31
+	struct transfer_list_entry *te;
+
+	tl = (void *)((uintptr_t)ep_info->args.arg3);
+	te = transfer_list_find((struct transfer_list_header *)tl,
+				TL_TAG_DT_FFA_MANIFEST);
+	assert(te != NULL);
+
+	sp_manifest = (void *)transfer_list_entry_data(te);
+#else
+	tl = NULL;
+	sp_manifest = (void *)ep_info->args.arg0;
+#endif
 
 	/*
 	 * Calculate the maximum size of the manifest that can be accommodated
 	 * in the boot information memory region.
 	 */
-	const unsigned int
-	max_manifest_sz = sizeof(ffa_boot_info_mem) -
+	size_t max_sz = sizeof(ffa_boot_info_mem) -
 			  (sizeof(struct ffa_boot_info_header) +
 			   sizeof(struct ffa_boot_info_desc));
 
@@ -83,19 +361,8 @@ static void spmc_create_boot_info(entry_point_info_t *ep_info,
 		return;
 	}
 
-	/*
-	 * Check if the manifest will fit into the boot info memory region else
-	 * bail.
-	 */
-	if (ep_info->args.arg1 > max_manifest_sz) {
-		WARN("Unable to copy manifest into boot information. ");
-		WARN("Max sz = %u bytes. Manifest sz = %lu bytes\n",
-		     max_manifest_sz, ep_info->args.arg1);
-		return;
-	}
-
 	/* Zero the memory region before populating. */
-	memset(ffa_boot_info_mem, 0, PAGE_SIZE);
+	memset(ffa_boot_info_mem, 0, FFA_BOOT_INFO_SIZE);
 
 	/*
 	 * Populate the ffa_boot_info_header at the start of the boot info
@@ -125,14 +392,45 @@ static void spmc_create_boot_info(entry_point_info_t *ep_info,
 	/* Set the count. Currently 1 since only the manifest is specified. */
 	boot_header->count_boot_info_desc = 1;
 
+	boot_descriptor->flags =
+		FFA_BOOT_INFO_FLAG_NAME(FFA_BOOT_INFO_FLAG_NAME_UUID) |
+		FFA_BOOT_INFO_FLAG_CONTENT(FFA_BOOT_INFO_FLAG_CONTENT_ADR);
+
+	content_addr = (uintptr_t) (ffa_boot_info_mem +
+				     boot_header->offset_boot_info_desc +
+				     boot_header->size_boot_info_desc);
+
+#if HOB_LIST
+	/* Populate the boot information descriptor for the hob_list. */
+	boot_descriptor->type =
+		FFA_BOOT_INFO_TYPE(FFA_BOOT_INFO_TYPE_STD) |
+		FFA_BOOT_INFO_TYPE_ID(FFA_BOOT_INFO_TYPE_ID_HOB);
+
+	content_addr = (uintptr_t) build_sp_boot_hob_list(
+			tl, sp_manifest, content_addr, &max_sz);
+	if (content_addr == (uintptr_t) NULL) {
+		WARN("Unable to create phit hob properly.");
+		return;
+	}
+
+	boot_descriptor->size_boot_info = max_sz;
+	boot_descriptor->content = content_addr;
+#else
+	/*
+	 * Check if the manifest will fit into the boot info memory region else
+	 * bail.
+	 */
+	if (ep_info->args.arg1 > max_sz) {
+		WARN("Unable to copy manifest into boot information. ");
+		WARN("Max sz = %lu bytes. Manifest sz = %lu bytes\n",
+		     max_sz, ep_info->args.arg1);
+		return;
+	}
+
 	/* Populate the boot information descriptor for the manifest. */
 	boot_descriptor->type =
 		FFA_BOOT_INFO_TYPE(FFA_BOOT_INFO_TYPE_STD) |
 		FFA_BOOT_INFO_TYPE_ID(FFA_BOOT_INFO_TYPE_ID_FDT);
-
-	boot_descriptor->flags =
-		FFA_BOOT_INFO_FLAG_NAME(FFA_BOOT_INFO_FLAG_NAME_UUID) |
-		FFA_BOOT_INFO_FLAG_CONTENT(FFA_BOOT_INFO_FLAG_CONTENT_ADR);
 
 	/*
 	 * Copy the manifest into boot info region after the boot information
@@ -140,14 +438,10 @@ static void spmc_create_boot_info(entry_point_info_t *ep_info,
 	 */
 	boot_descriptor->size_boot_info = (uint32_t) ep_info->args.arg1;
 
-	manifest_addr = (uintptr_t) (ffa_boot_info_mem +
-				     boot_header->offset_boot_info_desc +
-				     boot_header->size_boot_info_desc);
+	memcpy((void *) content_addr, sp_manifest, boot_descriptor->size_boot_info);
 
-	memcpy((void *) manifest_addr, (void *) ep_info->args.arg0,
-	       boot_descriptor->size_boot_info);
-
-	boot_descriptor->content = manifest_addr;
+	boot_descriptor->content = content_addr;
+#endif
 
 	/* Calculate the size of the total boot info blob. */
 	boot_header->size_boot_info_blob = boot_header->offset_boot_info_desc +
@@ -158,7 +452,7 @@ static void spmc_create_boot_info(entry_point_info_t *ep_info,
 	INFO("SP boot info @ 0x%lx, size: %u bytes.\n",
 	     (uintptr_t) ffa_boot_info_mem,
 	     boot_header->size_boot_info_blob);
-	INFO("SP manifest @ 0x%lx, size: %u bytes.\n",
+	INFO("SP content @ 0x%lx, size: %u bytes.\n",
 	     boot_descriptor->content,
 	     boot_descriptor->size_boot_info);
 }
@@ -194,6 +488,7 @@ static void read_optional_string(void *manifest, int32_t offset,
 		out[0] = '\0';
 	} else {
 		memcpy(out, prop, MIN(lenp, (int)len));
+		out[MIN(lenp, (int)len) - 1] = '\0';
 	}
 }
 
@@ -292,10 +587,11 @@ static void populate_sp_regions(struct secure_partition_desc *sp,
 		sp_mem_regions.base_va = base_address;
 		sp_mem_regions.size = size;
 
-		INFO("Adding PA: 0x%llx VA: 0x%lx Size: 0x%lx attr:0x%x\n",
+		INFO("Adding PA: 0x%llx VA: 0x%lx Size: 0x%lx mem_attr: 0x%x, attr:0x%x\n",
 		     sp_mem_regions.base_pa,
 		     sp_mem_regions.base_va,
 		     sp_mem_regions.size,
+		     mem_attr,
 		     sp_mem_regions.attr);
 
 		if (type == SP_MEM_REGION_DEVICE) {
@@ -385,10 +681,8 @@ static void spmc_el0_sp_setup_system_registers(struct secure_partition_desc *sp,
 	/* Shim Exception Vector Base Address */
 	write_el1_ctx_common(get_el1_sysregs_ctx(ctx), vbar_el1,
 			SPM_SHIM_EXCEPTIONS_PTR);
-#if NS_TIMER_SWITCH
 	write_el1_ctx_arch_timer(get_el1_sysregs_ctx(ctx), cntkctl_el1,
 		      EL0PTEN_BIT | EL0VTEN_BIT | EL0PCTEN_BIT | EL0VCTEN_BIT);
-#endif
 
 	/*
 	 * FPEN: Allow the Secure Partition to access FP/SIMD registers.
@@ -413,6 +707,7 @@ void spmc_el0_sp_setup(struct secure_partition_desc *sp,
 	cpu_context_t *ctx;
 	int node;
 	int offset = 0;
+	struct mmap_region sp_mem_regions __unused = {0};
 
 	ctx = &sp->ec[SEL0_SP_EC_INDEX].cpu_ctx;
 
@@ -430,7 +725,7 @@ void spmc_el0_sp_setup(struct secure_partition_desc *sp,
 	if (boot_info_reg >= 0) {
 		mmap_region_t ffa_boot_info_region = MAP_REGION_FLAT(
 			(uintptr_t) ffa_boot_info_mem,
-			PAGE_SIZE,
+			FFA_BOOT_INFO_SIZE,
 			MT_RO_DATA | MT_SECURE | MT_USER);
 		mmap_add_region_ctx(sp->xlat_ctx_handle, &ffa_boot_info_region);
 	}
@@ -463,8 +758,32 @@ void spmc_el0_sp_setup(struct secure_partition_desc *sp,
 				    SP_MEM_REGION_MEMORY);
 	}
 
-	spmc_el0_sp_setup_system_registers(sp, ctx);
+#if HOB_LIST
+	/*
+	 * Add tpm event log region with RO permission.
+	 */
+	if (tpm_evtlog_addr != NULL && tpm_evtlog_size != 0) {
+		INFO("Mapping SP's TPM event log\n");
+		INFO("TPM event log addr(0x%lx), size(0x%lx)\n",
+				(uintptr_t)tpm_evtlog_addr, tpm_evtlog_size);
+		sp_mem_regions.base_pa = (uintptr_t)
+			((unsigned long)tpm_evtlog_addr & ~(PAGE_SIZE_MASK));
+		sp_mem_regions.base_va = sp_mem_regions.base_pa;
+		sp_mem_regions.size = (tpm_evtlog_size & ~(PAGE_SIZE_MASK)) + PAGE_SIZE;
+		sp_mem_regions.attr = MT_USER | MT_SECURE | MT_RO_DATA;
+		sp_mem_regions.granularity = XLAT_BLOCK_SIZE(3);
 
+		INFO("Adding PA: 0x%llx VA: 0x%lx Size: 0x%lx attr:0x%x\n",
+		     sp_mem_regions.base_pa,
+		     sp_mem_regions.base_va,
+		     sp_mem_regions.size,
+		     sp_mem_regions.attr);
+
+		mmap_add_region_ctx(sp->xlat_ctx_handle, &sp_mem_regions);
+	}
+#endif
+
+	spmc_el0_sp_setup_system_registers(sp, ctx);
 }
 #endif /* SPMC_AT_EL3_SEL0_SP */
 

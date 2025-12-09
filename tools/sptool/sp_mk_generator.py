@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2020-2024, Arm Limited. All rights reserved.
+# Copyright (c) 2020-2025, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -30,6 +30,9 @@ Secure Partition entry
     FIP_ARGS += --blob uuid=XXXXX-XXX...,file=sp1.pkg
     CRT_ARGS += --sp-pkg1 sp1.pkg
 
+It populates the number of SP in the defined macro 'NUM_SP'
+    $(eval $(call add_define_val,NUM_SP,{len(sp_layout.keys())}))
+
 A typical SP_LAYOUT_FILE file will look like
 {
         "SP1" : {
@@ -52,10 +55,15 @@ import os
 import re
 import sys
 import uuid
+import fdt
 from spactions import SpSetupActions
+import hob
+import struct
+from hob import HobList
 
 MAX_SP = 8
 UUID_LEN = 4
+HOB_OFFSET_DEFAULT=0x2000
 
 # Some helper functions to access args propagated to the action functions in
 # SpSetupActions framework.
@@ -83,6 +91,19 @@ def get_sp_manifest_full_path(sp_node, args :dict):
 def get_sp_img_full_path(sp_node, args :dict):
     check_sp_layout_dir(args)
     return os.path.join(args["sp_layout_dir"], get_file_from_layout(sp_node["image"]))
+
+def get_size(sp_node):
+    if not "size" in sp_node:
+        print("WARNING: default image size 0x100000")
+        return 0x100000
+
+    # Try if it was a decimal value.
+    try:
+        return int(sp_node["size"])
+    except ValueError:
+        print("WARNING: trying to parse base 16 size")
+        # Try if it is of base 16
+        return int(sp_node["size"], 16)
 
 def get_sp_pkg(sp, args :dict):
     check_out_dir(args)
@@ -135,7 +156,7 @@ def get_uuid(sp_layout, sp, args :dict):
 def get_load_address(sp_layout, sp, args :dict):
     ''' Helper to fetch load-address from pm file listed in sp_layout.json'''
     with open(get_sp_manifest_full_path(sp_layout[sp], args), "r") as pm_f:
-        load_address_lines = [l for l in pm_f if 'load-address' in l]
+        load_address_lines = [l for l in pm_f if re.search(r'load-address[^-]', l)]
 
     if len(load_address_lines) != 1:
         return None
@@ -143,12 +164,17 @@ def get_load_address(sp_layout, sp, args :dict):
     load_address_parsed = re.search("(0x[0-9a-f]+)", load_address_lines[0])
     return load_address_parsed.group(0)
 
-
 @SpSetupActions.sp_action(global_action=True)
 def check_max_sps(sp_layout, _, args :dict):
     ''' Check validate the maximum number of SPs is respected. '''
     if len(sp_layout.keys()) > MAX_SP:
         raise Exception(f"Too many SPs in SP layout file. Max: {MAX_SP}")
+    return args
+
+@SpSetupActions.sp_action(global_action=True)
+def count_sps(sp_layout, _, args :dict):
+    ''' Count number of SP and put in NUM_SP '''
+    write_to_sp_mk_gen(f"$(eval $(call add_define_val,NUM_SP,{len(sp_layout.keys())}))", args)
     return args
 
 @SpSetupActions.sp_action
@@ -158,31 +184,86 @@ def gen_fdt_sources(sp_layout, sp, args :dict):
     write_to_sp_mk_gen(f"FDT_SOURCES += {manifest_path}", args)
     return args
 
+@SpSetupActions.sp_action(exec_order=1)
+def generate_hob_list(sp_layout, sp, args: dict):
+    '''
+        Generates a HOB file for the partition, if it requested it in its FF-A
+        manifest.
+    '''
+    with open(get_sp_manifest_full_path(sp_layout[sp], args), "r") as f:
+        sp_fdt = fdt.parse_dts(f.read())
+
+    if sp_fdt.exist_property('hob_list', '/boot-info'):
+        sp_hob_name = os.path.basename(sp + ".hob.bin")
+        sp_hob_name = os.path.join(args["out_dir"], f"{sp_hob_name}")
+
+        # Add to the args so it can be consumed by the TL pkg function.
+        sp_layout[sp]["hob_path"] = sp_hob_name
+        hob_list = hob.generate_hob_from_fdt_node(sp_fdt, HOB_OFFSET_DEFAULT)
+        with open(sp_hob_name, "wb") as h:
+            for block in hob_list.get_list():
+                h.write(block.pack())
+
+    return args
+
+def generate_sp_pkg(sp_node, pkg, sp_img, sp_dtb):
+    ''' Generates the rule in case SP is to be generated in an SP Pkg. '''
+    pm_offset = get_pm_offset(sp_node)
+    sptool_args = f" --pm-offset {pm_offset}" if pm_offset is not None else ""
+    image_offset = get_image_offset(sp_node)
+    sptool_args += f" --img-offset {image_offset}" if image_offset is not None else ""
+    sptool_args += f" -o {pkg}"
+    return f'''
+{pkg}: {sp_dtb} {sp_img}
+\t$(Q)echo Generating {pkg}
+\t$(Q)$(PYTHON) $(SPTOOL)  -i {sp_img}:{sp_dtb} {sptool_args}
+'''
+
+def generate_tl_pkg(sp_node, pkg, sp_img, sp_dtb, hob_path = None):
+    ''' Generate make rules for a Transfer List type package. '''
+    # TE Type for the FF-A manifest.
+    TE_FFA_MANIFEST = 0x106
+    # TE Type for the SP binary.
+    TE_SP_BINARY = 0x103
+    # TE Type for the HOB List.
+    TE_HOB_LIST = 0x3
+    tlc_add_hob = f"\t$(Q)$(TLCTOOL) add --entry {TE_HOB_LIST} {hob_path} {pkg}" if hob_path is not None else ""
+    return f'''
+{pkg}: {sp_dtb} {sp_img}
+\t$(Q)echo Generating {pkg}
+\t$(Q)$(TLCTOOL) create --size {get_size(sp_node)} --entry {TE_FFA_MANIFEST} {sp_dtb} {pkg} --align 12
+{tlc_add_hob}
+\t$(Q)$(TLCTOOL) add --entry {TE_SP_BINARY} {sp_img} {pkg}
+'''
+
 @SpSetupActions.sp_action
-def gen_sptool_args(sp_layout, sp, args :dict):
+def gen_partition_pkg(sp_layout, sp, args :dict):
     ''' Generate Sp Pkgs rules. '''
-    sp_pkg = get_sp_pkg(sp, args)
+    pkg = get_sp_pkg(sp, args)
+
     sp_dtb_name = os.path.basename(get_file_from_layout(sp_layout[sp]["pm"]))[:-1] + "b"
     sp_dtb = os.path.join(args["out_dir"], f"fdts/{sp_dtb_name}")
     sp_img = get_sp_img_full_path(sp_layout[sp], args)
 
     # Do not generate rule if already there.
-    if is_line_in_sp_gen(f'{sp_pkg}:', args):
+    if is_line_in_sp_gen(f'{pkg}:', args):
         return args
-    write_to_sp_mk_gen(f"SP_PKGS += {sp_pkg}\n", args)
 
-    sptool_args = f" -i {sp_img}:{sp_dtb}"
-    pm_offset = get_pm_offset(sp_layout[sp])
-    sptool_args += f" --pm-offset {pm_offset}" if pm_offset is not None else ""
-    image_offset = get_image_offset(sp_layout[sp])
-    sptool_args += f" --img-offset {image_offset}" if image_offset is not None else ""
-    sptool_args += f" -o {sp_pkg}"
-    sppkg_rule = f'''
-{sp_pkg}: {sp_dtb} {sp_img}
-\t$(Q)echo Generating {sp_pkg}
-\t$(Q)$(PYTHON) $(SPTOOL) {sptool_args}
-'''
-    write_to_sp_mk_gen(sppkg_rule, args)
+    # This should include all packages of all kinds.
+    write_to_sp_mk_gen(f"SP_PKGS += {pkg}\n", args)
+    package_type = sp_layout[sp]["package"] if "package" in sp_layout[sp] else "sp_pkg"
+
+    if package_type == "sp_pkg":
+        partition_pkg_rule = generate_sp_pkg(sp_layout[sp], pkg, sp_img, sp_dtb)
+    elif package_type == "tl_pkg":
+        # Conditionally provide the Hob.
+        hob_path = sp_layout[sp]["hob_path"] if "hob_path" in sp_layout[sp] else None
+        partition_pkg_rule = generate_tl_pkg(
+                sp_layout[sp], pkg, sp_img, sp_dtb, hob_path)
+    else:
+        raise ValueError(f"Specified invalid pkg type {package_type}")
+
+    write_to_sp_mk_gen(partition_pkg_rule, args)
     return args
 
 @SpSetupActions.sp_action(global_action=True, exec_order=1)
@@ -193,6 +274,7 @@ def check_dualroot(sp_layout, _, args :dict):
     args["split"] =  int(MAX_SP / 2)
     owners = [sp_layout[sp].get("owner") for sp in sp_layout]
     args["plat_max_count"] = owners.count("Plat")
+
     # If it is owned by the platform owner, it is assigned to the SiP.
     args["sip_max_count"] = len(sp_layout.keys()) - args["plat_max_count"]
     if  args["sip_max_count"] > args["split"] or args["sip_max_count"] > args["split"]:

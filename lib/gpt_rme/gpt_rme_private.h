@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2022-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,9 +7,7 @@
 #ifndef GPT_RME_PRIVATE_H
 #define GPT_RME_PRIVATE_H
 
-#include <arch.h>
 #include <lib/gpt_rme/gpt_rme.h>
-#include <lib/spinlock.h>
 #include <lib/utils_def.h>
 
 /******************************************************************************/
@@ -86,6 +84,10 @@
 #define GPT_L1_SECURE_DESC	GPT_BUILD_L1_DESC(GPT_GPI_SECURE)
 #define GPT_L1_NS_DESC		GPT_BUILD_L1_DESC(GPT_GPI_NS)
 #define GPT_L1_REALM_DESC	GPT_BUILD_L1_DESC(GPT_GPI_REALM)
+#define GPT_L1_NSO_DESC		GPT_BUILD_L1_DESC(GPT_GPI_NSO)
+#define GPT_L1_ROOT_DESC	GPT_BUILD_L1_DESC(GPT_GPI_ROOT)
+#define GPT_L1_SA_DESC		GPT_BUILD_L1_DESC(GPT_GPI_SA)
+#define GPT_L1_NSP_DESC		GPT_BUILD_L1_DESC(GPT_GPI_NSP)
 #define GPT_L1_ANY_DESC		GPT_BUILD_L1_DESC(GPT_GPI_ANY)
 
 /******************************************************************************/
@@ -140,10 +142,6 @@ typedef enum {
 	PGS_16KB_P =	14U,
 	PGS_64KB_P =	16U
 } gpt_p_val_e;
-
-#define LOCK_SIZE	sizeof(((bitlock_t *)NULL)->lock)
-#define LOCK_TYPE	typeof(((bitlock_t *)NULL)->lock)
-#define LOCK_BITS	(LOCK_SIZE * 8U)
 
 /*
  * Internal structure to retrieve the values from get_gpi_params();

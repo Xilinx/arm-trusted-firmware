@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2024-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -17,12 +17,15 @@ LIBC_SRCS	:=	$(addprefix lib/libc/,		\
 			printf.c			\
 			putchar.c			\
 			puts.c				\
+			qsort.c				\
 			snprintf.c			\
 			strchr.c			\
 			strcmp.c			\
+			strcpy_secure.c		\
 			strlcat.c			\
 			strlcpy.c			\
 			strlen.c			\
+			strnlen_secure.c	\
 			strncmp.c			\
 			strnlen.c			\
 			strrchr.c			\

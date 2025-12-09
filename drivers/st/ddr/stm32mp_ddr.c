@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2022-2025, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -44,7 +44,7 @@ void stm32mp_ddr_set_reg(const struct stm32mp_ddr_priv *priv, enum stm32mp_ddr_r
 			      ddr_registers[type].name, i);
 			panic();
 		} else {
-#if !STM32MP13 && !STM32MP15
+#ifdef STM32MP2X
 			if (desc[i].qd) {
 				stm32mp_ddr_start_sw_done(priv->ctl);
 			}
@@ -52,7 +52,7 @@ void stm32mp_ddr_set_reg(const struct stm32mp_ddr_priv *priv, enum stm32mp_ddr_r
 			value = *((uint32_t *)((uintptr_t)param +
 					       desc[i].par_offset));
 			mmio_write_32(ptr, value);
-#if !STM32MP13 && !STM32MP15
+#ifdef STM32MP2X
 			if (desc[i].qd) {
 				stm32mp_ddr_wait_sw_done_ack(priv->ctl);
 			}
@@ -277,9 +277,9 @@ void stm32mp_ddr_wait_refresh_update_done_ack(struct stm32mp_ddrctl *ctl)
 	/* Toggle rfshctl3.refresh_update_level */
 	rfshctl3 = mmio_read_32((uintptr_t)&ctl->rfshctl3);
 	if ((rfshctl3 & refresh_update_level) == refresh_update_level) {
-		mmio_setbits_32((uintptr_t)&ctl->rfshctl3, refresh_update_level);
-	} else {
 		mmio_clrbits_32((uintptr_t)&ctl->rfshctl3, refresh_update_level);
+	} else {
+		mmio_setbits_32((uintptr_t)&ctl->rfshctl3, refresh_update_level);
 		refresh_update_level = 0U;
 	}
 
@@ -293,7 +293,7 @@ void stm32mp_ddr_wait_refresh_update_done_ack(struct stm32mp_ddrctl *ctl)
 		if (timeout_elapsed(timeout)) {
 			panic();
 		}
-	} while ((rfshctl3 & DDRCTRL_RFSHCTL3_REFRESH_UPDATE_LEVEL) != refresh_update_level);
+	} while ((rfshctl3 & DDRCTRL_RFSHCTL3_REFRESH_UPDATE_LEVEL) == refresh_update_level);
 
 	VERBOSE("[0x%lx] rfshctl3 = 0x%x\n", (uintptr_t)&ctl->rfshctl3, rfshctl3);
 }

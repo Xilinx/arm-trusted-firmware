@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2019-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -12,7 +12,7 @@ PLAT_INCLUDES		:=	-Iplat/imx/common/include		\
 				-Iplat/imx/imx8m/imx8mm/include		\
 				-Idrivers/imx/usdhc			\
 				-Iinclude/common/tbbr			\
-				-Iinclude/lib/libfdt
+				-Ilib/libfdt
 
 # Include GICv3 driver files
 include drivers/arm/gic/v3/gicv3.mk
@@ -112,10 +112,11 @@ ifneq (${TRUSTED_BOARD_BOOT},0)
 include drivers/auth/mbedtls/mbedtls_crypto.mk
 include drivers/auth/mbedtls/mbedtls_x509.mk
 
-AUTH_SOURCES	:=	drivers/auth/auth_mod.c			\
-			drivers/auth/crypto_mod.c		\
-			drivers/auth/img_parser_mod.c		\
-			drivers/auth/tbbr/tbbr_cot_common.c     \
+AUTH_MK := drivers/auth/auth.mk
+$(info Including ${AUTH_MK})
+include ${AUTH_MK}
+
+AUTH_SOURCES	+=	drivers/auth/tbbr/tbbr_cot_common.c     \
 			drivers/auth/tbbr/tbbr_cot_bl2.c
 
 BL2_SOURCES	+=	${AUTH_SOURCES}					\
@@ -189,8 +190,10 @@ ifeq (${MEASURED_BOOT},1)
     include ${MEASURED_BOOT_MK}
 
 BL2_SOURCES		+=	plat/imx/imx8m/imx8m_measured_boot.c	\
-				plat/imx/imx8m/imx8m_dyn_cfg_helpers.c	\
-				${EVENT_LOG_SOURCES}
+				plat/imx/imx8m/imx8m_dyn_cfg_helpers.c
+
+    BL2_LIBS += $(LIBEVLOG_LIBS)
+    BL2_INCLUDE_DIRS += $(LIBEVLOG_INCLUDE_DIRS)
 endif
 
 ifeq (${SPD},trusty)

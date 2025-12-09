@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,7 +14,7 @@
  * platform layer will take care of registering the handlers with PSCI.
  ******************************************************************************/
 
-static void __dead2 corstone1000_system_reset(void)
+static void corstone1000_system_reset(void)
 {
 
 	uint32_t volatile * const watchdog_ctrl_reg = (uint32_t *) SECURE_WATCHDOG_ADDR_CTRL_REG;
@@ -31,9 +31,6 @@ static void __dead2 corstone1000_system_reset(void)
 
 	*(watchdog_val_reg) = SECURE_WATCHDOG_COUNTDOWN_VAL;
 	*watchdog_ctrl_reg = SECURE_WATCHDOG_MASK_ENABLE;
-	while (1) {
-		wfi();
-	}
 }
 
 #if defined(CORSTONE1000_FVP_MULTICORE)
@@ -68,7 +65,6 @@ int corstone1000_pwr_domain_on(u_register_t mpidr)
 void corstone1000_pwr_domain_on_finish(const psci_power_state_t *target_state)
 {
 	(void)target_state;
-	plat_arm_gic_init();
 }
 #endif
 

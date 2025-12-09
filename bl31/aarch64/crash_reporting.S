@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2023, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,6 +11,7 @@
 #include <asm_macros.S>
 #include <context.h>
 #include <lib/el3_runtime/cpu_data.h>
+#include <lib/per_cpu/per_cpu_macros.S>
 #include <lib/utils_def.h>
 
 	.globl	report_unhandled_exception
@@ -42,13 +43,7 @@ el3_sys_regs:
 		"esr_el3", "far_el3", ""
 
 non_el3_sys_regs:
-	.asciz	"spsr_el1", "elr_el1", "spsr_abt", "spsr_und",\
-		"spsr_irq", "spsr_fiq", "sctlr_el1", "actlr_el1", "cpacr_el1",\
-		"csselr_el1", "sp_el1", "esr_el1", "ttbr0_el1", "ttbr1_el1",\
-		"mair_el1", "amair_el1", "tcr_el1", "tpidr_el1", "tpidr_el0",\
-		"tpidrro_el0",  "par_el1", "mpidr_el1", "afsr0_el1", "afsr1_el1",\
-		"contextidr_el1", "vbar_el1", "cntp_ctl_el0", "cntp_cval_el0",\
-		"cntv_ctl_el0", "cntv_cval_el0", "cntkctl_el1", "sp_el0", "isr_el1", ""
+	.asciz	"mpidr_el1", "sp_el0", "isr_el1", ""
 
 #if CTX_INCLUDE_AARCH32_REGS
 aarch32_regs:
@@ -71,9 +66,22 @@ excpt_msg_el:
 	 * The print loop is controlled by the buf size and
 	 * ascii reg name list which is passed in x6. The
 	 * function returns the crash buf address in x0.
-	 * Clobbers : x0 - x7, sp
+	 * Clobbers : x0 - x7, x20, sp
 	 */
-func size_controlled_print
+func size_controlled_print_helper
+#if ENABLE_FEAT_D128
+size_controlled_print_128:
+	/* Set flag to print 128-bit registers */
+	mov	x20, #1
+	b	1f
+
+size_controlled_print:
+	/* Set flag to print 64-bit registers */
+	mov	x20, #0
+1:
+#else
+size_controlled_print:
+#endif
 	/* Save the lr */
 	mov	sp, x30
 	/* load the crash buf address */
@@ -81,7 +89,7 @@ func size_controlled_print
 test_size_list:
 	/* Calculate x5 always as it will be clobbered by asm_print_hex */
 	mrs	x5, tpidr_el3
-	add	x5, x5, #CPU_DATA_CRASH_BUF_SIZE
+	add	x5, x5, #CPU_DATA_CRASH_BUF_BYTES
 	/* Test whether we have reached end of crash buf */
 	cmp	x7, x5
 	b.eq	exit_size_print
@@ -96,14 +104,22 @@ test_size_list:
 	/* update x6 with the updated list pointer */
 	mov	x6, x4
 	bl	print_alignment
+	/* Print the high 64 bits (or whole 64-bit register) */
 	ldr	x4, [x7], #REGSZ
 	bl	asm_print_hex
+#if ENABLE_FEAT_D128
+	cbz	x20, 2f
+	/* Print the low 64 bits in case of a 128-bit register */
+	ldr	x4, [x7], #REGSZ
+	bl	asm_print_hex
+2:
+#endif
 	bl	asm_print_newline
 	b	test_size_list
 exit_size_print:
 	mov	x30, sp
 	ret
-endfunc size_controlled_print
+endfunc size_controlled_print_helper
 
 	/* -----------------------------------------------------
 	 * This function calculates and prints required number
@@ -126,7 +142,7 @@ endfunc print_alignment
 	 * copied to the crash buf by this function.
 	 * x0 points to the crash buf. It then calls
 	 * size_controlled_print to print to console.
-	 * Clobbers : x0 - x7, sp
+	 * Clobbers : x0 - x7, x20, sp
 	 */
 func str_in_crash_buf_print
 	/* restore the crash buf address in x0 */
@@ -137,6 +153,23 @@ func str_in_crash_buf_print
 	stp	x14, x15, [x0, #REGSZ * 6]
 	b	size_controlled_print
 endfunc str_in_crash_buf_print
+
+	/*
+	 * An equivalent helper function for storing x8 - x15
+	 * registers in a different order inside the crash buf.
+	 * In the end the function size_controlled_print_128 is
+	 * called to print the registers to the console.
+	 * Clobbers : x0 - x7, x20, sp
+	 */
+func str_in_crash_buf_print_128
+	/* restore the crash buf address in x0 */
+	mrs	x0, tpidr_el3
+	stp	x8, x9, [x0]
+	stp	x10, x11, [x0, #REGSZ * 2]
+	stp	x12, x13, [x0, #REGSZ * 4]
+	stp	x14, x15, [x0, #REGSZ * 6]
+	b	size_controlled_print_128
+endfunc str_in_crash_buf_print_128
 
 	/* ------------------------------------------------------
 	 * This macro calculates the offset to crash buf from
@@ -149,9 +182,9 @@ endfunc str_in_crash_buf_print
 	/* we can corrupt this reg to free up x0 */
 	mov	sp, x0
 	/* tpidr_el3 contains the address to cpu_data structure */
-	mrs	x0, tpidr_el3
+	per_cpu_cur percpu_data, x0, x2
 	/* Calculate the Crash buffer offset in cpu_data */
-	add	x0, x0, #CPU_DATA_CRASH_BUF_OFFSET
+	add	x0, x0, #CPU_DATA_CRASH_BUF
 	/* Store crash buffer address in tpidr_el3 */
 	msr	tpidr_el3, x0
 	str	x1, [x0, #REGSZ]
@@ -274,9 +307,9 @@ no_pauth:
 	bl	asm_print_newline
 
 	/* tpidr_el3 contains the address to cpu_data structure */
-	mrs	x0, tpidr_el3
+	per_cpu_cur percpu_data, x0, x2
 	/* Calculate the Crash buffer offset in cpu_data */
-	add	x0, x0, #CPU_DATA_CRASH_BUF_OFFSET
+	add	x0, x0, #CPU_DATA_CRASH_BUF
 	/* Store crash buffer address in tpidr_el3 */
 	msr	tpidr_el3, x0
 
@@ -320,7 +353,9 @@ func report_el3_panic
 	 *   - Print el3 sys regs (in groups of 8 registers) using the
 	 *     crash buf to the crash console.
 	 *   - Print non el3 sys regs (in groups of 8 registers) using
-	 *     the crash buf to the crash console.
+	 *     the crash buf to the crash console. A group may be
+	 *     interrupted in case a potential group of 128-bit
+	 *     sys regs needs to be printed.
 	 * ------------------------------------------------------------
 	 */
 do_crash_reporting:
@@ -346,8 +381,26 @@ do_crash_reporting:
 	ldr	x4, [x0, #REGSZ * 7]
 
 #if ENABLE_PAUTH
+#if ENABLE_PAUTH == 2
+	/* Skip if not present in hardware */
+	is_feat_pauth_present_asm x0, x1
+	beq	1f
+#endif
+	/*
+	 * The assembler must see support for xpaci. So turn the compiler
+	 * extension on. GCC prior to 10 doesn't understand the PAuth extension
+	 * but it does understand armv8.3-a in general. Avoid using 8.3 if
+	 * the compiler understands "pauth" so we don't downgrade a higher
+	 * -march that was specified on the commandline.
+	 */
+#if __GNUC__ < 10
+	.arch armv8.3-a
+#else
+	.arch_extension pauth
+#endif
 	/* Demangle address */
 	xpaci	x4
+1:
 #endif
 	bl	asm_print_hex
 	bl	asm_print_newline
@@ -397,43 +450,9 @@ print_el3_sys_regs:
 
 	/* Print the non el3 sys registers */
 	adr	x6, non_el3_sys_regs
-	mrs	x8, spsr_el1
-	mrs	x9, elr_el1
-	mrs	x10, spsr_abt
-	mrs	x11, spsr_und
-	mrs	x12, spsr_irq
-	mrs	x13, spsr_fiq
-	mrs	x14, sctlr_el1
-	mrs	x15, actlr_el1
-	bl	str_in_crash_buf_print
-	mrs	x8, cpacr_el1
-	mrs	x9, csselr_el1
-	mrs	x10, sp_el1
-	mrs	x11, esr_el1
-	mrs	x12, ttbr0_el1
-	mrs	x13, ttbr1_el1
-	mrs	x14, mair_el1
-	mrs	x15, amair_el1
-	bl	str_in_crash_buf_print
-	mrs	x8, tcr_el1
-	mrs	x9, tpidr_el1
-	mrs	x10, tpidr_el0
-	mrs	x11, tpidrro_el0
-	mrs	x12, par_el1
-	mrs	x13, mpidr_el1
-	mrs	x14, afsr0_el1
-	mrs	x15, afsr1_el1
-	bl	str_in_crash_buf_print
-	mrs	x8, contextidr_el1
-	mrs	x9, vbar_el1
-	mrs	x10, cntp_ctl_el0
-	mrs	x11, cntp_cval_el0
-	mrs	x12, cntv_ctl_el0
-	mrs	x13, cntv_cval_el0
-	mrs	x14, cntkctl_el1
-	mrs	x15, sp_el0
-	bl	str_in_crash_buf_print
-	mrs	x8, isr_el1
+	mrs	x8, mpidr_el1
+	mrs	x9, sp_el0
+	mrs	x10, isr_el1
 	bl	str_in_crash_buf_print
 
 #if CTX_INCLUDE_AARCH32_REGS

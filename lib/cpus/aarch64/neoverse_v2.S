@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -22,12 +22,9 @@
 #error "Neoverse V2 supports only AArch64. Compile with CTX_INCLUDE_AARCH32_REGS=0"
 #endif
 
-workaround_reset_start neoverse_v2, ERRATUM(2331132), ERRATA_V2_2331132
-	sysreg_bitfield_insert NEOVERSE_V2_CPUECTLR2_EL1, NEOVERSE_V2_CPUECTLR2_EL1_PF_MODE_CNSRV, \
-		NEOVERSE_V2_CPUECTLR2_EL1_PF_MODE_LSB, NEOVERSE_V2_CPUECTLR2_EL1_PF_MODE_WIDTH
-workaround_reset_end neoverse_v2, ERRATUM(2331132)
+.global check_erratum_neoverse_v2_3701771
 
-check_erratum_ls neoverse_v2, ERRATUM(2331132), CPU_REV(0, 2)
+cpu_reset_prologue neoverse_v2
 
 workaround_reset_start neoverse_v2, ERRATUM(2618597), ERRATA_V2_2618597
         /* Disable retention control for WFI and WFE. */
@@ -74,6 +71,16 @@ workaround_runtime_end neoverse_v2, ERRATUM(2801372), ERRATA_V2_2801372
 
 check_erratum_ls neoverse_v2, ERRATUM(2801372), CPU_REV(0, 1)
 
+add_erratum_entry neoverse_v2, ERRATUM(3701771), ERRATA_V2_3701771
+
+check_erratum_ls neoverse_v2, ERRATUM(3701771), CPU_REV(0, 2)
+
+workaround_reset_start neoverse_v2, ERRATUM(3841324), ERRATA_V2_3841324
+       sysreg_bit_set  NEOVERSE_V2_CPUACTLR_EL1, BIT(1)
+workaround_reset_end neoverse_v2, ERRATUM(3841324)
+
+check_erratum_ls neoverse_v2, ERRATUM(3841324), CPU_REV(0, 1)
+
 workaround_reset_start neoverse_v2, CVE(2022,23960), WORKAROUND_CVE_2022_23960
 #if IMAGE_BL31
 	/*
@@ -84,11 +91,29 @@ workaround_reset_start neoverse_v2, CVE(2022,23960), WORKAROUND_CVE_2022_23960
 #endif /* IMAGE_BL31 */
 workaround_reset_end neoverse_v2, CVE(2022,23960)
 
-check_erratum_chosen neoverse_v2, CVE(2022, 23960), WORKAROUND_CVE_2022_23960
+check_erratum_ls neoverse_v2, CVE(2022, 23960), CPU_REV(0, 0)
+
+/* Disable hardware page aggregation. Enables mitigation for `CVE-2024-5660` */
+workaround_reset_start neoverse_v2, CVE(2024, 5660), WORKAROUND_CVE_2024_5660
+	sysreg_bit_set NEOVERSE_V2_CPUECTLR_EL1, BIT(46)
+workaround_reset_end neoverse_v2, CVE(2024, 5660)
+
+check_erratum_ls neoverse_v2, CVE(2024, 5660), CPU_REV(0, 2)
 
 #if WORKAROUND_CVE_2022_23960
 	wa_cve_2022_23960_bhb_vector_table NEOVERSE_V2_BHB_LOOP_COUNT, neoverse_v2
 #endif /* WORKAROUND_CVE_2022_23960 */
+
+workaround_reset_start neoverse_v2, CVE(2024, 7881), WORKAROUND_CVE_2024_7881
+       /* ---------------------------------
+        * Sets BIT41 of CPUACTLR6_EL1 which
+        * disables L1 Data cache prefetcher
+        * ---------------------------------
+        */
+       sysreg_bit_set NEOVERSE_V2_CPUACTLR6_EL1, BIT(41)
+workaround_reset_end neoverse_v2, CVE(2024, 7881)
+
+check_erratum_chosen neoverse_v2, CVE(2024, 7881), WORKAROUND_CVE_2024_7881
 
 	/* ----------------------------------------------------
 	 * HW will do the cache maintenance while powering down
@@ -100,7 +125,7 @@ func neoverse_v2_core_pwr_dwn
 	 * ---------------------------------------------------
 	 */
 	sysreg_bit_set NEOVERSE_V2_CPUPWRCTLR_EL1, NEOVERSE_V2_CPUPWRCTLR_EL1_CORE_PWRDN_BIT
-	apply_erratum neoverse_v2, ERRATUM(2801372), ERRATA_V2_2801372, NO_GET_CPU_REV
+	apply_erratum neoverse_v2, ERRATUM(2801372), ERRATA_V2_2801372
 
 	isb
 	ret

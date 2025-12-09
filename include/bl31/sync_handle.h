@@ -12,6 +12,7 @@
 #include <context.h>
 
 #define ISS_SYSREG_OPCODE_MASK		0x3ffc1eUL
+#define ISS_IDREG_OPCODE_MASK		0x31bc00UL
 #define ISS_SYSREG_REG_MASK		0x0003e0UL
 #define ISS_SYSREG_REG_SHIFT		5U
 #define ISS_SYSREG_DIRECTION_MASK	0x000001UL
@@ -19,6 +20,7 @@
 #define ISS_SYSREG_OPCODE_RNDR		0x30c808U
 #define ISS_SYSREG_OPCODE_IMPDEF	0x303c00U
 #define ISS_SYSREG_OPCODE_RNDRRS	0x32c808U
+#define ISS_SYSREG_OPCODE_IDREG		0x300000U
 
 #define TRAP_RET_UNHANDLED		-1
 #define TRAP_RET_REPEAT			0
@@ -53,7 +55,8 @@ static inline bool is_sysreg_iss_write(uint64_t esr)
  *   TRAP_RET_CONTINUE(1): trap was handled, return to the next instruction
  *		           (continuing after it)
  */
-int handle_sysreg_trap(uint64_t esr_el3, cpu_context_t *ctx);
+int handle_sysreg_trap(uint64_t esr_el3, cpu_context_t *ctx,
+			u_register_t flags __unused);
 
 /* Handler for injecting UNDEF exception to lower EL */
 void inject_undef64(cpu_context_t *ctx);

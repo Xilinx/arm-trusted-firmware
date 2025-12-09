@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -22,9 +22,9 @@ void css_scp_suspend(const struct psci_power_state *target_state);
 void css_scp_off(const struct psci_power_state *target_state);
 void css_scp_on(u_register_t mpidr);
 int css_scp_get_power_state(u_register_t mpidr, unsigned int power_level);
-void __dead2 css_scp_sys_shutdown(void);
-void __dead2 css_scp_sys_reboot(void);
-void __dead2 css_scp_system_off(int state);
+void css_scp_sys_shutdown(void);
+void css_scp_sys_reboot(void);
+void css_scp_system_off(int state);
 
 /* API for SCP Boot Image transfer. Return 0 on success, -1 on error */
 int css_scp_boot_image_xfer(void *image, unsigned int image_size);
@@ -45,8 +45,11 @@ int css_scp_boot_ready(void);
 CASSERT(SCP_BL2_LIMIT <= BL2_BASE, assert_scp_bl2_overwrite_bl2);
 CASSERT(SCP_BL2U_LIMIT <= BL2_BASE, assert_scp_bl2u_overwrite_bl2);
 
+#if !TRANSFER_LIST
 CASSERT(SCP_BL2_BASE >= ARM_FW_CONFIG_LIMIT, assert_scp_bl2_overflow);
 CASSERT(SCP_BL2U_BASE >= ARM_FW_CONFIG_LIMIT, assert_scp_bl2u_overflow);
+#endif /* !TRANSFER_LIST */
+
 #endif
 
 #endif /* CSS_SCP_H */

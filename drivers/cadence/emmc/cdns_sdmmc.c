@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2022-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -39,11 +39,7 @@ void sd_host_adma_prepare(struct cdns_idmac_desc *desc_ptr, uintptr_t buf,
 struct cdns_sdmmc_params cdns_params;
 struct cdns_sdmmc_combo_phy sdmmc_combo_phy_reg;
 struct cdns_sdmmc_sdhc sdmmc_sdhc_reg;
-#ifdef CONFIG_DMA_ADDR_T_64BIT
-struct cdns_idmac_desc cdns_desc[CONFIG_CDNS_DESC_COUNT];
-#else
-struct cdns_idmac_desc cdns_desc[CONFIG_CDNS_DESC_COUNT] __aligned(32);
-#endif
+struct cdns_idmac_desc cdns_desc[CONFIG_CDNS_DESC_COUNT] __aligned(8);
 
 bool data_cmd;
 
@@ -57,6 +53,9 @@ int cdns_wait_ics(uint16_t timeout, uint32_t cdn_srs_res)
 	do {
 		data = mmio_read_32(cdn_srs_res);
 		count++;
+
+		/* delay 300us to prevent CPU polling too frequently */
+		udelay(300);
 		if (count >= timeout) {
 			return -ETIMEDOUT;
 		}
@@ -263,7 +262,7 @@ void cdns_host_set_clk(uint32_t clk)
 	uint32_t sdclkfsval = 0;
 	uint32_t dtcvval = 0xE;
 
-	sdclkfsval = (SD_HOST_CLK / 2) / clk;
+	sdclkfsval = (cdns_params.sdmclk / 2) / clk;
 	mmio_write_32(cdns_params.reg_base + SDHC_CDNS_SRS11, 0);
 	mmio_write_32(cdns_params.reg_base + SDHC_CDNS_SRS11,
 			(dtcvval << SDMMC_CDN_DTCV) | (sdclkfsval << SDMMC_CDN_SDCLKFS) |
@@ -294,6 +293,11 @@ void cdns_host_set_clk(uint32_t clk)
 	mmio_write_32(cdns_params.reg_base + SDHC_CDNS_SRS11, (dtcvval << SDMMC_CDN_DTCV) |
 			(sdclkfsval << SDMMC_CDN_SDCLKFS) | (1 << SDMMC_CDN_ICE) |
 			(1 << SDMMC_CDN_SDCE));
+
+	ret = cdns_wait_ics(5000, cdns_params.reg_base + SDHC_CDNS_SRS11);
+	if (ret != 0)
+		ERROR("Waiting ICS timeout");
+
 	mmio_write_32(cdns_params.reg_base + SDHC_CDNS_SRS13, 0xFFFFFFFF);
 }
 
@@ -587,7 +591,8 @@ int cdns_send_cmd(struct mmc_cmd *cmd)
 
 	if ((cmd->cmd_idx == MMC_ACMD(51)) || (cmd->cmd_idx == MMC_CMD(17)) ||
 		(cmd->cmd_idx == MMC_CMD(18)) || (cmd->cmd_idx == MMC_CMD(24)) ||
-		(cmd->cmd_idx == MMC_CMD(25))) {
+		(cmd->cmd_idx == MMC_CMD(25)) || (cmd->cmd_idx == MMC_CMD(8) &&
+		cdns_params.cdn_sdmmc_dev_type == MMC_IS_EMMC)) {
 		mmio_write_8((cdns_params.reg_base + DTCV_OFFSET), DTCV_VAL);
 		cmd_flags |= DATA_PRESENT;
 		mode |= BLK_CNT_EN;
@@ -723,6 +728,7 @@ int cdns_mmc_init(struct cdns_sdmmc_params *params,
 		((params->reg_phy & MMC_BLOCK_MASK) == 0) &&
 		(params->desc_size > 0) &&
 		(params->clk_rate > 0) &&
+		(params->sdmclk > 0) &&
 		((params->bus_width == MMC_BUS_WIDTH_1) ||
 		(params->bus_width == MMC_BUS_WIDTH_4) ||
 		(params->bus_width == MMC_BUS_WIDTH_8)));

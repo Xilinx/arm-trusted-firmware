@@ -56,7 +56,7 @@ void *cm_get_context_by_index(unsigned int cpu_idx,
  * specified security state for the CPU identified by CPU index.
  ******************************************************************************/
 void cm_set_context_by_index(unsigned int cpu_idx, void *context,
-				size_t security_state)
+				unsigned int security_state)
 {
 	assert(sec_state_is_valid(security_state));
 

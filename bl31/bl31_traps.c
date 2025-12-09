@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2022-2025, Arm Limited. All rights reserved.
  * Copyright (c) 2023, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -12,10 +12,22 @@
 #include <bl31/sync_handle.h>
 #include <context.h>
 #include <lib/el3_runtime/context_mgmt.h>
+#include <lib/extensions/idte3.h>
 
-int handle_sysreg_trap(uint64_t esr_el3, cpu_context_t *ctx)
+int handle_sysreg_trap(uint64_t esr_el3, cpu_context_t *ctx,
+			u_register_t flags __unused)
 {
 	uint64_t __unused opcode = esr_el3 & ISS_SYSREG_OPCODE_MASK;
+
+#if ENABLE_FEAT_IDTE3
+	/*
+	 * Handle trap for system registers with the following encoding
+	 * op0 == 3, op1 == 0/1, Crn == 0 (Group 3 & Group 5 ID registers)
+	 */
+	if ((esr_el3 & ISS_IDREG_OPCODE_MASK) == ISS_SYSREG_OPCODE_IDREG) {
+		return handle_idreg_trap(esr_el3, ctx, flags);
+	}
+#endif
 
 #if ENABLE_FEAT_RNG_TRAP
 	if ((opcode == ISS_SYSREG_OPCODE_RNDR) || (opcode == ISS_SYSREG_OPCODE_RNDRRS)) {
@@ -90,19 +102,17 @@ static u_register_t get_elr_el3(u_register_t spsr_el3, u_register_t vbar, unsign
  * Explicitly create all bits of SPSR to get PSTATE at exception return.
  *
  * The code is based on "Aarch64.exceptions.takeexception" described in
- * DDI0602 revision 2023-06.
- * "https://developer.arm.com/documentation/ddi0602/2023-06/Shared-Pseudocode/
+ * DDI0602 revision 2025-03.
+ * "https://developer.arm.com/documentation/ddi0597/2025-03/Shared-Pseudocode/
  * aarch64-exceptions-takeexception"
  *
- * NOTE: This piece of code must be reviewed every release to ensure that
- * we keep up with new ARCH features which introduces a new SPSR bit.
+ * NOTE: This piece of code must be reviewed every release against the latest
+ * takeexception sequence to ensure that we keep up with new arch features that
+ * affect the PSTATE.
  *
- * TF-A 2.12 release review
- * The latest version available is 2024-09, which has two extra features which
- * impacts generation of SPSR, since these features are not implemented in TF-A
- * at the time of release, just log the feature names here to be taken up when
- * feature support is introduced.
- *  - FEAT_PAuth_LR (2023 extension)
+ * TF-A 2.13 release review
+ *
+ * Review of version 2025-03 indicates we are missing support for one feature.
  *  - FEAT_UINJ (2024 extension)
  */
 u_register_t create_spsr(u_register_t old_spsr, unsigned int target_el)
@@ -202,6 +212,12 @@ u_register_t create_spsr(u_register_t old_spsr, unsigned int target_el)
 			gcscr = read_gcscr_el1();
 		}
 		new_spsr |= (gcscr & GCSCR_EXLOCK_EN_BIT) ? SPSR_EXLOCK_BIT_AARCH64 : 0;
+	}
+
+	/* If FEAT_PAUTH_LR present then zero the PACM bit. */
+	new_spsr |= old_spsr & SPSR_PACM_BIT_AARCH64;
+	if (is_feat_pauth_lr_present()) {
+		new_spsr &= ~SPSR_PACM_BIT_AARCH64;
 	}
 
 	return new_spsr;

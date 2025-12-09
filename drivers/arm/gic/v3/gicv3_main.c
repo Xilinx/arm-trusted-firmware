@@ -399,7 +399,7 @@ unsigned int gicv3_get_pending_interrupt_id(void)
 	 * interrupt, then read the highest pending group 1 interrupt.
 	 */
 	if ((id == PENDING_G1S_INTID) || (id == PENDING_G1NS_INTID)) {
-		id = (uint32_t)read_icc_hppir1_el1() & HPPIR1_EL1_INTID_MASK;
+		return (uint32_t)read_icc_hppir1_el1() & HPPIR1_EL1_INTID_MASK;
 	}
 
 	return id;
@@ -434,7 +434,6 @@ unsigned int gicv3_get_interrupt_group(unsigned int id, unsigned int proc_num)
 	unsigned int igroup, grpmodr;
 	uintptr_t gicr_base;
 	uintptr_t gicd_base;
-	unsigned int group;
 
 	assert(IS_IN_EL3());
 	assert(gicv3_driver_data != NULL);
@@ -445,8 +444,7 @@ unsigned int gicv3_get_interrupt_group(unsigned int id, unsigned int proc_num)
 
 	/* All LPI interrupts are Group 1 non secure */
 	if (id >= MIN_LPI_ID) {
-		group = INTR_GROUP1NS;
-		goto exit_gicv3_get_int_group;
+		return INTR_GROUP1NS;
 	}
 
 	if (!is_valid_interrupt(id)) {
@@ -473,21 +471,16 @@ unsigned int gicv3_get_interrupt_group(unsigned int id, unsigned int proc_num)
 	 * interrupt
 	 */
 	if (igroup != 0U) {
-		group = INTR_GROUP1NS;
-		goto exit_gicv3_get_int_group;
+		return INTR_GROUP1NS;
 	}
 
 	/* If the GRPMOD bit is set, then it is a Group 1 Secure interrupt */
 	if (grpmodr != 0U) {
-		group = INTR_GROUP1S;
-		goto exit_gicv3_get_int_group;
+		return INTR_GROUP1S;
 	}
 
 	/* Else it is a Group 0 Secure interrupt */
-	group = INTR_GROUP0;
-
-exit_gicv3_get_int_group:
-	return group;
+	return INTR_GROUP0;
 }
 
 /*****************************************************************************
@@ -949,7 +942,6 @@ unsigned int gicv3_get_running_priority(void)
 unsigned int gicv3_get_interrupt_active(unsigned int id, unsigned int proc_num)
 {
 	uintptr_t gicd_base;
-	unsigned int isactive;
 
 	assert(gicv3_driver_data != NULL);
 	assert(gicv3_driver_data->gicd_base != 0U);
@@ -962,17 +954,13 @@ unsigned int gicv3_get_interrupt_active(unsigned int id, unsigned int proc_num)
 	/* Check interrupt ID */
 	if (IS_SGI_PPI(id)) {
 		/* For SGIs: 0-15, PPIs: 16-31 and EPPIs: 1056-1119 */
-		isactive = gicr_get_isactiver(
+		return gicr_get_isactiver(
 			gicv3_driver_data->rdistif_base_addrs[proc_num], id);
-		goto exit_gicv3_get_int_active;
 	}
 
 	/* For SPIs: 32-1019 and ESPIs: 4096-5119 */
 	gicd_base = gicv3_get_multichip_base(id, gicv3_driver_data->gicd_base);
-	isactive = gicd_get_isactiver(gicd_base, id);
-
-exit_gicv3_get_int_active:
-	return isactive;
+	return gicd_get_isactiver(gicd_base, id);
 }
 
 /*******************************************************************************
@@ -1439,14 +1427,13 @@ int gicv3_rdistif_probe(const uintptr_t gicr_frame)
  *****************************************************************************/
 static bool is_valid_interrupt(unsigned int id)
 {
-	bool ret = false;
 	/* Valid interrupts:
 	 * SGIs: 0-15, PPIs: 16-31, EPPIs: 1056-1119
 	 * SPIs: 32-1019, ESPIs: 4096-5119
 	 */
 	if ((IS_SGI_PPI(id)) || (IS_SPI(id))) {
-		ret = true;
+		return true;
 	}
 
-	return ret;
+	return false;
 }

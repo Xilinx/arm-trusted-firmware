@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -8,7 +8,7 @@
 # Trusted Firmware Version
 #
 VERSION_MAJOR			:= 2
-VERSION_MINOR			:= 12
+VERSION_MINOR			:= 14
 # VERSION_PATCH is only used for LTS releases
 VERSION_PATCH			:= 0
 VERSION				:= ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
@@ -23,7 +23,6 @@ MAKEOVERRIDES =
 
 MAKE_HELPERS_DIRECTORY := make_helpers/
 include ${MAKE_HELPERS_DIRECTORY}build_macros.mk
-include ${MAKE_HELPERS_DIRECTORY}build_env.mk
 include ${MAKE_HELPERS_DIRECTORY}build-rules.mk
 include ${MAKE_HELPERS_DIRECTORY}common.mk
 
@@ -32,6 +31,12 @@ include ${MAKE_HELPERS_DIRECTORY}common.mk
 ################################################################################
 
 include ${MAKE_HELPERS_DIRECTORY}defaults.mk
+# Include the CPU specific operations makefile, which provides default
+# values for all CPU errata workarounds and CPU specific optimisations.
+# This can be overridden by the platform.
+include lib/cpus/cpu-ops.mk
+
+PLAT				:= ${DEFAULT_PLAT}
 include ${MAKE_HELPERS_DIRECTORY}plat_helpers.mk
 
 # To be able to set platform specific defaults
@@ -59,7 +64,7 @@ INC_DRV_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
 					include/drivers/arm,		\
 					$(wildcard include/drivers/*)))
 INC_LIB_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
-					include/lib/libfdt		\
+					lib/libfdt		\
 					include/lib/libc,		\
 					$(wildcard include/lib/*)))
 INC_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
@@ -99,21 +104,24 @@ endif
 
 # Variables for use with Certificate Generation Tool
 CRTTOOLPATH		?=	tools/cert_create
-CRTTOOL			?=	${CRTTOOLPATH}/cert_create${BIN_EXT}
+CRTTOOL			?=	${BUILD_PLAT}/${CRTTOOLPATH}/cert_create$(.exe)
 
 # Variables for use with Firmware Encryption Tool
 ENCTOOLPATH		?=	tools/encrypt_fw
-ENCTOOL			?=	${ENCTOOLPATH}/encrypt_fw${BIN_EXT}
+ENCTOOL			?=	${BUILD_PLAT}/${ENCTOOLPATH}/encrypt_fw$(.exe)
 
 # Variables for use with Firmware Image Package
 FIPTOOLPATH		?=	tools/fiptool
-FIPTOOL			?=	${FIPTOOLPATH}/fiptool${BIN_EXT}
+FIPTOOL			?=	${BUILD_PLAT}/${FIPTOOLPATH}/fiptool$(.exe)
 
 # Variables for use with sptool
 SPTOOLPATH		?=	tools/sptool
 SPTOOL			?=	${SPTOOLPATH}/sptool.py
 SP_MK_GEN		?=	${SPTOOLPATH}/sp_mk_generator.py
 SP_DTS_LIST_FRAGMENT	?=	${BUILD_PLAT}/sp_list_fragment.dts
+
+# Variables for use with sptool
+TLCTOOL 		?=	poetry run tlc
 
 # Variables for use with ROMLIB
 ROMLIBPATH		?=	lib/romlib
@@ -124,44 +132,9 @@ PYTHON			?=	python3
 # Variables for use with documentation build using Sphinx tool
 DOCS_PATH		?=	docs
 
-################################################################################
-# Compiler Configuration based on ARCH_MAJOR and ARCH_MINOR flags
-################################################################################
-ifeq (${ARM_ARCH_MAJOR},7)
-	target32-directive	= 	-target arm-none-eabi
-# Will set march-directive from platform configuration
-else
-	target32-directive	= 	-target armv8a-none-eabi
-endif #(ARM_ARCH_MAJOR)
-
-################################################################################
-# Get Architecture Feature Modifiers
-################################################################################
-arch-features		=	${ARM_ARCH_FEATURE}
-
-ifneq ($(filter %-clang,$($(ARCH)-cc-id)),)
-	ifeq ($($(ARCH)-cc-id),arm-clang)
-		TF_CFLAGS_aarch32	:=	-target arm-arm-none-eabi
-		TF_CFLAGS_aarch64	:=	-target aarch64-arm-none-eabi
-	else
-		TF_CFLAGS_aarch32	=	$(target32-directive)
-		TF_CFLAGS_aarch64	:=	-target aarch64-elf
-	endif
-
-else ifeq ($($(ARCH)-cc-id),gnu-gcc)
-	# Enable LTO only for aarch64
-	ifeq (${ARCH},aarch64)
-		LTO_CFLAGS	=	$(if $(filter-out 0,$(ENABLE_LTO)),-flto)
-	endif
-endif #(clang)
-
 # Process Debug flag
-$(eval $(call add_define,DEBUG))
 ifneq (${DEBUG}, 0)
 	BUILD_TYPE	:=	debug
-	TF_CFLAGS	+=	-g -gdwarf-4
-	ASFLAGS		+=	-g -Wa,-gdwarf-4
-
 	# Use LOG_LEVEL_INFO by default for debug builds
 	LOG_LEVEL	:=	40
 else
@@ -176,61 +149,6 @@ ifeq (${BUILD_STRING},)
 endif
 VERSION_STRING    :=  v${VERSION}(${BUILD_TYPE}):${BUILD_STRING}
 
-ifeq (${AARCH32_INSTRUCTION_SET},A32)
-	TF_CFLAGS_aarch32	+=	-marm
-else ifeq (${AARCH32_INSTRUCTION_SET},T32)
-	TF_CFLAGS_aarch32	+=	-mthumb
-else
-        $(error Error: Unknown AArch32 instruction set ${AARCH32_INSTRUCTION_SET})
-endif #(AARCH32_INSTRUCTION_SET)
-
-TF_CFLAGS_aarch32	+=	-mno-unaligned-access
-TF_CFLAGS_aarch64	+=	-mgeneral-regs-only -mstrict-align
-
-##############################################################################
-# WARNINGS Configuration
-###############################################################################
-# General warnings
-WARNINGS		:=	-Wall -Wmissing-include-dirs -Wunused	\
-				-Wdisabled-optimization -Wvla -Wshadow	\
-				-Wredundant-decls
-# stricter warnings
-WARNINGS		+=	-Wextra -Wno-trigraphs
-# too verbose for generic build
-WARNINGS		+=	-Wno-missing-field-initializers \
-				-Wno-type-limits -Wno-sign-compare \
-# on clang this flag gets reset if -Wextra is set after it. No difference on gcc
-WARNINGS		+=	-Wno-unused-parameter
-
-# Additional warnings
-# Level 1 - infrequent warnings we should have none of
-# full -Wextra
-WARNING1 += -Wsign-compare
-WARNING1 += -Wtype-limits
-WARNING1 += -Wmissing-field-initializers
-
-# Level 2 - problematic warnings that we want
-# zlib, compiler-rt, coreboot, and mbdedtls blow up with these
-# TODO: disable just for them and move into default build
-WARNING2 += -Wold-style-definition
-WARNING2 += -Wmissing-prototypes
-WARNING2 += -Wmissing-format-attribute
-# TF-A aims to comply with this eventually. Effort too large at present
-WARNING2 += -Wundef
-# currently very involved and many platforms set this off
-WARNING2 += -Wunused-const-variable=2
-
-# Level 3 - very pedantic, frequently ignored
-WARNING3 := -Wbad-function-cast
-WARNING3 += -Waggregate-return
-WARNING3 += -Wnested-externs
-WARNING3 += -Wcast-align
-WARNING3 += -Wcast-qual
-WARNING3 += -Wconversion
-WARNING3 += -Wpacked
-WARNING3 += -Wpointer-arith
-WARNING3 += -Wswitch-default
-
 # Setting W is quite verbose and most warnings will be pre-existing issues
 # outside of the contributor's control. Don't fail the build on them so warnings
 # can be seen and hopefully addressed
@@ -239,121 +157,6 @@ ifdef W
 		E	 ?= 0
 	endif
 endif
-
-ifeq (${W},1)
-	WARNINGS += $(WARNING1)
-else ifeq (${W},2)
-	WARNINGS += $(WARNING1) $(WARNING2)
-else ifeq (${W},3)
-	WARNINGS += $(WARNING1) $(WARNING2) $(WARNING3)
-endif #(W)
-
-# Compiler specific warnings
-ifeq ($(filter %-clang,$($(ARCH)-cc-id)),)
-# not using clang
-WARNINGS	+=		-Wunused-but-set-variable -Wmaybe-uninitialized	\
-				-Wpacked-bitfield-compat -Wshift-overflow=2 \
-				-Wlogical-op
-
-# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105523
-TF_CFLAGS_MIN_PAGE_SIZE	:=	$(call cc_option, --param=min-pagesize=0)
-TF_CFLAGS		+=	$(TF_CFLAGS_MIN_PAGE_SIZE)
-
-ifeq ($(HARDEN_SLS), 1)
-        TF_CFLAGS_MHARDEN_SLS	:=      $(call cc_option, -mharden-sls=all)
-        TF_CFLAGS_aarch64	+=      $(TF_CFLAGS_MHARDEN_SLS)
-endif
-
-else
-# using clang
-WARNINGS	+=		-Wshift-overflow -Wshift-sign-overflow \
-				-Wlogical-op-parentheses
-endif #(Clang Warning)
-
-ifneq (${E},0)
-	ERRORS := -Werror
-endif #(E)
-
-################################################################################
-# Compiler and Linker Directives
-################################################################################
-CPPFLAGS		=	${DEFINES} ${INCLUDES} ${MBEDTLS_INC} -nostdinc	\
-				$(ERRORS) $(WARNINGS)
-ASFLAGS			+=	$(CPPFLAGS)                 			\
-				-ffreestanding -Wa,--fatal-warnings
-TF_CFLAGS		+=	$(CPPFLAGS) $(TF_CFLAGS_$(ARCH))		\
-				-ffunction-sections -fdata-sections		\
-				-ffreestanding -fno-builtin -fno-common		\
-				-Os -std=gnu99
-
-ifeq (${SANITIZE_UB},on)
-	TF_CFLAGS	+=	-fsanitize=undefined -fno-sanitize-recover
-endif #(${SANITIZE_UB},on)
-
-ifeq (${SANITIZE_UB},trap)
-	TF_CFLAGS	+=	-fsanitize=undefined -fno-sanitize-recover	\
-				-fsanitize-undefined-trap-on-error
-endif #(${SANITIZE_UB},trap)
-
-GCC_V_OUTPUT		:=	$(if $($(ARCH)-cc),$(shell $($(ARCH)-cc) -v 2>&1))
-
-TF_LDFLAGS		+=	-z noexecstack
-
-# LD = armlink
-ifeq ($($(ARCH)-ld-id),arm-link)
-	TF_LDFLAGS		+=	--diag_error=warning --lto_level=O1
-	TF_LDFLAGS		+=	--remove --info=unused,unusedsymbols
-	TF_LDFLAGS		+=	$(TF_LDFLAGS_$(ARCH))
-
-# LD = gcc (used when GCC LTO is enabled)
-else ifeq ($($(ARCH)-ld-id),gnu-gcc)
-	# Pass ld options with Wl or Xlinker switches
-	TF_LDFLAGS		+=	$(call ld_option,-Xlinker --no-warn-rwx-segments)
-	TF_LDFLAGS		+=	-Wl,--fatal-warnings -O1
-	TF_LDFLAGS		+=	-Wl,--gc-sections
-
-	TF_LDFLAGS		+=	-Wl,-z,common-page-size=4096 #Configure page size constants
-	TF_LDFLAGS		+=	-Wl,-z,max-page-size=4096
-	TF_LDFLAGS		+=	-Wl,--build-id=none
-
-	ifeq ($(ENABLE_LTO),1)
-		ifeq (${ARCH},aarch64)
-			TF_LDFLAGS	+=	-flto -fuse-linker-plugin
-			TF_LDFLAGS      +=	-flto-partition=one
-		endif
-	endif #(ENABLE_LTO)
-
-# GCC automatically adds fix-cortex-a53-843419 flag when used to link
-# which breaks some builds, so disable if errata fix is not explicitly enabled
-	ifeq (${ARCH},aarch64)
-		ifneq (${ERRATA_A53_843419},1)
-			TF_LDFLAGS	+= 	-mno-fix-cortex-a53-843419
-		endif
-	endif
-	TF_LDFLAGS		+= 	-nostdlib
-	TF_LDFLAGS		+=	$(subst --,-Xlinker --,$(TF_LDFLAGS_$(ARCH)))
-
-# LD = gcc-ld (ld) or llvm-ld (ld.lld) or other
-else
-# With ld.bfd version 2.39 and newer new warnings are added. Skip those since we
-# are not loaded by a elf loader.
-	TF_LDFLAGS		+=	$(call ld_option, --no-warn-rwx-segments)
-	TF_LDFLAGS		+=	-O1
-	TF_LDFLAGS		+=	--gc-sections
-
-	TF_LDFLAGS		+=	-z common-page-size=4096 # Configure page size constants
-	TF_LDFLAGS		+=	-z max-page-size=4096
-	TF_LDFLAGS		+=	--build-id=none
-
-# ld.lld doesn't recognize the errata flags,
-# therefore don't add those in that case.
-# ld.lld reports section type mismatch warnings,
-# therefore don't add --fatal-warnings to it.
-	ifneq ($($(ARCH)-ld-id),llvm-lld)
-		TF_LDFLAGS	+=	$(TF_LDFLAGS_$(ARCH)) --fatal-warnings
-	endif
-
-endif #(LD = armlink)
 
 ################################################################################
 # Setup ARCH_MAJOR/MINOR before parsing arch_features.
@@ -405,10 +208,6 @@ INCLUDES		+=	-Iinclude				\
 				${PLAT_INCLUDES}			\
 				${SPD_INCLUDES}
 
-DTC_FLAGS		+=	-I dts -O dtb
-DTC_CPPFLAGS		+=	-P -nostdinc $(INCLUDES) -Ifdts -undef \
-				-x assembler-with-cpp $(DEFINES)
-
 include common/backtrace/backtrace.mk
 
 ################################################################################
@@ -430,54 +229,16 @@ INCLUDE_TBBR_MK		:=	1
 ################################################################################
 
 ifneq (${SPD},none)
-	ifeq (${ARCH},aarch32)
-                $(error "Error: SPD is incompatible with AArch32.")
-	endif
-
-	ifdef EL3_PAYLOAD_BASE
-                $(warning "SPD and EL3_PAYLOAD_BASE are incompatible build options.")
-                $(warning "The SPD and its BL32 companion will be present but \
-                ignored.")
-	endif
-
 	ifeq (${SPD},spmd)
 	# SPMD is located in std_svc directory
 		SPD_DIR := std_svc
 
 		ifeq ($(SPMD_SPM_AT_SEL2),1)
 			CTX_INCLUDE_EL2_REGS := 1
-			ifeq ($(SPMC_AT_EL3),1)
-                                $(error SPM cannot be enabled in both S-EL2 and EL3.)
-			endif
-			ifeq ($(CTX_INCLUDE_SVE_REGS),1)
-                                $(error SVE context management not needed with Hafnium SPMC.)
-			endif
-		endif
-
-		ifeq ($(findstring optee_sp,$(ARM_SPMC_MANIFEST_DTS)),optee_sp)
-			DTC_CPPFLAGS	+=	-DOPTEE_SP_FW_CONFIG
-		endif
-
-		ifeq ($(findstring trusty_sp,$(ARM_SPMC_MANIFEST_DTS)),trusty_sp)
-			DTC_CPPFLAGS	+=	-DTRUSTY_SP_FW_CONFIG
-		endif
-
-		ifeq ($(TS_SP_FW_CONFIG),1)
-			DTC_CPPFLAGS	+=	-DTS_SP_FW_CONFIG
-		endif
-
-		ifneq ($(ARM_BL2_SP_LIST_DTS),)
-		DTC_CPPFLAGS += -DARM_BL2_SP_LIST_DTS=$(ARM_BL2_SP_LIST_DTS)
 		endif
 
 		ifneq ($(SP_LAYOUT_FILE),)
 		BL2_ENABLE_SP_LOAD := 1
-		endif
-
-		ifeq ($(SPMC_AT_EL3_SEL0_SP),1)
-			ifneq ($(SPMC_AT_EL3),1)
-			$(error SEL0 SP cannot be enabled without SPMC at EL3)
-			endif
 		endif
 	else
 		# All other SPDs in spd directory
@@ -504,15 +265,18 @@ ifneq (${SPD},none)
 	# over the sources.
 endif #(SPD=none)
 
-ifeq (${ENABLE_SPMD_LP}, 1)
-ifneq (${SPD},spmd)
-        $(error Error: ENABLE_SPMD_LP requires SPD=spmd.)
-endif
-ifeq ($(SPMC_AT_EL3),1)
-        $(error SPMC at EL3 not supported when enabling SPMD Logical partitions.)
-endif
-endif
+################################################################################
+# Include the platform specific Makefile after the SPD Makefile (the platform
+# makefile may use all previous definitions in this file)
+################################################################################
+include ${PLAT_MAKEFILE_FULL}
 
+################################################################################
+# Setup arch_features based on ARM_ARCH_MAJOR, ARM_ARCH_MINOR provided from
+# platform.
+################################################################################
+
+include ${MAKE_HELPERS_DIRECTORY}arch_features.mk
 ################################################################################
 # Process BRANCH_PROTECTION value and set
 # Pointer Authentication and Branch Target Identification flags
@@ -539,80 +303,42 @@ else ifeq (${BRANCH_PROTECTION},4)
 	# Turn on branch target identification mechanism
 	BP_OPTION := bti
 	ENABLE_BTI := 1
+else ifeq (${BRANCH_PROTECTION},5)
+	# Turn on branch target identification mechanism
+	BP_OPTION := standard
+	ENABLE_BTI := 2
+	ENABLE_PAUTH := 2
 else
         $(error Unknown BRANCH_PROTECTION value ${BRANCH_PROTECTION})
 endif #(BRANCH_PROTECTION)
 
-ifeq ($(ENABLE_PAUTH),1)
-	CTX_INCLUDE_PAUTH_REGS := 1
+ifneq ($(ENABLE_PAUTH),0)
+	CTX_INCLUDE_PAUTH_REGS	:= ${ENABLE_PAUTH}
 endif
-ifneq (${BP_OPTION},none)
-	TF_CFLAGS_aarch64	+=	-mbranch-protection=${BP_OPTION}
-endif #(BP_OPTION)
 
 # Pointer Authentication sources
-ifeq (${ENABLE_PAUTH}, 1)
+ifneq (${ENABLE_PAUTH},0)
 # arm/common/aarch64/arm_pauth.c contains a sample platform hook to complete the
 # Pauth support. As it's not secure, it must be reimplemented for real platforms
-	BL_COMMON_SOURCES	+=	lib/extensions/pauth/pauth_helpers.S
+	BL_COMMON_SOURCES	+=	lib/extensions/pauth/pauth.c
 endif
-
-################################################################################
-# Include the platform specific Makefile after the SPD Makefile (the platform
-# makefile may use all previous definitions in this file)
-################################################################################
-include ${PLAT_MAKEFILE_FULL}
-
-################################################################################
-# Setup arch_features based on ARM_ARCH_MAJOR, ARM_ARCH_MINOR provided from
-# platform.
-################################################################################
-include ${MAKE_HELPERS_DIRECTORY}arch_features.mk
-
-####################################################
-# Enable required options for Memory Stack Tagging.
-####################################################
-
-# Currently, these options are enabled only for clang and armclang compiler.
-ifeq (${SUPPORT_STACK_MEMTAG},yes)
-    ifdef mem_tag_arch_support
-        # Check for armclang and clang compilers
-        ifneq ($(filter %-clang,$($(ARCH)-cc-id)),)
-        # Add "memtag" architecture feature modifier if not specified
-            ifeq ( ,$(findstring memtag,$(arch-features)))
-                arch-features	:=	$(arch-features)+memtag
-            endif	# memtag
-            ifeq ($($(ARCH)-cc-id),arm-clang)
-                TF_CFLAGS	+=	-mmemtag-stack
-            else ifeq ($($(ARCH)-cc-id),llvm-clang)
-                TF_CFLAGS	+=	-fsanitize=memtag
-            endif	# armclang
-        endif
-    else
-        $(error "Error: stack memory tagging is not supported for  \
-        architecture ${ARCH},armv${ARM_ARCH_MAJOR}.${ARM_ARCH_MINOR}-a")
-	endif #(mem_tag_arch_support)
-endif #(SUPPORT_STACK_MEMTAG)
 
 ################################################################################
 # RME dependent flags configuration, Enable optional features for RME.
 ################################################################################
 # FEAT_RME
 ifeq (${ENABLE_RME},1)
-	# RME doesn't support PIE
-	ifneq (${ENABLE_PIE},0)
-                $(error ENABLE_RME does not support PIE)
-	endif
-
-	# RME requires AARCH64
-	ifneq (${ARCH},aarch64)
-                $(error ENABLE_RME requires AArch64)
-	endif
+	# RMM relies on SMCCC_ARCH_FEATURE_AVAILABILITY to discover EL3 enablement
+	ARCH_FEATURE_AVAILABILITY := 1
 
 	# RME requires el2 context to be saved for now.
 	CTX_INCLUDE_EL2_REGS := 1
 	CTX_INCLUDE_AARCH32_REGS := 0
 	CTX_INCLUDE_PAUTH_REGS := 1
+
+	ifneq ($(ENABLE_FEAT_MPAM), 0)
+		CTX_INCLUDE_MPAM_REGS := 1
+	endif
 
 	# RME enables CSV2_2 extension by default.
 	ENABLE_FEAT_CSV2_2 = 1
@@ -622,29 +348,8 @@ endif #(FEAT_RME)
 # Include rmmd Makefile if RME is enabled
 ################################################################################
 ifneq (${ENABLE_RME},0)
-	ifneq (${ARCH},aarch64)
-                $(error ENABLE_RME requires AArch64)
-	endif
-	ifeq ($(SPMC_AT_EL3),1)
-                $(error SPMC_AT_EL3 and ENABLE_RME cannot both be enabled.)
-	endif
-
-	ifneq (${SPD}, none)
-		ifneq (${SPD}, spmd)
-                        $(error ENABLE_RME is incompatible with SPD=${SPD}. Use SPD=spmd)
-		endif
-	endif
 include services/std_svc/rmmd/rmmd.mk
 $(warning "RME is an experimental feature")
-endif
-
-ifeq (${CTX_INCLUDE_EL2_REGS}, 1)
-	ifeq (${SPD},none)
-		ifeq (${ENABLE_RME},0)
-                        $(error CTX_INCLUDE_EL2_REGS is available only when SPD \
-                        or RME is enabled)
-		endif
-	endif
 endif
 
 ################################################################################
@@ -653,15 +358,6 @@ endif
 ifneq (${ENABLE_FEAT_D128}, 0)
         BL_COMMON_SOURCES       +=      lib/extensions/sysreg128/sysreg128.S
 endif
-
-################################################################################
-# Platform specific Makefile might provide us ARCH_MAJOR/MINOR use that to come
-# up with appropriate march values for compiler.
-################################################################################
-include ${MAKE_HELPERS_DIRECTORY}march.mk
-
-TF_CFLAGS   +=	$(march-directive)
-ASFLAGS		+=	$(march-directive)
 
 # This internal flag is common option which is set to 1 for scenarios
 # when the BL2 is running in EL3 level. This occurs in two scenarios -
@@ -688,64 +384,12 @@ else
 	FFH_SUPPORT := 0
 endif
 
-ifeq (${ARM_ARCH_MAJOR},7)
-include make_helpers/armv7-a-cpus.mk
-endif
-
-PIE_FOUND		:=	$(findstring --enable-default-pie,${GCC_V_OUTPUT})
-ifneq ($(PIE_FOUND),)
-	TF_CFLAGS	+=	-fno-PIE
-ifeq ($($(ARCH)-ld-id),gnu-gcc)
-	TF_LDFLAGS	+=	-no-pie
-endif
-endif #(PIE_FOUND)
-
-ifeq ($($(ARCH)-ld-id),gnu-gcc)
-	PIE_LDFLAGS	+=	-Wl,-pie -Wl,--no-dynamic-linker
+ifneq ($(filter 1,${ERRATA_A53_1530924} ${ERRATA_A55_1530923}	\
+        ${ERRATA_A57_1319537} ${ERRATA_A72_1319367} ${ERRATA_A76_1165522}),)
+ERRATA_SPECULATIVE_AT	:= 1
 else
-	PIE_LDFLAGS	+=	-pie --no-dynamic-linker
+ERRATA_SPECULATIVE_AT	:= 0
 endif
-
-ifeq ($(ENABLE_PIE),1)
-	ifeq ($(RESET_TO_BL2),1)
-		ifneq ($(BL2_IN_XIP_MEM),1)
-			BL2_CPPFLAGS	+=	-fpie
-			BL2_CFLAGS	+=	-fpie
-			BL2_LDFLAGS	+=	$(PIE_LDFLAGS)
-		endif #(BL2_IN_XIP_MEM)
-	endif #(RESET_TO_BL2)
-	BL31_CPPFLAGS	+=	-fpie
-	BL31_CFLAGS 	+=	-fpie
-	BL31_LDFLAGS	+=	$(PIE_LDFLAGS)
-
-	BL32_CPPFLAGS	+=	-fpie
-	BL32_CFLAGS	+=	-fpie
-	BL32_LDFLAGS	+=	$(PIE_LDFLAGS)
-endif #(ENABLE_PIE)
-
-BL1_CPPFLAGS  += -DREPORT_ERRATA=${DEBUG}
-BL31_CPPFLAGS += -DREPORT_ERRATA=${DEBUG}
-BL32_CPPFLAGS += -DREPORT_ERRATA=${DEBUG}
-
-BL1_CPPFLAGS += -DIMAGE_AT_EL3
-ifeq ($(RESET_TO_BL2),1)
-	BL2_CPPFLAGS += -DIMAGE_AT_EL3
-else
-	BL2_CPPFLAGS += -DIMAGE_AT_EL1
-endif #(RESET_TO_BL2)
-
-ifeq (${ARCH},aarch64)
-	BL2U_CPPFLAGS += -DIMAGE_AT_EL1
-	BL31_CPPFLAGS += -DIMAGE_AT_EL3
-	BL32_CPPFLAGS += -DIMAGE_AT_EL1
-else
-	BL32_CPPFLAGS += -DIMAGE_AT_EL3
-endif
-
-# Include the CPU specific operations makefile, which provides default
-# values for all CPU errata workarounds and CPU specific optimisations.
-# This can be overridden by the platform.
-include lib/cpus/cpu-ops.mk
 
 ################################################################################
 # Build `AARCH32_SP` as BL32 image for AArch32
@@ -772,31 +416,21 @@ ifeq (${OVERRIDE_LIBC},0)
 include lib/libc/libc.mk
 endif
 
+ifneq (${USE_GIC_DRIVER},0)
+include drivers/arm/gic/gic.mk
+endif
+
 ################################################################################
 # Check incompatible options and dependencies
 ################################################################################
-
-# USE_DEBUGFS experimental feature recommended only in debug builds
-ifeq (${USE_DEBUGFS},1)
-        ifeq (${DEBUG},1)
-                $(warning DEBUGFS experimental feature is enabled.)
-        else
-                $(warning DEBUGFS experimental, recommended in DEBUG builds ONLY)
-        endif
-endif #(USE_DEBUGFS)
-
-# USE_SPINLOCK_CAS requires AArch64 build
-ifeq (${USE_SPINLOCK_CAS},1)
-        ifneq (${ARCH},aarch64)
-               $(error USE_SPINLOCK_CAS requires AArch64)
-        endif
-endif #(USE_SPINLOCK_CAS)
+include ${MAKE_HELPERS_DIRECTORY}constraints.mk
 
 # The cert_create tool cannot generate certificates individually, so we use the
 # target 'certificates' to create them all
 ifneq (${GENERATE_COT},0)
-        FIP_DEPS += certificates
-        FWU_FIP_DEPS += fwu_certificates
+    FIP_DEPS += certificates
+    FWU_FIP_DEPS += fwu_certificates
+    BL2_FIP_DEPS += bl2_certificates
 endif
 
 ifneq (${DECRYPTION_SUPPORT},none)
@@ -805,239 +439,8 @@ ifneq (${DECRYPTION_SUPPORT},none)
 	ENC_ARGS += -n ${ENC_NONCE}
 	FIP_DEPS += enctool
 	FWU_FIP_DEPS += enctool
+	BL2_FIP_DEPS += enctool
 endif #(DECRYPTION_SUPPORT)
-
-ifdef EL3_PAYLOAD_BASE
-	ifdef PRELOADED_BL33_BASE
-                $(warning "PRELOADED_BL33_BASE and EL3_PAYLOAD_BASE are \
-		incompatible build options. EL3_PAYLOAD_BASE has priority.")
-	endif
-	ifneq (${GENERATE_COT},0)
-                $(error "GENERATE_COT and EL3_PAYLOAD_BASE are incompatible \
-                build options.")
-	endif
-	ifneq (${TRUSTED_BOARD_BOOT},0)
-                $(error "TRUSTED_BOARD_BOOT and EL3_PAYLOAD_BASE are \
-                incompatible \ build options.")
-	endif
-endif #(EL3_PAYLOAD_BASE)
-
-ifeq (${NEED_BL33},yes)
-	ifdef EL3_PAYLOAD_BASE
-                $(warning "BL33 image is not needed when option \
-                BL33_PAYLOAD_BASE is used and won't be added to the FIP file.")
-	endif
-	ifdef PRELOADED_BL33_BASE
-                $(warning "BL33 image is not needed when option \
-                PRELOADED_BL33_BASE is used and won't be added to the FIP file.")
-	endif
-endif #(NEED_BL33)
-
-# When building for systems with hardware-assisted coherency, there's no need to
-# use USE_COHERENT_MEM. Require that USE_COHERENT_MEM must be set to 0 too.
-ifeq ($(HW_ASSISTED_COHERENCY)-$(USE_COHERENT_MEM),1-1)
-        $(error USE_COHERENT_MEM cannot be enabled with HW_ASSISTED_COHERENCY)
-endif
-
-#For now, BL2_IN_XIP_MEM is only supported when RESET_TO_BL2 is 1.
-ifeq ($(RESET_TO_BL2)-$(BL2_IN_XIP_MEM),0-1)
-        $(error "BL2_IN_XIP_MEM is only supported when RESET_TO_BL2 is enabled")
-endif
-
-# RAS_EXTENSION is deprecated, provide alternate build options
-ifeq ($(RAS_EXTENSION),1)
-        $(error "RAS_EXTENSION is now deprecated, please use ENABLE_FEAT_RAS \
-        and HANDLE_EA_EL3_FIRST_NS instead")
-endif
-
-
-# When FAULT_INJECTION_SUPPORT is used, require that FEAT_RAS is enabled
-ifeq ($(FAULT_INJECTION_SUPPORT),1)
-	ifeq ($(ENABLE_FEAT_RAS),0)
-                $(error For FAULT_INJECTION_SUPPORT, ENABLE_FEAT_RAS must not be 0)
-	endif
-endif #(FAULT_INJECTION_SUPPORT)
-
-# DYN_DISABLE_AUTH can be set only when TRUSTED_BOARD_BOOT=1
-ifeq ($(DYN_DISABLE_AUTH), 1)
-	ifeq (${TRUSTED_BOARD_BOOT}, 0)
-                $(error "TRUSTED_BOARD_BOOT must be enabled for DYN_DISABLE_AUTH \
-                to be set.")
-	endif
-endif #(DYN_DISABLE_AUTH)
-
-ifeq ($(MEASURED_BOOT)-$(TRUSTED_BOARD_BOOT),1-1)
-# Support authentication verification and hash calculation
-	CRYPTO_SUPPORT := 3
-else ifeq ($(DRTM_SUPPORT)-$(TRUSTED_BOARD_BOOT),1-1)
-# Support authentication verification and hash calculation
-	CRYPTO_SUPPORT := 3
-else ifneq ($(filter 1,${MEASURED_BOOT} ${DRTM_SUPPORT}),)
-# Support hash calculation only
-	CRYPTO_SUPPORT := 2
-else ifeq (${TRUSTED_BOARD_BOOT},1)
-# Support authentication verification only
-	CRYPTO_SUPPORT := 1
-else
-	CRYPTO_SUPPORT := 0
-endif #($(MEASURED_BOOT)-$(TRUSTED_BOARD_BOOT))
-
-# SDEI_IN_FCONF is only supported when SDEI_SUPPORT is enabled.
-ifeq ($(SDEI_SUPPORT)-$(SDEI_IN_FCONF),0-1)
-        $(error "SDEI_IN_FCONF is only supported when SDEI_SUPPORT is enabled")
-endif
-
-# If pointer authentication is used in the firmware, make sure that all the
-# registers associated to it are also saved and restored.
-# Not doing it would leak the value of the keys used by EL3 to EL1 and S-EL1.
-ifeq ($(ENABLE_PAUTH),1)
-	ifeq ($(CTX_INCLUDE_PAUTH_REGS),0)
-                $(error Pointer Authentication requires CTX_INCLUDE_PAUTH_REGS=1)
-	endif
-endif #(ENABLE_PAUTH)
-
-ifeq ($(CTX_INCLUDE_PAUTH_REGS),1)
-	ifneq (${ARCH},aarch64)
-                $(error CTX_INCLUDE_PAUTH_REGS requires AArch64)
-	endif
-endif #(CTX_INCLUDE_PAUTH_REGS)
-
-ifeq ($(FEATURE_DETECTION),1)
-        $(info FEATURE_DETECTION is an experimental feature)
-endif #(FEATURE_DETECTION)
-
-ifneq ($(ENABLE_SME2_FOR_NS), 0)
-	ifeq (${ENABLE_SME_FOR_NS}, 0)
-                $(warning "ENABLE_SME2_FOR_NS requires ENABLE_SME_FOR_NS also \
-                to be set")
-                $(warning "Forced ENABLE_SME_FOR_NS=1")
-		override ENABLE_SME_FOR_NS	:= 1
-	endif
-endif #(ENABLE_SME2_FOR_NS)
-
-ifeq (${ARM_XLAT_TABLES_LIB_V1}, 1)
-	ifeq (${ALLOW_RO_XLAT_TABLES}, 1)
-                $(error "ALLOW_RO_XLAT_TABLES requires translation tables \
-                library v2")
-	endif
-endif #(ARM_XLAT_TABLES_LIB_V1)
-
-ifneq (${DECRYPTION_SUPPORT},none)
-	ifeq (${TRUSTED_BOARD_BOOT}, 0)
-                $(error TRUSTED_BOARD_BOOT must be enabled for DECRYPTION_SUPPORT \
-                to be set)
-	endif
-endif #(DECRYPTION_SUPPORT)
-
-# Ensure that no Aarch64-only features are enabled in Aarch32 build
-ifeq (${ARCH},aarch32)
-
-	# SME/SVE only supported on AArch64
-	ifneq (${ENABLE_SME_FOR_NS},0)
-                $(error "ENABLE_SME_FOR_NS cannot be used with ARCH=aarch32")
-	endif
-
-	ifeq (${ENABLE_SVE_FOR_NS},1)
-		# Warning instead of error due to CI dependency on this
-                $(error "ENABLE_SVE_FOR_NS cannot be used with ARCH=aarch32")
-	endif
-
-	# BRBE is not supported in AArch32
-	ifeq (${ENABLE_BRBE_FOR_NS},1)
-                $(error "ENABLE_BRBE_FOR_NS cannot be used with ARCH=aarch32")
-	endif
-
-	# FEAT_RNG_TRAP is not supported in AArch32
-	ifeq (${ENABLE_FEAT_RNG_TRAP},1)
-                $(error "ENABLE_FEAT_RNG_TRAP cannot be used with ARCH=aarch32")
-	endif
-endif #(ARCH=aarch32)
-
-ifneq (${ENABLE_SME_FOR_NS},0)
-	ifeq (${ENABLE_SVE_FOR_NS},0)
-                $(error "ENABLE_SME_FOR_NS requires ENABLE_SVE_FOR_NS")
-	endif
-endif #(ENABLE_SME_FOR_NS)
-
-# Secure SME/SVE requires the non-secure component as well
-ifeq (${ENABLE_SME_FOR_SWD},1)
-	ifeq (${ENABLE_SME_FOR_NS},0)
-                $(error "ENABLE_SME_FOR_SWD requires ENABLE_SME_FOR_NS")
-	endif
-	ifeq (${ENABLE_SVE_FOR_SWD},0)
-                $(error "ENABLE_SME_FOR_SWD requires ENABLE_SVE_FOR_SWD")
-	endif
-endif #(ENABLE_SME_FOR_SWD)
-
-# Enabling SVE for SWD requires enabling SVE for NWD due to ENABLE_FEAT
-# mechanism.
-ifeq (${ENABLE_SVE_FOR_SWD},1)
-    ifeq (${ENABLE_SVE_FOR_NS},0)
-        $(error "ENABLE_SVE_FOR_SWD requires ENABLE_SVE_FOR_NS")
-    endif
-endif
-
-# Enabling SVE for both the worlds typically requires the context
-# management of SVE registers. The only exception being SPMC at S-EL2.
-ifeq (${ENABLE_SVE_FOR_SWD}, 1)
-    ifneq (${ENABLE_SVE_FOR_NS}, 0)
-        ifeq (${CTX_INCLUDE_SVE_REGS}-$(SPMD_SPM_AT_SEL2),0-0)
-            $(warning "ENABLE_SVE_FOR_SWD and ENABLE_SVE_FOR_NS together require CTX_INCLUDE_SVE_REGS")
-        endif
-    endif
-endif
-
-# Enabling SVE in either world while enabling CTX_INCLUDE_FPREGS requires
-# CTX_INCLUDE_SVE_REGS to be enabled due to architectural dependency between FP
-# and SVE registers.
-ifeq (${CTX_INCLUDE_FPREGS}, 1)
-    ifneq (${ENABLE_SVE_FOR_NS},0)
-        ifeq (${CTX_INCLUDE_SVE_REGS},0)
-	    # Warning instead of error due to CI dependency on this
-            $(warning "CTX_INCLUDE_FPREGS and ENABLE_SVE_FOR_NS together require CTX_INCLUDE_SVE_REGS")
-            $(warning "Forced ENABLE_SVE_FOR_NS=0")
-	    override ENABLE_SVE_FOR_NS	:= 0
-        endif
-    endif
-endif #(CTX_INCLUDE_FPREGS)
-
-# SVE context management is only required if secure world has access to SVE/FP
-# functionality.
-ifeq (${CTX_INCLUDE_SVE_REGS},1)
-    ifeq (${ENABLE_SVE_FOR_SWD},0)
-        $(error "CTX_INCLUDE_SVE_REGS requires ENABLE_SVE_FOR_SWD to also be enabled")
-    endif
-endif
-
-# SME cannot be used with CTX_INCLUDE_FPREGS since SPM does its own context
-# management including FPU registers.
-ifeq (${CTX_INCLUDE_FPREGS},1)
-    ifneq (${ENABLE_SME_FOR_NS},0)
-        $(error "ENABLE_SME_FOR_NS cannot be used with CTX_INCLUDE_FPREGS")
-    endif
-endif #(CTX_INCLUDE_FPREGS)
-
-ifeq ($(DRTM_SUPPORT),1)
-        $(info DRTM_SUPPORT is an experimental feature)
-endif
-
-ifeq (${TRANSFER_LIST},1)
-        $(info TRANSFER_LIST is an experimental feature)
-endif
-
-ifeq (${ENABLE_RME},1)
-	ifneq (${SEPARATE_CODE_AND_RODATA},1)
-                $(error `ENABLE_RME=1` requires `SEPARATE_CODE_AND_RODATA=1`)
-	endif
-endif
-
-ifeq ($(PSA_CRYPTO),1)
-        $(info PSA_CRYPTO is an experimental feature)
-endif
-
-ifeq ($(DICE_PROTECTION_ENVIRONMENT),1)
-        $(info DICE_PROTECTION_ENVIRONMENT is an experimental feature)
-endif
 
 ################################################################################
 # Process platform overrideable behaviour
@@ -1089,19 +492,21 @@ endif #(ARCH=aarch64)
 
 # Process TBB related flags
 ifneq (${GENERATE_COT},0)
-	# Common cert_create options
-	ifneq (${CREATE_KEYS},0)
-                $(eval CRT_ARGS += -n)
-                $(eval FWU_CRT_ARGS += -n)
-		ifneq (${SAVE_KEYS},0)
-                        $(eval CRT_ARGS += -k)
-                        $(eval FWU_CRT_ARGS += -k)
-		endif
-	endif
-	# Include TBBR makefile (unless the platform indicates otherwise)
-	ifeq (${INCLUDE_TBBR_MK},1)
-                include make_helpers/tbbr/tbbr_tools.mk
-	endif
+    # Common cert_create options
+    ifneq (${CREATE_KEYS},0)
+        $(eval CRT_ARGS += -n)
+        $(eval FWU_CRT_ARGS += -n)
+        $(eval BL2_CRT_ARGS += -n)
+        ifneq (${SAVE_KEYS},0)
+            $(eval CRT_ARGS += -k)
+            $(eval FWU_CRT_ARGS += -k)
+            $(eval BL2_CRT_ARGS += -k)
+        endif
+    endif
+    # Include TBBR makefile (unless the platform indicates otherwise)
+    ifeq (${INCLUDE_TBBR_MK},1)
+        include make_helpers/tbbr/tbbr_tools.mk
+    endif
 endif #(GENERATE_COT)
 
 ifneq (${FIP_ALIGN},0)
@@ -1148,6 +553,7 @@ $(eval $(call assert_booleans,\
 	ALLOW_RO_XLAT_TABLES \
 	BL2_ENABLE_SP_LOAD \
 	COLD_BOOT_SINGLE_CPU \
+	$(CPU_FLAG_LIST) \
 	CREATE_KEYS \
 	CTX_INCLUDE_AARCH32_REGS \
 	CTX_INCLUDE_FPREGS \
@@ -1158,7 +564,6 @@ $(eval $(call assert_booleans,\
 	DYN_DISABLE_AUTH \
 	EL3_EXCEPTION_HANDLING \
 	ENABLE_AMU_AUXILIARY_COUNTERS \
-	ENABLE_AMU_FCONF \
 	AMU_RESTRICT_COUNTERS \
 	ENABLE_ASSERTIONS \
 	ENABLE_PIE \
@@ -1167,6 +572,7 @@ $(eval $(call assert_booleans,\
 	ENABLE_RUNTIME_INSTRUMENTATION \
 	ENABLE_SME_FOR_SWD \
 	ENABLE_SVE_FOR_SWD \
+	ENABLE_FEAT_GCIE \
 	ENABLE_FEAT_RAS	\
 	FFH_SUPPORT	\
 	ERROR_DEPRECATED \
@@ -1177,15 +583,19 @@ $(eval $(call assert_booleans,\
 	HARDEN_SLS \
 	HW_ASSISTED_COHERENCY \
 	MEASURED_BOOT \
+	DISCRETE_TPM \
 	DICE_PROTECTION_ENVIRONMENT \
 	RMMD_ENABLE_EL3_TOKEN_SIGN \
+	RMMD_ENABLE_IDE_KEY_PROG \
 	DRTM_SUPPORT \
 	NS_TIMER_SWITCH \
 	OVERRIDE_LIBC \
 	PL011_GENERIC_UART \
+	PLAT_EXTRA_LD_SCRIPT \
 	PROGRAMMABLE_RESET_ADDRESS \
 	PSCI_EXTENDED_STATE_ID \
 	PSCI_OS_INIT_MODE \
+	ARCH_FEATURE_AVAILABILITY \
 	RESET_TO_BL31 \
 	SAVE_KEYS \
 	SEPARATE_CODE_AND_RODATA \
@@ -1203,6 +613,7 @@ $(eval $(call assert_booleans,\
 	TRUSTED_BOARD_BOOT \
 	USE_COHERENT_MEM \
 	USE_DEBUGFS \
+	USE_KERNEL_DT_CONVENTION \
 	ARM_IO_IN_DTB \
 	SDEI_IN_FCONF \
 	SEC_INT_DESC_IN_FCONF \
@@ -1216,15 +627,16 @@ $(eval $(call assert_booleans,\
 	ENCRYPT_BL31 \
 	ENCRYPT_BL32 \
 	ERRATA_SPECULATIVE_AT \
+	ERRATA_SME_POWER_DOWN \
 	RAS_TRAP_NS_ERR_REC_ACCESS \
 	COT_DESC_IN_DTB \
 	USE_SP804_TIMER \
 	PSA_FWU_SUPPORT \
 	PSA_FWU_METADATA_FW_STORE_DESC \
 	ENABLE_MPMM \
-	ENABLE_MPMM_FCONF \
 	FEATURE_DETECTION \
 	TRNG_SUPPORT \
+	ENABLE_ERRATA_ALL \
 	ERRATA_ABI_SUPPORT \
 	ERRATA_NON_ARM_INTERCONNECT \
 	CONDITIONAL_CMO \
@@ -1234,6 +646,8 @@ $(eval $(call assert_booleans,\
 	PLATFORM_REPORT_CTX_MEM_USE \
 	EARLY_CONSOLE \
 	PRESERVE_DSU_PMU_REGS \
+	HOB_LIST \
+	LFA_SUPPORT \
 )))
 
 # Numeric_Flags
@@ -1244,25 +658,35 @@ $(eval $(call assert_numerics,\
 	BRANCH_PROTECTION \
 	CTX_INCLUDE_PAUTH_REGS \
 	CTX_INCLUDE_NEVE_REGS \
-	CRYPTO_SUPPORT \
 	DISABLE_MTPMU \
 	ENABLE_BRBE_FOR_NS \
 	ENABLE_TRBE_FOR_NS \
 	ENABLE_BTI \
 	ENABLE_PAUTH \
+	ENABLE_FEAT_PAUTH_LR \
+	ENABLE_FEAT_AIE \
 	ENABLE_FEAT_AMU \
 	ENABLE_FEAT_AMUv1p1 \
+	ENABLE_FEAT_CLRBHB \
+	ENABLE_FEAT_CPA2 \
 	ENABLE_FEAT_CSV2_2 \
 	ENABLE_FEAT_CSV2_3 \
 	ENABLE_FEAT_DEBUGV8P9 \
 	ENABLE_FEAT_DIT \
 	ENABLE_FEAT_ECV \
+	ENABLE_FEAT_EBEP \
 	ENABLE_FEAT_FGT \
 	ENABLE_FEAT_FGT2 \
+	ENABLE_FEAT_FGWTE3 \
+	ENABLE_FEAT_FPMR \
 	ENABLE_FEAT_HCX \
+	ENABLE_FEAT_IDTE3 \
 	ENABLE_FEAT_LS64_ACCDATA \
+	ENABLE_FEAT_MEC \
+	ENABLE_FEAT_MOPS \
 	ENABLE_FEAT_MTE2 \
 	ENABLE_FEAT_PAN \
+	ENABLE_FEAT_PFAR \
 	ENABLE_FEAT_RNG \
 	ENABLE_FEAT_RNG_TRAP \
 	ENABLE_FEAT_SEL2 \
@@ -1275,9 +699,11 @@ $(eval $(call assert_numerics,\
 	ENABLE_FEAT_S1POE \
 	ENABLE_FEAT_SCTLR2 \
 	ENABLE_FEAT_D128 \
+	ENABLE_FEAT_RME_GDI \
 	ENABLE_FEAT_GCS \
 	ENABLE_FEAT_VHE \
 	ENABLE_FEAT_MPAM \
+	ENABLE_FEAT_MPAM_PE_BW_CTRL \
 	ENABLE_RME \
 	ENABLE_SPE_FOR_NS \
 	ENABLE_SYS_REG_TRACE_FOR_NS \
@@ -1288,10 +714,12 @@ $(eval $(call assert_numerics,\
 	FW_ENC_STATUS \
 	NR_OF_FW_BANKS \
 	NR_OF_IMAGES_IN_FW_BANK \
+	SPMC_AT_EL3_PARTITION_MAX_UUIDS \
 	TWED_DELAY \
 	ENABLE_FEAT_TWED \
 	SVE_VECTOR_LEN \
 	IMPDEF_SYSREG_TRAP \
+	W \
 )))
 
 ifdef KEY_SIZE
@@ -1315,6 +743,7 @@ $(eval $(call add_defines,\
 	ARM_ARCH_MINOR \
 	BL2_ENABLE_SP_LOAD \
 	COLD_BOOT_SINGLE_CPU \
+	$(CPU_FLAG_LIST) \
 	CTX_INCLUDE_AARCH32_REGS \
 	CTX_INCLUDE_FPREGS \
 	CTX_INCLUDE_SVE_REGS \
@@ -1323,22 +752,26 @@ $(eval $(call add_defines,\
 	EL3_EXCEPTION_HANDLING \
 	CTX_INCLUDE_EL2_REGS \
 	CTX_INCLUDE_NEVE_REGS \
+	DEBUG \
 	DECRYPTION_SUPPORT_${DECRYPTION_SUPPORT} \
 	DISABLE_MTPMU \
 	ENABLE_FEAT_AMU \
 	ENABLE_AMU_AUXILIARY_COUNTERS \
-	ENABLE_AMU_FCONF \
 	AMU_RESTRICT_COUNTERS \
 	ENABLE_ASSERTIONS \
 	ENABLE_BTI \
 	ENABLE_FEAT_DEBUGV8P9 \
+	ENABLE_FEAT_IDTE3 \
 	ENABLE_FEAT_MPAM \
+	ENABLE_FEAT_MPAM_PE_BW_CTRL \
 	ENABLE_PAUTH \
+	ENABLE_FEAT_PAUTH_LR \
 	ENABLE_PIE \
 	ENABLE_PMF \
 	ENABLE_PSCI_STAT \
 	ENABLE_RME \
 	RMMD_ENABLE_EL3_TOKEN_SIGN \
+	RMMD_ENABLE_IDE_KEY_PROG \
 	ENABLE_RUNTIME_INSTRUMENTATION \
 	ENABLE_SME_FOR_NS \
 	ENABLE_SME2_FOR_NS \
@@ -1357,18 +790,23 @@ $(eval $(call add_defines,\
 	HW_ASSISTED_COHERENCY \
 	LOG_LEVEL \
 	MEASURED_BOOT \
+	DISCRETE_TPM \
 	DICE_PROTECTION_ENVIRONMENT \
 	DRTM_SUPPORT \
 	NS_TIMER_SWITCH \
+	PLATFORM_NODE_COUNT \
 	PL011_GENERIC_UART \
+	PLAT_EXTRA_LD_SCRIPT \
 	PLAT_${PLAT} \
 	PROGRAMMABLE_RESET_ADDRESS \
 	PSCI_EXTENDED_STATE_ID \
 	PSCI_OS_INIT_MODE \
+	ARCH_FEATURE_AVAILABILITY \
 	RESET_TO_BL31 \
 	RME_GPT_BITLOCK_BLOCK \
 	RME_GPT_MAX_BLOCK \
 	SEPARATE_CODE_AND_RODATA \
+	SEPARATE_BL2_FIP \
 	SEPARATE_BL2_NOLOAD_REGION \
 	SEPARATE_NOBITS_REGION \
 	SEPARATE_RWDATA_REGION \
@@ -1378,11 +816,11 @@ $(eval $(call add_defines,\
 	SPIN_ON_BL1_EXIT \
 	SPM_MM \
 	SPMC_AT_EL3 \
+	SPMC_AT_EL3_PARTITION_MAX_UUIDS \
 	SPMC_AT_EL3_SEL0_SP \
 	SPMD_SPM_AT_SEL2 \
 	TRANSFER_LIST \
 	TRUSTED_BOARD_BOOT \
-	CRYPTO_SUPPORT \
 	TRNG_SUPPORT \
 	ERRATA_ABI_SUPPORT \
 	ERRATA_NON_ARM_INTERCONNECT \
@@ -1393,6 +831,7 @@ $(eval $(call add_defines,\
 	SEC_INT_DESC_IN_FCONF \
 	USE_ROMLIB \
 	USE_TBBR_DEFS \
+	USE_KERNEL_DT_CONVENTION \
 	WARMBOOT_ENABLE_DCACHE_EARLY \
 	RESET_TO_BL2 \
 	BL2_RUNS_AT_EL3	\
@@ -1400,6 +839,7 @@ $(eval $(call add_defines,\
 	BL2_INV_DCACHE \
 	USE_SPINLOCK_CAS \
 	ERRATA_SPECULATIVE_AT \
+	ERRATA_SME_POWER_DOWN \
 	RAS_TRAP_NS_ERR_REC_ACCESS \
 	COT_DESC_IN_DTB \
 	USE_SP804_TIMER \
@@ -1415,18 +855,24 @@ $(eval $(call add_defines,\
 	ENABLE_TRBE_FOR_NS \
 	ENABLE_SYS_REG_TRACE_FOR_NS \
 	ENABLE_TRF_FOR_NS \
+	ENABLE_FEAT_AIE \
 	ENABLE_FEAT_HCX \
 	ENABLE_MPMM \
-	ENABLE_MPMM_FCONF \
 	ENABLE_FEAT_FGT \
 	ENABLE_FEAT_FGT2 \
+	ENABLE_FEAT_FGWTE3 \
+	ENABLE_FEAT_FPMR \
 	ENABLE_FEAT_ECV \
+	ENABLE_FEAT_EBEP \
 	ENABLE_FEAT_AMUv1p1 \
 	ENABLE_FEAT_SEL2 \
 	ENABLE_FEAT_VHE \
+	ENABLE_FEAT_CLRBHB \
+	ENABLE_FEAT_CPA2 \
 	ENABLE_FEAT_CSV2_2 \
 	ENABLE_FEAT_CSV2_3 \
 	ENABLE_FEAT_LS64_ACCDATA \
+	ENABLE_FEAT_MEC \
 	ENABLE_FEAT_PAN \
 	ENABLE_FEAT_TCR2 \
 	ENABLE_FEAT_THE \
@@ -1436,8 +882,12 @@ $(eval $(call add_defines,\
 	ENABLE_FEAT_S1POE \
 	ENABLE_FEAT_SCTLR2 \
 	ENABLE_FEAT_D128 \
+	ENABLE_FEAT_RME_GDI \
 	ENABLE_FEAT_GCS \
+	ENABLE_FEAT_MOPS \
+	ENABLE_FEAT_GCIE \
 	ENABLE_FEAT_MTE2 \
+	ENABLE_FEAT_PFAR \
 	FEATURE_DETECTION \
 	TWED_DELAY \
 	ENABLE_FEAT_TWED \
@@ -1451,6 +901,9 @@ $(eval $(call add_defines,\
 	PLATFORM_REPORT_CTX_MEM_USE \
 	EARLY_CONSOLE \
 	PRESERVE_DSU_PMU_REGS \
+	HOB_LIST \
+	HW_CONFIG_BASE \
+	LFA_SUPPORT \
 )))
 
 ifeq (${PLATFORM_REPORT_CTX_MEM_USE}, 1)
@@ -1499,25 +952,20 @@ endif #(SP_LAYOUT_FILE)
 endif #(SPD)
 
 ################################################################################
+# Configure the flags for the specified compiler and linker
+################################################################################
+include ${MAKE_HELPERS_DIRECTORY}cflags.mk
+
+################################################################################
 # Build targets
 ################################################################################
 
 .PHONY:	all msg_start clean realclean distclean cscope locate-checkpatch checkcodebase checkpatch fiptool sptool fip sp tl fwu_fip certtool dtbs memmap doc enctool
-.SUFFIXES:
 
 all: msg_start
 
 msg_start:
 	$(s)echo "Building ${PLAT}"
-
-ifeq (${ERROR_DEPRECATED},0)
-# Check if deprecated declarations and cpp warnings should be treated as error or not.
-ifneq ($(filter %-clang,$($(ARCH)-cc-id)),)
-    CPPFLAGS		+= 	-Wno-error=deprecated-declarations
-else
-    CPPFLAGS		+= 	-Wno-error=deprecated-declarations -Wno-error=cpp
-endif
-endif #(!ERROR_DEPRECATED)
 
 $(eval $(call MAKE_LIB,c))
 
@@ -1535,8 +983,13 @@ endif
 
 BL2_SOURCES := $(sort ${BL2_SOURCES})
 
-$(if ${BL2}, $(eval $(call TOOL_ADD_IMG,bl2,--${FIP_BL2_ARGS})),\
+ifeq (${SEPARATE_BL2_FIP},1)
+$(if ${BL2}, $(eval $(call TOOL_ADD_IMG,bl2,--${FIP_BL2_ARGS},BL2_)), \
+	$(eval $(call MAKE_BL,bl2,${FIP_BL2_ARGS},BL2_)))
+else
+$(if ${BL2}, $(eval $(call TOOL_ADD_IMG,bl2,--${FIP_BL2_ARGS})), \
 	$(eval $(call MAKE_BL,bl2,${FIP_BL2_ARGS})))
+endif #(SEPARATE_BL2_FIP)
 
 endif #(NEED_BL2)
 
@@ -1598,12 +1051,28 @@ endif #(NEED_BL2U)
 # Expand build macros for the different images
 ifeq (${NEED_FDT},yes)
     $(eval $(call MAKE_DTBS,$(BUILD_PLAT)/fdts,$(FDT_SOURCES)))
+
+    ifneq (${INITRD_SIZE}${INITRD_PATH},)
+        ifndef INITRD_BASE
+            $(error INITRD_BASE must be set when inserting initrd properties to the DTB.)
+        endif
+
+        INITRD_SIZE ?= $(shell printf "0x%x\n" $$(stat -Lc %s $(INITRD_PATH)))
+        initrd_end = $(shell printf "0x%x\n" $$(expr $$(($(INITRD_BASE) + $(INITRD_SIZE)))))
+
+        define $(HW_CONFIG)-after +=
+            $(s)echo "  INITRD  $(HW_CONFIG)"
+            $(q)fdtput -t x $@ /chosen linux,initrd-start $(INITRD_BASE)
+            $(q)fdtput -t x $@ /chosen linux,initrd-end $(initrd_end)
+        endef
+    endif
 endif #(NEED_FDT)
 
 # Add Secure Partition packages
 ifeq (${NEED_SP_PKG},yes)
 $(BUILD_PLAT)/sp_gen.mk: ${SP_MK_GEN} ${SP_LAYOUT_FILE} | $$(@D)/
-	$(q)${PYTHON} "$<" "$@" $(filter-out $<,$^) $(BUILD_PLAT) ${COT} ${SP_DTS_LIST_FRAGMENT}
+	$(if $(host-poetry),$(q)poetry -q install --no-root)
+	$(q)$(if $(host-poetry),poetry run )${PYTHON} "$<" "$@" $(filter-out $<,$^) $(BUILD_PLAT) ${COT} ${SP_DTS_LIST_FRAGMENT}
 sp: $(DTBS) $(BUILD_PLAT)/sp_gen.mk $(SP_PKGS)
 	$(s)echo
 	$(s)echo "Built SP Images successfully"
@@ -1621,31 +1090,23 @@ endif #(CHECKPATCH)
 
 clean:
 	$(s)echo "  CLEAN"
-	$(call SHELL_REMOVE_DIR,${BUILD_PLAT})
-ifdef UNIX_MK
-	$(q)${MAKE} --no-print-directory -C ${FIPTOOLPATH} clean
-else
-# Clear the MAKEFLAGS as we do not want
-# to pass the gnumake flags to nmake.
-	$(q)set MAKEFLAGS= && ${MSVC_NMAKE} /nologo /f ${FIPTOOLPATH}/Makefile.msvc FIPTOOLPATH=$(subst /,\,$(FIPTOOLPATH)) FIPTOOL=$(subst /,\,$(FIPTOOL)) clean
-endif #(UNIX_MK)
-	$(q)${MAKE} PLAT=${PLAT} --no-print-directory -C ${CRTTOOLPATH} clean
-	$(q)${MAKE} PLAT=${PLAT} --no-print-directory -C ${ENCTOOLPATH} clean
+	$(q)rm -rf $(BUILD_PLAT)
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=${BUILD_PLAT} --no-print-directory -C ${FIPTOOLPATH} clean
+	$(q)rm -rf ${FIPTOOLPATH}/fiptool
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=${BUILD_PLAT} --no-print-directory -C ${CRTTOOLPATH} clean
+	$(q)rm -rf ${CRTTOOLPATH}/cert_create
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=${BUILD_PLAT} --no-print-directory -C ${ENCTOOLPATH} clean
 	$(q)${MAKE} --no-print-directory -C ${ROMLIBPATH} clean
 
 realclean distclean:
 	$(s)echo "  REALCLEAN"
-	$(call SHELL_REMOVE_DIR,${BUILD_BASE})
-	$(call SHELL_DELETE_ALL, ${CURDIR}/cscope.*)
-ifdef UNIX_MK
-	$(q)${MAKE} --no-print-directory -C ${FIPTOOLPATH} clean
-else
-# Clear the MAKEFLAGS as we do not want
-# to pass the gnumake flags to nmake.
-	$(q)set MAKEFLAGS= && ${MSVC_NMAKE} /nologo /f ${FIPTOOLPATH}/Makefile.msvc FIPTOOLPATH=$(subst /,\,$(FIPTOOLPATH)) FIPTOOL=$(subst /,\,$(FIPTOOL)) realclean
-endif #(UNIX_MK)
-	$(q)${MAKE} PLAT=${PLAT} --no-print-directory -C ${CRTTOOLPATH} realclean
-	$(q)${MAKE} PLAT=${PLAT} --no-print-directory -C ${ENCTOOLPATH} realclean
+	$(q)rm -rf $(BUILD_BASE)
+	$(q)rm -rf $(CURDIR)/cscope.*
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=${BUILD_PLAT} --no-print-directory -C ${FIPTOOLPATH} clean
+	$(q)rm -rf ${FIPTOOLPATH}/fiptool
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=${BUILD_PLAT} --no-print-directory -C ${CRTTOOLPATH} clean
+	$(q)rm -rf ${CRTTOOLPATH}/cert_create
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=${BUILD_PLAT} --no-print-directory -C ${ENCTOOLPATH} clean
 	$(q)${MAKE} --no-print-directory -C ${ROMLIBPATH} clean
 
 checkcodebase:		locate-checkpatch
@@ -1683,14 +1144,15 @@ checkpatch:		locate-checkpatch
 
 certtool: ${CRTTOOL}
 
-${CRTTOOL}: FORCE
-	$(q)${MAKE} PLAT=${PLAT} USE_TBBR_DEFS=${USE_TBBR_DEFS} COT=${COT} OPENSSL_DIR=${OPENSSL_DIR} CRTTOOL=${CRTTOOL} DEBUG=${DEBUG} --no-print-directory -C ${CRTTOOLPATH} all
+${CRTTOOL}: FORCE | $$(@D)/
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=$(abspath ${BUILD_PLAT}) USE_TBBR_DEFS=${USE_TBBR_DEFS} COT=${COT} OPENSSL_DIR=${OPENSSL_DIR} DEBUG=${DEBUG} --no-print-directory -C ${CRTTOOLPATH} all
+	$(q)ln -sf ${CRTTOOL} ${CRTTOOLPATH}/cert_create
 	$(s)echo
 	$(s)echo "Built $@ successfully"
 	$(s)echo
 
 ifneq (${GENERATE_COT},0)
-certificates: ${CRT_DEPS} ${CRTTOOL}
+certificates: ${CRT_DEPS} ${CRTTOOL} ${DTBS}
 	$(q)${CRTTOOL} ${CRT_ARGS}
 	$(s)echo
 	$(s)echo "Built $@ successfully"
@@ -1698,7 +1160,17 @@ certificates: ${CRT_DEPS} ${CRTTOOL}
 	$(s)echo
 endif #(GENERATE_COT)
 
-${BUILD_PLAT}/${FIP_NAME}: ${FIP_DEPS} ${FIPTOOL}
+ifeq (${SEPARATE_BL2_FIP},1)
+${BUILD_PLAT}/${BL2_FIP_NAME}: ${BL2_FIP_DEPS} ${FIPTOOL} | $$(@D)/
+	$(eval ${CHECK_BL2_FIP_CMD})
+	$(q)${FIPTOOL} create ${BL2_FIP_ARGS} $@
+	$(q)${FIPTOOL} info $@
+	$(s)echo
+	$(s)echo "Built $@ successfully"
+	$(s)echo
+endif #(SEPARATE_BL2_FIP)
+
+${BUILD_PLAT}/${FIP_NAME}: ${FIP_DEPS} ${FIPTOOL} | $$(@D)/
 	$(eval ${CHECK_FIP_CMD})
 	$(q)${FIPTOOL} create ${FIP_ARGS} $@
 	$(q)${FIPTOOL} info $@
@@ -1715,7 +1187,16 @@ fwu_certificates: ${FWU_CRT_DEPS} ${CRTTOOL}
 	$(s)echo
 endif #(GENERATE_COT)
 
-${BUILD_PLAT}/${FWU_FIP_NAME}: ${FWU_FIP_DEPS} ${FIPTOOL}
+ifneq (${GENERATE_COT},0)
+bl2_certificates: ${BUILD_PLAT}/${FIP_NAME} ${BL2_CRT_DEPS} ${CRTTOOL} | ${BUILD_PLAT}/
+	$(q)${CRTTOOL} ${BL2_CRT_ARGS}
+	$(s)echo
+	$(s)echo "Built $@ successfully"
+	$(s)echo "BL2 certificates can be found in ${BUILD_PLAT}"
+	$(s)echo
+endif #(GENERATE_COT)
+
+${BUILD_PLAT}/${FWU_FIP_NAME}: ${FWU_FIP_DEPS} ${FIPTOOL} | $$(@D)/
 	$(eval ${CHECK_FWU_FIP_CMD})
 	$(q)${FIPTOOL} create ${FWU_FIP_ARGS} $@
 	$(q)${FIPTOOL} info $@
@@ -1724,43 +1205,40 @@ ${BUILD_PLAT}/${FWU_FIP_NAME}: ${FWU_FIP_DEPS} ${FIPTOOL}
 	$(s)echo
 
 fiptool: ${FIPTOOL}
+ifeq (${SEPARATE_BL2_FIP},1)
+bl2_fip: ${BUILD_PLAT}/${BL2_FIP_NAME}
+fip: bl2_fip
+else
 fip: ${BUILD_PLAT}/${FIP_NAME}
+endif #(SEPARATE_BL2_FIP)
 fwu_fip: ${BUILD_PLAT}/${FWU_FIP_NAME}
 
-${FIPTOOL}: FORCE
-ifdef UNIX_MK
-	$(q)${MAKE} PLAT=${PLAT} CPPFLAGS="-DVERSION='\"${VERSION_STRING}\"'" FIPTOOL=${FIPTOOL} OPENSSL_DIR=${OPENSSL_DIR} DEBUG=${DEBUG} --no-print-directory -C ${FIPTOOLPATH} all
-else
-# Clear the MAKEFLAGS as we do not want
-# to pass the gnumake flags to nmake.
-	$(q)set MAKEFLAGS= && ${MSVC_NMAKE} /nologo /f ${FIPTOOLPATH}/Makefile.msvc FIPTOOLPATH=$(subst /,\,$(FIPTOOLPATH)) FIPTOOL=$(subst /,\,$(FIPTOOL))
-endif #(UNIX_MK)
+# symlink for compatibility before tools were in the build directory
+${FIPTOOL}: FORCE | $$(@D)/
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=$(abspath ${BUILD_PLAT}) CPPFLAGS="-DVERSION='\"${VERSION_STRING}\"'" OPENSSL_DIR=${OPENSSL_DIR} DEBUG=${DEBUG} --no-print-directory -C ${FIPTOOLPATH} all
+	$(q)ln -sf ${FIPTOOL} ${FIPTOOLPATH}/fiptool
 
-romlib.bin: libraries FORCE
-	$(q)${MAKE} PLAT_DIR=${PLAT_DIR} BUILD_PLAT=${BUILD_PLAT} ENABLE_BTI=${ENABLE_BTI} ARM_ARCH_MINOR=${ARM_ARCH_MINOR} INCLUDES=$(call escape-shell,$(INCLUDES)) DEFINES=$(call escape-shell,$(DEFINES)) --no-print-directory -C ${ROMLIBPATH} all
+$(BUILD_PLAT)/romlib/romlib.bin $(BUILD_PLAT)/lib/libwrappers.a $&: $(BUILD_PLAT)/lib/libfdt.a $(BUILD_PLAT)/lib/libc.a $(CRYPTO_LIB) | $$(@D)/
+	$(q)${MAKE} PLAT_DIR=${PLAT_DIR} BUILD_PLAT=${BUILD_PLAT} ENABLE_BTI=${ENABLE_BTI} CRYPTO_LIB=$(CRYPTO_LIB) ARM_ARCH_MINOR=${ARM_ARCH_MINOR} INCLUDES=$(call escape-shell,$(INCLUDES)) DEFINES=$(call escape-shell,$(DEFINES)) --no-print-directory -C ${ROMLIBPATH} all
 
 memmap: all
-ifdef UNIX_MK
-	$(q)PYTHONPATH=${CURDIR}/tools/memory \
-		${PYTHON} -m memory.memmap -sr ${BUILD_PLAT}
-else
-	$(q)set PYTHONPATH=${CURDIR}/tools/memory && \
-		${PYTHON} -m memory.memmap -sr ${BUILD_PLAT}
-endif
+	$(if $(host-poetry),$(q)poetry -q install --no-root)
+	$(q)$(if $(host-poetry),poetry run )memory --root ${BUILD_PLAT} symbols
 
 tl: ${BUILD_PLAT}/tl.bin
-${BUILD_PLAT}/tl.bin: ${HW_CONFIG}
-	$(if $(host-poetry),$(q)poetry -q install)
+${BUILD_PLAT}/tl.bin: ${HW_CONFIG} | $$(@D)/
+	$(if $(host-poetry),$(q)poetry -q install --no-root)
 	$(q)$(if $(host-poetry),poetry run )tlc create --fdt $< -s ${FW_HANDOFF_SIZE} $@
 
 doc:
 	$(s)echo "  BUILD DOCUMENTATION"
-	$(q)${MAKE} --no-print-directory -C ${DOCS_PATH} html
+	$(if $(host-poetry),$(q)poetry -q install --with docs --no-root)
+	$(q)$(if $(host-poetry),poetry run )${MAKE} --no-print-directory -C ${DOCS_PATH} BUILDDIR=$(abspath ${BUILD_BASE}/docs) html
 
 enctool: ${ENCTOOL}
 
-${ENCTOOL}: FORCE
-	$(q)${MAKE} PLAT=${PLAT} BUILD_INFO=0 OPENSSL_DIR=${OPENSSL_DIR} ENCTOOL=${ENCTOOL} DEBUG=${DEBUG} --no-print-directory -C ${ENCTOOLPATH} all
+${ENCTOOL}: FORCE | $$(@D)/
+	$(q)${MAKE} PLAT=${PLAT} BUILD_PLAT=$(abspath ${BUILD_PLAT}) BUILD_INFO=0 OPENSSL_DIR=${OPENSSL_DIR} DEBUG=${DEBUG} --no-print-directory -C ${ENCTOOLPATH} all
 	$(s)echo
 	$(s)echo "Built $@ successfully"
 	$(s)echo

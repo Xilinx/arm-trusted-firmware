@@ -52,8 +52,8 @@ are explained below:
   - ``RES0``: Bit 31 of the version number is reserved 0 as to maintain
     consistency with the versioning schemes used in other parts of RMM.
 
-This document specifies the 0.4 version of Boot Interface ABI and RMM-EL3
-services specification and the 0.3 version of the Boot Manifest.
+This document specifies the 0.8 version of Boot Interface ABI and RMM-EL3
+services specification and the 0.5 version of the Boot Manifest.
 
 .. _rmm_el3_boot_interface:
 
@@ -100,6 +100,7 @@ During cold boot RMM expects the following register values:
    x1,Version for this Boot Interface as defined in :ref:`rmm_el3_ifc_versioning`.
    x2,Maximum number of CPUs to be supported at runtime. RMM should ensure that it can support this maximum number.
    x3,Base address for the shared buffer used for communication between EL3 firmware and RMM. This buffer must be of 4KB size (1 page). The Boot Manifest must be present at the base of this shared buffer during cold boot.
+   x4,"Activation token. Should be set to 0 on the initial boot of the system. For a subsequent warm boot or when using Live Firmware Activation, the activation token should be set to the value returned by RMM for this CPU during the initial boot (in x2)."
 
 During cold boot, EL3 firmware needs to allocate a 4KB page that will be
 passed to RMM in x3. This memory will be used as shared buffer for communication
@@ -142,15 +143,19 @@ This is summarized in the following table:
    :widths: 1, 5
 
    x0,Linear index of this PE. This index starts from 0 and must be less than the maximum number of CPUs to be supported at runtime (see x2).
-   x1 - x3,RES0
+   x1,"Activation token. Should be set to 0 on the initial boot of the system. For a subsequent warm boot or when using Live Firmware Activation, the activation token should be set to the value returned by RMM for this CPU during the initial boot (in x2)."
+   x2 - x3,RES0
 
 Boot error handling and return values
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 After boot up and initialization, RMM returns control back to EL3 through a
-``RMM_BOOT_COMPLETE`` SMC call. The only argument of this SMC call will
-be returned in x1 and it will encode a signed integer with the error reason
-as per the following table:
+``RMM_BOOT_COMPLETE`` SMC call. The first argument of this SMC call will
+be returned in x1 and it will encode a signed integer with the error reason.
+x2 will contain the per-CPU activation token, which is an opaque value that
+should be passed back to RMM when doing Live Firmware Activations or on a
+subsequent warm boot.
+The following table describes possible values for the error code in x1:
 
 .. csv-table::
    :header: "Error code", "Description", "ID"
@@ -182,12 +187,12 @@ platform information.
 
 This Boot Manifest is versioned independently of the Boot Interface, to help
 evolve the former independent of the latter.
-The current version for the Boot Manifest is ``v0.3`` and the rules explained
+The current version for the Boot Manifest is ``v0.4`` and the rules explained
 in :ref:`rmm_el3_ifc_versioning` apply on this version as well.
 
-The Boot Manifest v0.3 has the following fields:
+The Boot Manifest v0.4 has the following fields:
 
-   - version : Version of the Manifest (v0.3)
+   - version : Version of the Manifest (v0.4)
    - plat_data : Pointer to the platform specific data and not specified by this
      document. These data are optional and can be NULL.
    - plat_dram : Structure encoding the NS DRAM information on the platform. This
@@ -261,6 +266,12 @@ implemented by EL3 Firmware.
    0xC40001B3,``RMM_ATTEST_GET_PLAT_TOKEN``
    0xC40001B4,``RMM_EL3_FEATURES``
    0xC40001B5,``RMM_EL3_TOKEN_SIGN``
+   0xC40001B6,``RMM_MECID_KEY_UPDATE``
+   0xC40001B7,``RMM_IDE_KEY_PROG``
+   0xC40001B8,``RMM_IDE_KEY_SET_GO``
+   0xC40001B9,``RMM_IDE_KEY_SET_STOP``
+   0xC40001BA,``RMM_IDE_KM_PULL_RESPONSE``
+   0xC40001BB,``RMM_RESERVE_MEMORY``
 
 RMM_RMI_REQ_COMPLETE command
 ============================
@@ -670,6 +681,366 @@ a failure. The errors are ordered by condition check.
    the EL3 queue is full, or if the response is not ready yet, for other opcodes"
    ``E_RMM_OK``,No errors detected
 
+RMM_MEC_REFRESH command
+=======================
+
+This command updates the tweak for the encryption key/programs a new encryption key
+associated with a given MECID. After the execution of this command, all memory
+accesses associated with the MECID are encrypted/decrypted using the new key.
+This command is available from v0.8 of the RMM-EL3 interface.
+
+FID
+---
+
+``0xC40001B6``
+
+Input values
+------------
+
+.. csv-table:: Input values for RMM_MEC_REFRESH
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   fid,x0,[63:0],UInt64,Command FID
+   mecid,x1,[47:32],UInt64, "mecid is a 16-bit value between 0 and 65,535 that identifies the MECID for which the encryption key is to be updated. Value has to be a valid MECID as per field MECIDWidthm1 read from MECIDR_EL2. Bits [63:16] must be 0."
+   mecid,x1,[31:1],UInt64, "Reserved, MBZ"
+   reason,x1,[0],UInt64, "reason is a single bit field used to indicate the reason for the MEC refresh. Values are: 0 (Realm creation), 1 (Realm destruction)."
+
+Output values
+-------------
+
+.. csv-table:: Output values for RMM_MEC_REFRESH
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   Result,x0,[63:0],Error Code,"Command return status. Valid for all opcodes listed in input values"
+
+
+Failure conditions
+------------------
+
+The table below shows all the possible error codes returned in ``Result`` upon
+a failure. The errors are ordered by condition check.
+
+.. csv-table:: Failure conditions for RMM_MEC_REFRESH
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_INVAL``, "If a field in the x1 register is incorrectly encoded or if MECID is invalid (larger than the common MECID width, determined by MECIDR_EL2.MECIDWidthm1 + 1 or by other system components, whichever is lower)"
+   ``E_RMM_UNK``, "An unknown error occurred whilst processing the command, FEAT_MEC is not present in hardware or the SMC is not present if the version is < 0.8."
+   ``E_RMM_OK``, "No errors detected"
+
+RMM_IDE_KEY_PROG command
+=========================
+
+Set the key/IV info at Root port for an IDE stream as part of Device Assignment flow. This
+command is available from v0.6 of the RMM-EL3 interface.
+
+Please refer to `IDE-KM RFC <https://github.com/TF-RMM/tf-rmm/wiki/RFC:-EL3-RMM-IDE-KM-Interface>`_
+for description of the IDE setup sequence and how this will be invoked by RMM.
+
+The key is 256 bits and IV is 96 bits. The caller needs
+to call this SMC to program this key to the Rx, Tx ports and for each sub-stream
+corresponding to a single keyset.
+
+FID
+---
+
+``0xC40001B7``
+
+Input values
+------------
+
+.. csv-table:: Input values for RMM_IDE_KEY_PROG
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   fid,x0,[63:0],UInt64,Command FID
+   ecam_address,x1,[63:0],UInt64,Used to identify the root complex(RC)
+   rp_id,x2,[63:0],UInt64,Used to identify the root port within the root complex(RC)
+   "Keyset[12]:
+   Dir[11]:
+   Substream[10:8]:
+   StreamID[7:0]",x3,[63:0],UInt64,IDE selective stream informationKey set: can be 0 or 1unused bits MBZ.
+   KeqQW0,x4,[63:0],UInt64,Quad word of key [63:0]
+   KeqQW1,x5,[63:0],UInt64,Quad word of key [127:64]
+   KeqQW2,x6,[63:0],UInt64,Quad word of key [191:128]
+   KeqQW3,x7,[63:0],UInt64,Quad word of key [255:192]
+   IFVQW0,x8,[63:0],UInt64,Quad word of IV [63:0]
+   IFVQW1,x9,[63:0],UInt64,Quad word of IV [95:64]
+   request_id,x10,[63:0],UInt64,Used only in non-blocking mode. Ignored in blocking mode.
+   cookie,x11,[63:0],UInt64,Used only in non-blocking mode. Ignored in blocking mode.
+
+
+Output values
+-------------
+
+.. csv-table:: Output values for RMM_IDE_KEY_PROG
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   Result,x0,[63:0],Error Code,Command return status
+
+Failure conditions
+------------------
+
+The table below shows all the possible error codes returned in ``Result`` upon
+a failure. The errors are ordered by condition check.
+
+.. csv-table:: Failure conditions for RMM_IDE_KEY_PROG
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_OK``,The Key programming is successful.
+   ``E_RMM_FAULT``,The Key programming is not successful.
+   ``E_RMM_INVAL``,The Key programming arguments are incorrect.
+   ``E_RMM_UNK``,Unknown error or the SMC is not present if the version is < 0.6.
+   ``E_RMM_AGAIN``,Returned only for non-blocking mode. IDE-KM interface is busy or request is full. Retry required.
+   ``E_RMM_INPROGRESS``,Returned only for non-blocking mode. The caller must issue RMM_IDE_KM_PULL_RESPONSE SMC to pull the response.
+
+
+RMM_IDE_KEY_SET_GO command
+==========================
+
+Activate the IDE stream at Root Port once the keys have been programmed as part of
+Device Assignment flow. This command is available from v0.6 of the RMM-EL3 interface.
+
+Please refer to `IDE-KM RFC <https://github.com/TF-RMM/tf-rmm/wiki/RFC:-EL3-RMM-IDE-KM-Interface>`_
+for description of the IDE setup sequence and info on how this will be invoked by RMM.
+
+The caller(RMM) needs to ensure the EL3_IDE_KEY_PROG() call had succeeded prior to this call.
+
+FID
+---
+
+``0xC40001B8``
+
+Input values
+------------
+
+.. csv-table:: Input values for RMM_IDE_KEY_SET_GO
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   fid,x0,[63:0],UInt64,Command FID
+   ecam_address,x1,[63:0],UInt64,Used to identify the root complex(RC)
+   rp_id,x2,[63:0],UInt64,Used to identify the root port within the root complex(RC)
+   "Keyset[12]:
+   Dir[11]:
+   Substream[10:8]:
+   StreamID[7:0]",x3,[63:0],UInt64,IDE selective stream information. Key set can be 0 or 1. Unused bits MBZ.
+   request_id,x4,[63:0],UInt64,Used only in non-blocking mode. Ignored in blocking mode.
+   cookie,x5,[63:0],UInt64,Used only in non-blocking mode. Ignored in blocking mode.
+
+
+Output values
+-------------
+
+.. csv-table:: Output values for RMM_IDE_KEY_SET_GO
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   Result,x0,[63:0],Error Code,Command return status
+
+Failure conditions
+------------------
+
+The table below shows all the possible error codes returned in ``Result`` upon
+a failure. The errors are ordered by condition check.
+
+.. csv-table:: Failure conditions for RMM_IDE_KEY_SET_GO
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_OK``,The Key set go is successful.
+   ``E_RMM_FAULT``,The Key set go is not successful.
+   ``E_RMM_INVAL``,Incorrect arguments.
+   ``E_RMM_UNK``,Unknown error or the SMC is not present if the version is < 0.6.
+   ``E_RMM_AGAIN``,Returned only for non-blocking mode. IDE-KM interface is busy or request is full. Retry required.
+   ``E_RMM_INPROGRESS``,Returned only for non-blocking mode. The caller must issue RMM_IDE_KM_PULL_RESPONSE SMC to pull the response.
+
+
+RMM_IDE_KEY_SET_STOP command
+============================
+
+Deactivate the IDE stream at Root Port as part of Device Assignment flow. This command is
+available from v0.6 of the RMM-EL3 interface.
+
+Please refer to `IDE-KM RFC <https://github.com/TF-RMM/tf-rmm/wiki/RFC:-EL3-RMM-IDE-KM-Interface>`_
+for description of the IDE setup sequence and info on how this will be invoked by RMM.
+
+This SMC is used to tear down an IDE Stream.
+
+FID
+---
+
+``0xC40001B9``
+
+Input values
+------------
+
+.. csv-table:: Input values for RMM_IDE_KEY_SET_STOP
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   fid,x0,[63:0],UInt64,Command FID
+   ecam_address,x1,[63:0],UInt64,Used to identify the root complex(RC)
+   rp_id,x2,[63:0],UInt64,Used to identify the root port within the root complex(RC)
+   "Keyset[12]:
+   Dir[11]:
+   Substream[10:8]:
+   StreamID[7:0]",x3,[63:0],UInt64,IDE selective stream information. Key set can be 0 or 1. Unused bits MBZ.
+   request_id,x4,[63:0],UInt64,Used only in non-blocking mode. Ignored in blocking mode.
+   cookie,x5,[63:0],UInt64,Used only in non-blocking mode. Ignored in blocking mode.
+
+
+Output values
+-------------
+
+.. csv-table:: Output values for RMM_IDE_KEY_SET_STOP
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   Result,x0,[63:0],Error Code,Command return status
+
+Failure conditions
+------------------
+
+The table below shows all the possible error codes returned in ``Result`` upon
+a failure. The errors are ordered by condition check.
+
+.. csv-table:: Failure conditions for RMM_IDE_KEY_SET_STOP
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_OK``,The Key set stop is successful.
+   ``E_RMM_FAULT``,The Key set stop is not successful.
+   ``E_RMM_INVAL``,Incorrect arguments.
+   ``E_RMM_UNK``,Unknown error or the SMC is not present if the version is < 0.6.
+   ``E_RMM_AGAIN``,Returned only for non-blocking mode. IDE-KM interface is busy or request is full. Retry required.
+   ``E_RMM_INPROGRESS``,Returned only for non-blocking mode. The caller must issue RMM_IDE_KM_PULL_RESPONSE SMC to pull the response.
+
+
+RMM_IDE_KM_PULL_RESPONSE command
+================================
+
+Retrieve the response from Root Port to a previous non-blocking IDE-KM SMC request as part of
+Device Assignment flow. This command is available from v0.6 of the RMM-EL3 interface.
+
+Please refer to `IDE-KM RFC <https://github.com/TF-RMM/tf-rmm/wiki/RFC:-EL3-RMM-IDE-KM-Interface>`_
+for description of the IDE setup sequence and info on how this will be invoked by RMM.
+
+The response from this call could correspond to any of the last pending requests and the
+RMM needs to identify the request and populate the response. For blocking calls, this SMC
+always returns E_RMM_UNK.
+
+FID
+---
+
+``0xC40001BA``
+
+Input values
+------------
+
+.. csv-table:: Input values for RMM_IDE_KM_PULL_RESPONSE
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   fid,x0,[63:0],UInt64,Command FID
+   ecam_address,x1,[63:0],UInt64,Used to identify the root complex(RC)
+   rp_id,x2,[63:0],UInt64,Used to identify the root port within the root complex(RC)
+
+
+Output values
+-------------
+
+.. csv-table:: Output values for RMM_IDE_KM_PULL_RESPONSE
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   Result,x0,[63:0],Error Code,Command return status
+   Result,x1,[63:0],Error Code,Retrieved response corresponding to previous IDE_KM requests.
+   Result,x2,[63:0],value,passthrough from requested SMC
+   Result,x3,[63:0],value,passthrough from requested SMC
+
+Failure conditions
+------------------
+
+The table below shows all the possible error codes returned in ``Result`` upon
+a failure. The errors are ordered by condition check.
+
+.. csv-table:: Failure conditions for RMM_IDE_KM_PULL_RESPONSE(x0)
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_OK``,Response is retrieved successfully.
+   ``E_RMM_INVAL``,Arguments to pull response SMC is not correct.
+   ``E_RMM_UNK``,Unknown error or the SMC is not present if the version is < 0.6.
+   ``E_RMM_AGAIN``,IDE-KM response queue is empty and no response is available.
+
+.. csv-table:: Failure conditions for RMM_IDE_KM_PULL_RESPONSE(x1)
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_OK``,The previous request was successful.
+   ``E_RMM_FAULT``,The previous request was not successful.
+   ``E_RMM_INVAL``,Arguments to previous request were incorrect.
+   ``E_RMM_UNK``,Previous request returned unknown error.
+
+RMM_RESERVE_MEMORY command
+==========================
+
+This command is used to reserve memory for the RMM, during RMM boot time.
+This is not a fully featured dynamic memory allocator, since reservations cannot
+be freed again, and they must happen during the cold/warm boot phase of RMM.
+However it allows to size data structures in RMM based on runtime decisions,
+for instance depending on the number of cores or the amount of memory installed.
+This command is available from v0.7 of the RMM-EL3 interface.
+
+FID
+---
+
+``0xC40001BB``
+
+Input values
+------------
+
+.. csv-table:: Input values for RMM_RESERVE_MEMORY
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   fid,x0,[63:0],UInt64,Command FID
+   size,x1,[63:0],Size,"required size of the memory region, in bytes"
+   args,x2,[63:56],UInt64,"alignment requirement, in bits. A value of 16 would return a 64 KB aligned base address."
+   args,x2,[55:32],UInt64,reserved
+   args,x2,[31:1],UInt64,"flags (reserved)"
+   args,x2,[0],UInt64,"flags: local CPU: Determines whether the reservation should be taken from a pool close to the calling CPU."
+
+Output values
+-------------
+
+.. csv-table:: Output values for RMM_RESERVE_MEMORY
+   :header: "Name", "Register", "Field", "Type", "Description"
+   :widths: 1 1 1 1 5
+
+   Result,x0,[63:0],Error Code,Command return status.
+   address,x1,[63:0],Address, "Physical address of the reserved memory area."
+
+
+Failure conditions
+------------------
+
+The table below shows all the possible error codes returned in ``Result`` upon
+a failure. The errors are ordered by condition check.
+
+.. csv-table:: Failure conditions for RMM_RESERVE_MEMORY
+   :header: "ID", "Condition"
+   :widths: 1 5
+
+   ``E_RMM_INVAL``,"unrecognised flag bit"
+   ``E_RMM_UNK``,"if the SMC is not present, if interface version is <0.7"
+   ``E_RMM_NOMEM``,"size of region is larger than the available memory"
+   ``E_RMM_OK``,No errors detected
 
 RMM-EL3 world switch register save restore convention
 _____________________________________________________
@@ -720,61 +1091,71 @@ _____
 RMM-EL3 Boot Manifest structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The RMM-EL3 Boot Manifest v0.3 structure contains platform boot information passed
-from EL3 to RMM. The size of the Boot Manifest is 64 bytes.
+The RMM-EL3 Boot Manifest v0.5 structure contains platform boot information passed
+from EL3 to RMM. The size of the Boot Manifest is 160 bytes.
 
 The members of the RMM-EL3 Boot Manifest structure are shown in the following
 table:
 
-+--------------+--------+----------------+----------------------------------------+
-|   Name       | Offset |     Type       |               Description              |
-+==============+========+================+========================================+
-| version      |   0    |   uint32_t     | Boot Manifest version                  |
-+--------------+--------+----------------+----------------------------------------+
-| padding      |   4    |   uint32_t     | Reserved, set to 0                     |
-+--------------+--------+----------------+----------------------------------------+
-| plat_data    |   8    |   uintptr_t    | Pointer to Platform Data section       |
-+--------------+--------+----------------+----------------------------------------+
-| plat_dram    |   16   | ns_dram_info   | NS DRAM Layout Info structure          |
-+--------------+--------+----------------+----------------------------------------+
-| plat_console |   40   | console_list   | List of consoles available to RMM      |
-+--------------+--------+----------------+----------------------------------------+
++-------------------+--------+-------------------+----------------------------------------------+
+|        Name       | Offset |       Type        |                 Description                  |
++===================+========+===================+==============================================+
+| version           |   0    |      uint32_t     | Boot Manifest version                        |
++-------------------+--------+-------------------+----------------------------------------------+
+| padding           |   4    |      uint32_t     | Reserved, set to 0                           |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_data         |   8    |      uint64_t     | Pointer to Platform Data section             |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_dram         |   16   |    memory_info    | NS DRAM Layout Info structure                |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_console      |   40   |   console_list    | List of consoles available to RMM            |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_ncoh_region  |   64   |    memory_info    | Device non-coherent ranges Info structure    |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_coh_region   |   88   |    memory_info    | Device coherent ranges Info structure        |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_smmu         |   112  |     smmu_list     | List of SMMUs available to RMM               |
+|                   |        |                   | (from Boot Manifest v0.5)                    |
++-------------------+--------+-------------------+----------------------------------------------+
+| plat_root_complex |   136  | root_complex_list | List of PCIe root complexes available to RMM |
+|                   |        |                   | (from Boot Manifest v0.5)                    |
++-------------------+--------+-------------------+----------------------------------------------+
 
-.. _ns_dram_info_struct:
+.. _memory_info_struct:
 
-NS DRAM Layout Info structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Memory Info structure
+~~~~~~~~~~~~~~~~~~~~~
 
-NS DRAM Layout Info structure contains information about platform Non-secure
-DRAM layout. The members of this structure are shown in the table below:
+Memory Info structure contains information about platform memory layout.
+The members of this structure are shown in the table below:
 
-+-----------+--------+----------------+----------------------------------------+
-|   Name    | Offset |     Type       |               Description              |
-+===========+========+================+========================================+
-| num_banks |   0    |   uint64_t     | Number of NS DRAM banks                |
-+-----------+--------+----------------+----------------------------------------+
-| banks     |   8    | ns_dram_bank * | Pointer to 'ns_dram_bank'[] array      |
-+-----------+--------+----------------+----------------------------------------+
-| checksum  |   16   |   uint64_t     | Checksum                               |
-+-----------+--------+----------------+----------------------------------------+
++-----------+--------+---------------+----------------------------------------+
+|   Name    | Offset |     Type      |              Description               |
++===========+========+===============+========================================+
+| num_banks |   0    |    uint64_t   | Number of memory banks/device regions  |
++-----------+--------+---------------+----------------------------------------+
+| banks     |   8    | memory_bank * | Pointer to 'memory_bank'[] array       |
++-----------+--------+---------------+----------------------------------------+
+| checksum  |   16   |    uint64_t   | Checksum                               |
++-----------+--------+---------------+----------------------------------------+
 
 Checksum is calculated as two's complement sum of 'num_banks', 'banks' pointer
-and DRAM banks data array pointed by it.
+and memory banks data array pointed by it.
 
-.. _ns_dram_bank_struct:
+.. _memory_bank_struct:
 
-NS DRAM Bank structure
-~~~~~~~~~~~~~~~~~~~~~~
+Memory Bank/Device region structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-NS DRAM Bank structure contains information about each Non-secure DRAM bank:
+Memory Bank structure contains information about each memory bank/device region:
 
-+-----------+--------+----------------+----------------------------------------+
-|   Name    | Offset |     Type       |               Description              |
-+===========+========+================+========================================+
-|   base    |   0    |   uintptr_t    | Base address                           |
-+-----------+--------+----------------+----------------------------------------+
-|   size    |   8    |   uint64_t     | Size of bank in bytes                  |
-+-----------+--------+----------------+----------------------------------------+
++------+--------+----------+--------------------------------------------+
+| Name | Offset |   Type   |                Description                 |
++======+========+==========+============================================+
+| base |   0    | uint64_t | Base address                               |
++------+--------+----------+--------------------------------------------+
+| size |   8    | uint64_t | Size of memory bank/device region in bytes |
++------+--------+----------+--------------------------------------------+
 
 .. _console_list_struct:
 
@@ -784,15 +1165,15 @@ Console List structure
 Console List structure contains information about the available consoles for RMM.
 The members of this structure are shown in the table below:
 
-+--------------+--------+----------------+----------------------------------------+
-|   Name       | Offset |     Type       |               Description              |
-+==============+========+================+========================================+
-| num_consoles |   0    |   uint64_t     | Number of consoles                     |
-+--------------+--------+----------------+----------------------------------------+
-| consoles     |   8    | console_info * | Pointer to 'console_info'[] array      |
-+--------------+--------+----------------+----------------------------------------+
-| checksum     |   16   |   uint64_t     | Checksum                               |
-+--------------+--------+----------------+----------------------------------------+
++--------------+--------+----------------+-----------------------------------+
+|   Name       | Offset |     Type       |           Description             |
++==============+========+================+===================================+
+| num_consoles |   0    |   uint64_t     | Number of consoles                |
++--------------+--------+----------------+-----------------------------------+
+| consoles     |   8    | console_info * | Pointer to 'console_info'[] array |
++--------------+--------+----------------+-----------------------------------+
+| checksum     |   16   |   uint64_t     | Checksum                          |
++--------------+--------+----------------+-----------------------------------+
 
 Checksum is calculated as two's complement sum of 'num_consoles', 'consoles'
 pointer and the consoles array pointed by it.
@@ -804,28 +1185,151 @@ Console Info structure
 
 Console Info structure contains information about each Console available to RMM.
 
-+-----------+--------+---------------+----------------------------------------+
-|   Name    | Offset |     Type      |               Description              |
-+===========+========+===============+========================================+
-| base      |   0    |   uintptr_t   | Console Base address                   |
-+-----------+--------+---------------+----------------------------------------+
-| map_pages |   8    |   uint64_t    | Num of pages to map for console MMIO   |
-+-----------+--------+---------------+----------------------------------------+
-| name      |   16   |   char[]      | Name of console                        |
-+-----------+--------+---------------+----------------------------------------+
-| clk_in_hz |   24   |   uint64_t    | UART clock (in hz) for console         |
-+-----------+--------+---------------+----------------------------------------+
-| baud_rate |   32   |   uint64_t    | Baud rate                              |
-+-----------+--------+---------------+----------------------------------------+
-| flags     |   40   |   uint64_t    | Additional flags (RES0)                |
-+-----------+--------+---------------+----------------------------------------+
++-----------+--------+----------+--------------------------------------+
+|   Name    | Offset |   Type   |             Description              |
++===========+========+==========+======================================+
+| base      |   0    | uint64_t | Console Base address                 |
++-----------+--------+----------+--------------------------------------+
+| map_pages |   8    | uint64_t | Num of pages to map for console MMIO |
++-----------+--------+----------+--------------------------------------+
+| name      |   16   | char[8]  | Name of console                      |
++-----------+--------+----------+--------------------------------------+
+| clk_in_hz |   24   | uint64_t | UART clock (in Hz) for console       |
++-----------+--------+----------+--------------------------------------+
+| baud_rate |   32   | uint64_t | Baud rate                            |
++-----------+--------+----------+--------------------------------------+
+| flags     |   40   | uint64_t | Additional flags (RES0)              |
++-----------+--------+----------+--------------------------------------+
+
+.. _smmu_list_struct:
+
+SMMU List structure
+~~~~~~~~~~~~~~~~~~~
+
+SMMU List structure contains information about SMMUs available for RMM.
+The members of this structure are shown in the table below:
+
++-----------+--------+-------------+--------------------------------+
+|    Name   | Offset |     Type    |          Description           |
++===========+========+=============+================================+
+| num_smmus |   0    |   uint64_t  | Number of SMMUs                |
++-----------+--------+-------------+--------------------------------+
+| smmus     |   8    | smmu_info * | Pointer to 'smmu_info'[] array |
++-----------+--------+-------------+--------------------------------+
+| checksum  |   16   |   uint64_t  | Checksum                       |
++-----------+--------+-------------+--------------------------------+
+
+.. _smmu_info_struct:
+
+SMMU Info structure
+~~~~~~~~~~~~~~~~~~~
+
+SMMU Info structure contains information about each SMMU available to RMM.
+
++-------------+--------+----------+-------------------------------+
+|    Name     | Offset |   Type   |          Description          |
++=============+========+==========+===============================+
+| smmu_base   |   0    | uint64_t | SMMU Base address             |
++-------------+--------+----------+-------------------------------+
+| smmu_r_base |   8    | uint64_t | SMMU Realm Pages base address |
++-------------+--------+----------+-------------------------------+
+
+.. _root_complex_list_struct:
+
+Root Complex List structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Root Complex List structure contains information about PCIe root complexes available for RMM.
+The members of this structure are shown in the table below.
+
++------------------+--------+---------------------+-------------------------------------+
+|       Name       | Offset |        Type         |           Description               |
++==================+========+=====================+=====================================+
+| num_root_complex |   0    |      uint64_t       | Number of root complexes            |
++------------------+--------+---------------------+-------------------------------------+
+| rc_info_version  |   8    |      uint32_t       | Root Complex Info structure version |
++------------------+--------+---------------------+-------------------------------------+
+| padding          |   12   |      uint32_t       | Reserved, set to 0                  |
++------------------+--------+---------------------+-------------------------------------+
+| root_complex     |   16   | root_complex_info * | Pointer to 'root_complex'[] array   |
++------------------+--------+---------------------+-------------------------------------+
+| checksum         |   24   |      uint64_t       | Checksum                            |
++------------------+--------+---------------------+-------------------------------------+
+
+The checksum calculation of Root Complex List structure includes all data structures
+referenced by 'root_complex_info' pointer.
+
+.. _root_complex_info_struct:
+
+Root Complex Info structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Root Complex Info structure contains information about each PCIe root complex available to RMM.
+The table below describes the members of this structure as per v0.1.
+
++-----------------+--------+------------------+-------------------------------------+
+|    Name         | Offset |       Type       |               Description           |
++=================+========+==================+=====================================+
+| ecam_base       |   0    |     uint64_t     | PCIe ECAM Base address              |
++-----------------+--------+------------------+-------------------------------------+
+| segment         |   8    |     uint8_t      | PCIe segment identifier             |
++-----------------+--------+------------------+-------------------------------------+
+| padding[3]      |   9    |     uint8_t      | Reserved, set to 0                  |
++-----------------+--------+------------------+-------------------------------------+
+| num_root_ports  |   12   |     uint32_t     | Number of root ports                |
++-----------------+--------+------------------+-------------------------------------+
+| root_ports      |   16   | root_port_info * | Pointer to 'root_port_info'[] array |
++-----------------+--------+------------------+-------------------------------------+
+
+The Root Complex Info structure version uses the same numbering scheme as described in
+:ref:`rmm_el3_ifc_versioning`.
+
+.. _root_port_info_struct:
+
+Root Port Info structure
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Root Complex Info structure contains information about each root port in PCIe root complex.
+
++------------------+--------+--------------------+---------------------------------------+
+|      Name        | Offset |       Type         |              Description              |
++==================+========+====================+=======================================+
+| root_port_id     |   0    |     uint16_t       | Root Port identifier                  |
++------------------+--------+--------------------+---------------------------------------+
+| padding          |   2    |     uint16_t       | Reserved, set to 0                    |
++------------------+--------+--------------------+---------------------------------------+
+| num_bdf_mappings |   4    |     uint32_t       | Number of BDF mappings                |
++------------------+--------+--------------------+---------------------------------------+
+| bdf_mappings     |   8    | bdf_mapping_info * | Pointer to 'bdf_mapping_info'[] array |
++------------------+--------+--------------------+---------------------------------------+
+
+.. _bdf_mapping_info_struct:
+
+BDF Mapping Info structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+BDF Mapping Info structure contains information about each Device-Bus-Function (BDF) mapping
+for PCIe root port.
+
++--------------+--------+----------+------------------------------------------------------+
+|     Name     | Offset |   Type   |                     Description                      |
++==============+========+==========+======================================================+
+| mapping_base |   0    | uint16_t | Base of BDF mapping (inclusive)                      |
++--------------+--------+----------+------------------------------------------------------+
+| mapping_top  |   2    | uint16_t | Top of BDF mapping (exclusive)                       |
++--------------+--------+----------+------------------------------------------------------+
+| mapping_off  |   4    | uint16_t | Mapping offset, as per Arm Base System Architecture: |
+|              |        |          | StreamID = RequesterID[N-1:0] + (1<<N)*Constant_B    |
++--------------+--------+----------+------------------------------------------------------+
+| smmu_idx     |   6    | uint16_t | SMMU index in 'smmu_info'[] array                    |
++--------------+--------+----------+------------------------------------------------------+
 
 .. _el3_token_sign_request_struct:
 
 EL3 Token Sign Request structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This structure represents a realm attestation toekn signing request.
+This structure represents a realm attestation token signing request.
 
 +-------------+--------+---------------+-----------------------------------------+
 |   Name      | Offset |     Type      |               Description               |

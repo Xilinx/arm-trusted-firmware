@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,7 +11,8 @@
 #include <asm_macros.S>
 #include <assert_macros.S>
 #include <context.h>
-#include <lib/xlat_tables/xlat_tables_defs.h>
+#include <lib/el3_runtime/cpu_data.h>
+#include <lib/per_cpu/per_cpu_macros.S>
 
 	/*
 	 * Helper macro to initialise EL3 registers we care about.
@@ -32,24 +33,40 @@
 	 *  load or store one or more registers have an alignment check that the
 	 *  address being accessed is aligned to the size of the data element(s)
 	 *  being accessed.
+	 *
+	 * SCTLR_EL3.BT: PAuth instructions are compatible with bti jc
 	 * ---------------------------------------------------------------------
 	 */
-	mov	x1, #(SCTLR_I_BIT | SCTLR_A_BIT | SCTLR_SA_BIT)
+	mov_imm	x1, (SCTLR_I_BIT | SCTLR_A_BIT | SCTLR_SA_BIT)
 	mrs	x0, sctlr_el3
+#if ENABLE_BTI
+	bic	x0, x0, #SCTLR_BT_BIT
+#endif
 	orr	x0, x0, x1
 	msr	sctlr_el3, x0
 	isb
 
+#if ENABLE_FEAT_SCTLR2
+#if ENABLE_FEAT_SCTLR2 > 1
+	is_feat_sctlr2_present_asm x1
+	beq	feat_sctlr2_not_supported\@
+#endif
+	mov	x1, #SCTLR2_RESET_VAL
+	msr	SCTLR2_EL3, x1
+feat_sctlr2_not_supported\@:
+#endif
+
 #ifdef IMAGE_BL31
 	/* ---------------------------------------------------------------------
-	 * Initialise the per-cpu cache pointer to the CPU.
+	 * Initialise the per-cpu framework to utilize tpidr_el3.
+	 *
 	 * This is done early to enable crash reporting to have access to crash
 	 * stack. Since crash reporting depends on cpu_data to report the
 	 * unhandled exception, not doing so can lead to recursive exceptions
 	 * due to a NULL TPIDR_EL3.
 	 * ---------------------------------------------------------------------
 	 */
-	bl	init_cpu_data_ptr
+	per_cpu_init
 #endif /* IMAGE_BL31 */
 
 	/* ---------------------------------------------------------------------
@@ -219,15 +236,7 @@
 	msr	vbar_el3, x0
 	isb
 
-#if !(defined(IMAGE_BL2) && ENABLE_RME)
-	/* ---------------------------------------------------------------------
-	 * It is a cold boot.
-	 * Perform any processor specific actions upon reset e.g. cache, TLB
-	 * invalidations etc.
-	 * ---------------------------------------------------------------------
-	 */
-	bl	reset_handler
-#endif
+	call_reset_handler
 
 	el3_arch_init_common
 
@@ -322,6 +331,47 @@
 		bl	inv_dcache_range
 #endif
 #endif
+#if defined(IMAGE_BL31)
+		adrp	x0, __PER_CPU_START__
+		add	x0, x0, :lo12:__PER_CPU_START__
+		adrp	x1, __PER_CPU_END__
+		add	x1, x1, :lo12:__PER_CPU_END__
+		sub	x1, x1, x0
+#if (PLATFORM_NODE_COUNT > 1)
+		mov	x9, x1
+#endif /* (PLATFORM_NODE_COUNT > 1) */
+		bl	zeromem
+#if (PLATFORM_NODE_COUNT > 1)
+		/*
+		 * Zero-initialize per-cpu sections defined by the platform.
+		 * Care must be taken to preserve and retain the clobbered
+		 * registers. A standard around the container for per-cpu nodes
+		 * is not yet defined.
+		 */
+		mov	x10, #1
+		mov	x11, #PLATFORM_NODE_COUNT
+
+		1:
+			cmp	x10, x11
+			b.hs	2f
+
+			mov	x0, x10
+			bl	plat_per_cpu_node_base
+			cmn	x0, #1
+			b.eq	3f
+
+			/* x1 contains size param */
+			mov	x1, x9
+			bl	zeromem
+
+		3:
+			add	x10, x10, #1
+			b	1b
+
+		2:
+#endif /* (PLATFORM_NODE_COUNT > 1) */
+#endif /* defined(IMAGE_BL31) */
+
 		adrp	x0, __BSS_START__
 		add	x0, x0, :lo12:__BSS_START__
 
@@ -460,6 +510,9 @@
 	 *  Necessary on PMUv3 <= p7 where MDCR_EL3.{SCCD,MCCD} are not
 	 *  available.
 	 *
+	 * CPTR_EL3.EZ: Set to one so that accesses to ZCR_EL3 do not trap
+	 * CPTR_EL3.ESM: Set to one so that SME related registers don't trap
+	 *
 	 * PSTATE.DIT: Set to one to enable the Data Independent Timing (DIT)
 	 *  functionality, if implemented in EL3.
 	 * ---------------------------------------------------------------------
@@ -473,11 +526,17 @@
 		mrs	x15, scr_el3
 		orr	x15, x15, #SCR_EA_BIT
 		orr	x15, x15, #SCR_SIF_BIT
+		bic	x15, x15, #SCR_TRNDR_BIT
 		msr	scr_el3, x15
 
 		mrs 	x15, pmcr_el0
 		orr	x15, x15, #PMCR_EL0_DP_BIT
 		msr	pmcr_el0, x15
+
+		mrs	x15, cptr_el3
+		orr	x15, x15, #CPTR_EZ_BIT
+		orr	x15, x15, #ESM_BIT
+		msr	cptr_el3, x15
 
 #if ENABLE_FEAT_DIT
 #if ENABLE_FEAT_DIT > 1

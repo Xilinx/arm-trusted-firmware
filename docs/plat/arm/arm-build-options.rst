@@ -33,12 +33,12 @@ Arm Platform Build Options
 -  ``ARM_LINUX_KERNEL_AS_BL33``: The Linux kernel expects registers x0-x3 to
    have specific values at boot. This boolean option allows the Trusted Firmware
    to have a Linux kernel image as BL33 by preparing the registers to these
-   values before jumping to BL33. This option defaults to 0 (disabled). For
-   AArch64 ``RESET_TO_BL31`` and for AArch32 ``RESET_TO_SP_MIN`` must be 1 when
-   using it. If this option is set to 1, ``ARM_PRELOADED_DTB_BASE`` must be set
-   to the location of a device tree blob (DTB) already loaded in memory. The
-   Linux Image address must be specified using the ``PRELOADED_BL33_BASE``
-   option.
+   values before jumping to BL33. This option defaults to 0 (disabled). When
+   enabled (1), the address of the Linux image must be provided via the
+   ``PRELOADED_BL33_BASE`` option. Additionally, either the ``HW_CONFIG_BASE``
+   or ``ARM_PRELOADED_DTB_BASE`` option must specify the memory location of a
+   preloaded device tree blob (DTB). This option implies
+   ``USE_KERNEL_DT_CONVENTION``.
 
 -  ``ARM_PLAT_MT``: This flag determines whether the Arm platform layer has to
    cater for the multi-threading ``MT`` bit when accessing MPIDR. When this flag
@@ -65,25 +65,26 @@ Arm Platform Build Options
    -  ``regs`` : return the ROTPK hash stored in the Trusted root-key storage
       registers.
    -  ``devel_rsa`` : return a development public key hash embedded in the BL1
-      and BL2 binaries. This hash has been obtained from the RSA public key
-      ``arm_rotpk_rsa.der``, located in ``plat/arm/board/common/rotpk``. To use
-      this option, ``arm_rotprivk_rsa.pem`` must be specified as ``ROT_KEY``
-      when creating the certificates.
+      and BL2 binaries. This hash corresponds to the development private key
+      ``plat/arm/board/common/rotpk/arm_rotprivk_rsa.pem``.
+      The hashing algorithm is selected by ``HASH_ALG``; sha256 is used if
+      ``HASH_ALG`` is not specified. A different RSA key can be specified by setting
+      ``ROT_KEY``, there are 3k and 4k RSA keys in ``plat/arm/board/common/rotpk/``.
    -  ``devel_ecdsa`` : return a development public key hash embedded in the BL1
-      and BL2 binaries. This hash has been obtained from the ECDSA public key
-      ``arm_rotpk_ecdsa.der``, located in ``plat/arm/board/common/rotpk``. To
-      use this option, ``arm_rotprivk_ecdsa.pem`` must be specified as
-      ``ROT_KEY`` when creating the certificates.
-   -  ``devel_full_dev_rsa_key`` : returns a development public key embedded in
-      the BL1 and BL2 binaries. This key has been obtained from the RSA public
-      key ``arm_rotpk_rsa.der``, located in ``plat/arm/board/common/rotpk``.
-
--  ``ARM_ROTPK_HASH``: used when ``ARM_ROTPK_LOCATION=devel_*``, excluding
-   ``devel_full_dev_rsa_key``. Specifies the location of the ROTPK hash. Not
-   expected to be a build option. This defaults to
-   ``plat/arm/board/common/rotpk/*_sha256.bin`` depending on the specified
-   algorithm. Providing ``ROT_KEY`` enforces generation of the hash from the
-   ``ROT_KEY`` and overwrites the default hash file.
+      and BL2 binaries. This hash corresponds to the development private key
+      ``plat/arm/board/common/rotpk/arm_rotprivk_ecdsa.pem`` unless a different key
+      is specified with ``ROT_KEY``, such as the 384 bit key in the same directory.
+      he hashing algorithm is selected by ``HASH_ALG``; sha256 is used if ``HASH_ALG``
+      is not specified.
+   -  ``devel_full_dev_rsa_key`` : return a development public key embedded in
+      the BL1 and BL2 binaries. This key corresponds to the RSA private
+      key ``plat/arm/board/common/rotpk/arm_rotprivk.pem`` by default, but can
+      be changed by setting ``ROT_KEY``, there are 3k and 4k RSA keys in
+      ``plat/arm/board/common/rotpk/``.
+   - ``devel_full_dev_ecdsa_key`` : return a development public key embedded in
+      the BL1 and BL2 binaries. This key corresponds to the EC private key
+      ``plat/arm/board/common/rotpk/arm_rotprivk_ecdsa.pem``, unless a different
+      ECDSA key is specified by ``ROT_KEY``, such as the 384 bit key in the same directory.
 
 -  ``ARM_TSP_RAM_LOCATION``: location of the TSP binary. Options:
 
@@ -136,7 +137,8 @@ Arm FVP Build Options
 ---------------------
 
 - ``FVP_TRUSTED_SRAM_SIZE``: Size (in kilobytes) of the Trusted SRAM region to
-  utilize when building for the FVP platform. This option defaults to 256.
+  utilize when building for the FVP platform. This option defaults to 256 with
+  build option ENABLE_RME=0 and 384 for ENABLE_RME=1.
 
 Arm Juno Build Options
 ----------------------
@@ -165,4 +167,4 @@ Arm Neoverse RD Platform Build Options
 
 .. |FIP in a GPT image| image:: ../../resources/diagrams/FIP_in_a_GPT_image.png
 
-*Copyright (c) 2019-2024, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2025, Arm Limited. All rights reserved.*

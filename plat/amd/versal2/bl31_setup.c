@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2025, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2018-2022, Xilinx, Inc. All rights reserved.
  * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
  *
@@ -28,7 +28,9 @@
 #include <plat_fdt.h>
 #include <plat_private.h>
 #include <plat_startup.h>
+#if TRANSFER_LIST
 #include <plat_xfer_list.h>
+#endif
 #include <pm_api_sys.h>
 #include <pm_client.h>
 
@@ -60,7 +62,7 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 static inline void bl31_set_default_config(void)
 {
 	bl32_image_ep_info.pc = BL32_BASE;
-	bl32_image_ep_info.spsr = arm_get_spsr_for_bl32_entry();
+	bl32_image_ep_info.spsr = arm_get_spsr(BL32_IMAGE_ID);
 #if defined(SPD_opteed)
 #if (TRANSFER_LIST == 0)
 	/* NS dtb addr passed to optee_os */

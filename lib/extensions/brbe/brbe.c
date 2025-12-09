@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2022-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -17,12 +17,12 @@ void brbe_enable(cpu_context_t *ctx)
 	/*
 	 * MDCR_EL3.SBRBE = 0b01
 	 * Allows BRBE usage in non-secure world and prohibited in
-	 * secure world.
+	 * secure world. This is relied on by SMCCC_ARCH_FEATURE_AVAILABILITY.
 	 *
 	 * MDCR_EL3.{E3BREW, E3BREC} = 0b00
 	 * Branch recording at EL3 is disabled
 	 */
-	mdcr_el3_val &= ~((MDCR_SBRBE_MASK << MDCR_SBRBE_SHIFT) | MDCR_E3BREW | MDCR_E3BREC);
-	mdcr_el3_val |= (0x1UL << MDCR_SBRBE_SHIFT);
+	mdcr_el3_val &= ~((MDCR_SBRBE(MDCR_SBRBE_ALL)) | MDCR_E3BREW_BIT | MDCR_E3BREC_BIT);
+	mdcr_el3_val |= (MDCR_SBRBE(MDCR_SBRBE_NS));
 	write_ctx_reg(state, CTX_MDCR_EL3, mdcr_el3_val);
 }

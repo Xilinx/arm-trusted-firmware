@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2023-2025, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -73,13 +73,25 @@
 /*******************************************************************************
  * BL31 specific defines.
  ******************************************************************************/
+#if ENABLE_PIE
 #define BL31_BASE			0
-#define BL31_LIMIT			(STM32MP_SEC_SYSRAM_SIZE / 2)
+#else
+#define BL31_BASE			STM32MP_SYSRAM_BASE
+#endif
+
+#define BL31_LIMIT			(BL31_BASE + (STM32MP_SYSRAM_SIZE / 2))
+
+#define BL31_PROGBITS_LIMIT		(BL31_BASE + STM32MP_BL31_SIZE)
 
 /*******************************************************************************
  * BL33 specific defines.
  ******************************************************************************/
 #define BL33_BASE			STM32MP_BL33_BASE
+
+#if STM32MP_DDR_FIP_IO_STORAGE
+#define DWL_DDR_BUFFER_BASE		STM32MP_SYSRAM_BASE
+#define DWL_DDR_BUFFER_SIZE		U(0x0000A000)
+#endif
 
 /*******************************************************************************
  * Platform specific page table and MMU setup constants

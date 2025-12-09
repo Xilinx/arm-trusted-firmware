@@ -733,16 +733,16 @@ static void a8k_get_sys_suspend_power_state(psci_power_state_t *req_state)
 }
 
 static void
-__dead2 a8k_pwr_domain_pwr_down_wfi(const psci_power_state_t *target_state)
+a8k_pwr_domain_pwr_down_wfi(const psci_power_state_t *target_state)
 {
 	struct power_off_method *pm_cfg;
 	unsigned int srcmd;
 	unsigned int sdram_reg;
 	register_t gpio_data = 0, gpio_addr = 0;
 
+	/* let PSCI lib turn the core off */
 	if (is_pm_fw_running()) {
-		psci_power_down_wfi();
-		panic();
+		return;
 	}
 
 	pm_cfg = (struct power_off_method *)plat_marvell_get_pm_cfg();
@@ -845,7 +845,7 @@ const plat_psci_ops_t plat_arm_psci_pm_ops = {
 	.pwr_domain_on_finish = a8k_pwr_domain_on_finish,
 	.get_sys_suspend_power_state = a8k_get_sys_suspend_power_state,
 	.pwr_domain_suspend_finish = a8k_pwr_domain_suspend_finish,
-	.pwr_domain_pwr_down_wfi = a8k_pwr_domain_pwr_down_wfi,
+	.pwr_domain_pwr_down = a8k_pwr_domain_pwr_down_wfi,
 	.system_off = a8k_system_off,
 	.system_reset = a8k_system_reset,
 	.validate_power_state = a8k_validate_power_state,

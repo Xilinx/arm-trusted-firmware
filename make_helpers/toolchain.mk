@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2023-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -18,7 +18,6 @@
 ifndef toolchain-mk
         toolchain-mk := $(lastword $(MAKEFILE_LIST))
 
-        include $(dir $(toolchain-mk))build_env.mk
         include $(dir $(toolchain-mk))utilities.mk
 
         #
@@ -242,31 +241,84 @@ ifndef toolchain-mk
         #
 
         # Arm Compiler for Embedded
-        toolchain-guess-tool-arm-clang = $(shell $(1) --version 2>&1 <$(nul) | grep -o "Tool: armclang")
-        toolchain-guess-tool-arm-link = $(shell $(1) --help 2>&1 <$(nul) | grep -o "Tool: armlink")
-        toolchain-guess-tool-arm-fromelf = $(shell $(1) --help 2>&1 <$(nul) | grep -o "Tool: fromelf")
-        toolchain-guess-tool-arm-ar = $(shell $(1) --version 2>&1 <$(nul) | grep -o "Tool: armar")
+        toolchain-guess-tool-arm-clang = $(shell $(1) --version 2>&1 </dev/null | grep -o "Tool: armclang")
+        toolchain-guess-tool-arm-link = $(shell $(1) --help 2>&1 </dev/null | grep -o "Tool: armlink")
+        toolchain-guess-tool-arm-fromelf = $(shell $(1) --help 2>&1 </dev/null | grep -o "Tool: fromelf")
+        toolchain-guess-tool-arm-ar = $(shell $(1) --version 2>&1 </dev/null | grep -o "Tool: armar")
 
         # LLVM Project
-        toolchain-guess-tool-llvm-clang = $(shell $(1) -v 2>&1 <$(nul) | grep -o "clang version")
-        toolchain-guess-tool-llvm-lld = $(shell $(1) --help 2>&1 <$(nul) | grep -o "OVERVIEW: lld")
-        toolchain-guess-tool-llvm-objcopy = $(shell $(1) --help 2>&1 <$(nul) | grep -o "llvm-objcopy tool")
-        toolchain-guess-tool-llvm-objdump = $(shell $(1) --help 2>&1 <$(nul) | grep -o "llvm object file dumper")
-        toolchain-guess-tool-llvm-ar = $(shell $(1) --help 2>&1 <$(nul) | grep -o "LLVM Archiver")
+        toolchain-guess-tool-llvm-clang = $(shell $(1) -v 2>&1 </dev/null | grep -o "clang version")
+        toolchain-guess-tool-llvm-lld = $(shell $(1) --help 2>&1 </dev/null | grep -o "OVERVIEW: lld")
+        toolchain-guess-tool-llvm-objcopy = $(shell $(1) --help 2>&1 </dev/null | grep -o "llvm-objcopy tool")
+        toolchain-guess-tool-llvm-objdump = $(shell $(1) --help 2>&1 </dev/null | grep -o "llvm object file dumper")
+        toolchain-guess-tool-llvm-ar = $(shell $(1) --help 2>&1 </dev/null | grep -o "LLVM Archiver")
 
         # GNU Compiler Collection & GNU Binary Utilities
-        toolchain-guess-tool-gnu-gcc = $(shell $(1) -v 2>&1 <$(nul) | grep -o "gcc version")
-        toolchain-guess-tool-gnu-ld = $(shell $(1) -v 2>&1 <$(nul) | grep -o "GNU ld")
-        toolchain-guess-tool-gnu-objcopy = $(shell $(1) --version 2>&1 <$(nul) | grep -o "GNU objcopy")
-        toolchain-guess-tool-gnu-objdump = $(shell $(1) --version 2>&1 <$(nul) | grep -o "GNU objdump")
-        toolchain-guess-tool-gnu-ar = $(shell $(1) --version 2>&1 <$(nul) | grep -o "GNU ar")
+        toolchain-guess-tool-gnu-gcc = $(shell $(1) -v 2>&1 </dev/null | grep -o "gcc version")
+        toolchain-guess-tool-gnu-ld = $(shell $(1) -v 2>&1 </dev/null | grep -o "GNU ld")
+        toolchain-guess-tool-gnu-objcopy = $(shell $(1) --version 2>&1 </dev/null | grep -o "GNU objcopy")
+        toolchain-guess-tool-gnu-objdump = $(shell $(1) --version 2>&1 </dev/null | grep -o "GNU objdump")
+        toolchain-guess-tool-gnu-ar = $(shell $(1) --version 2>&1 </dev/null | grep -o "GNU ar")
 
         # Other tools
-        toolchain-guess-tool-generic-dtc = $(shell $(1) --version 2>&1 <$(nul) | grep -o "Version: DTC")
-        toolchain-guess-tool-generic-poetry = $(shell $(1) --version 2>&1 <$(nul))
+        toolchain-guess-tool-generic-dtc = $(shell $(1) --version 2>&1 </dev/null | grep -o "Version: DTC")
+        toolchain-guess-tool-generic-poetry = $(shell $(1) --version 2>&1 </dev/null)
 
         toolchain-guess-tool = $(if $(2),$(firstword $(foreach candidate,$(1),$\
                 $(if $(call toolchain-guess-tool-$(candidate),$(2)),$(candidate)))))
+
+        #
+        # Get the index of the first valid tool path in a shell command.
+        #
+        # To support compiler wrappers like `ccache`, we need to be able to
+        # robustly identify which part of a shell command is the wrapper and
+        # which part is the wrapped.
+        #
+        # To do this, we iterate through each shell word in the string, query it
+        # to see if it is one the tools we would expect to see, and return its
+        # index.
+        #
+        #   - $(1): A list of candidate tool identifiers to check.
+        #   - $(2): The shell command to parse.
+        #
+
+        toolchain-tool-program-index = $\
+                $(call with,p:candidates p:command,$(1),$(2),$\
+                        $$(firstword $$(call shell-map,$\
+                                toolchain-tool-program-index.map,$\
+                                $$(command))))
+
+        toolchain-tool-program-index.map = $(and $\
+                $(call which,$(1)),$\
+                $(call toolchain-guess-tool,$(candidates),$\
+                        $(call shell-quote,$(1))),$\
+                $(2))
+
+        #
+        # Strip any program wrappers from a tool's shell command.
+        #
+        # This function removes any program wrappers, like `ccache`, from the
+        # shell command of a tool.
+        #
+        #   - $(1): A list of candidate tool identifiers to check.
+        #   - $(2): The shell command to parse.
+        #
+
+        toolchain-tool-program = $(call shell-slice,$(2),$\
+                $(call toolchain-tool-program-index,$(1),$(2)))
+
+        #
+        # Extract the program wrapper from a tool's shell command.
+        #
+        # This function returns any program wrappers, like `ccache`, from the
+        # shell command of a tool.
+        #
+        #   - $(1): A list of candidate tool identifiers to check.
+        #   - $(2): The shell command to parse.
+        #
+
+        toolchain-tool-wrapper = $(call shell-slice,$(2),1,$\
+                $(call toolchain-tool-program-index,$(1),$(2)))
 
         #
         # Warn the user that a tool could not be identified.
@@ -281,13 +333,7 @@ ifndef toolchain-mk
                 $(warning )
                 $(warning The configured $($(1)-name) $(toolchain-tool-class-name-$(2)) could not be identified:)
                 $(warning )
-                $(warning $(space)   $($(1)-$(2))$(if $($(1)-$(2)-parameter), (via `$($(1)-$(2)-parameter)`)))
-                $(warning )
-                $(warning The following tools were tried, but either did not exist or could not be identified:)
-                $(warning )
-
-                $(foreach default,$($(1)-$(2)-default), \
-                        $(warning $(space) - $(default)))
+                $(warning $(space)   $($(1)-$(2)) ($($(1)-$(2)-origin)))
 
                 $(warning )
                 $(warning The following tools are supported:)
@@ -321,28 +367,97 @@ ifndef toolchain-mk
         # toolchain.
         #
 
-        toolchain-derive-arm-clang-cpp = $(1)
-        toolchain-derive-arm-clang-as = $(1)
-        toolchain-derive-arm-clang-ld = # Fall back to `$(toolchain)-ld-default`
-        toolchain-derive-arm-clang-oc = # Fall back to `$(toolchain)-oc-default`
-        toolchain-derive-arm-clang-od = # Fall back to `$(toolchain)-od-default`
-        toolchain-derive-arm-clang-ar = # Fall back to `$(toolchain)-ar-default`
+        toolchain-from-parameter = $($($(1)-$(2)-parameter))
 
-        toolchain-derive-llvm-clang-cpp = $(1)
-        toolchain-derive-llvm-clang-as = $(1)
-        toolchain-derive-llvm-clang-ld = $(shell $(1) --print-prog-name ld.lld 2>$(nul))
-        toolchain-derive-llvm-clang-oc = $(shell $(1) --print-prog-name llvm-objcopy 2>$(nul))
-        toolchain-derive-llvm-clang-od = $(shell $(1) --print-prog-name llvm-objdump 2>$(nul))
-        toolchain-derive-llvm-clang-ar = $(shell $(1) --print-prog-name llvm-ar 2>$(nul))
+        toolchain-from-cc-arm-clang-cpp = $(1)
+        toolchain-from-cc-arm-clang-as = $(1)
+        toolchain-from-cc-arm-clang-ld = # Fall back to `$(toolchain)-ld-default`
+        toolchain-from-cc-arm-clang-oc = # Fall back to `$(toolchain)-oc-default`
+        toolchain-from-cc-arm-clang-od = # Fall back to `$(toolchain)-od-default`
+        toolchain-from-cc-arm-clang-ar = # Fall back to `$(toolchain)-ar-default`
 
-        toolchain-derive-gnu-gcc-cpp = $(1)
-        toolchain-derive-gnu-gcc-as = $(1)
-        toolchain-derive-gnu-gcc-ld = $(1)
-        toolchain-derive-gnu-gcc-oc = $(shell $(1) --print-prog-name objcopy 2>$(nul))
-        toolchain-derive-gnu-gcc-od = $(shell $(1) --print-prog-name objdump 2>$(nul))
-        toolchain-derive-gnu-gcc-ar = $(shell $(1) --print-prog-name ar 2>$(nul))
+        toolchain-from-cc-llvm-clang-cpp = $(1)
+        toolchain-from-cc-llvm-clang-as = $(1)
+        toolchain-from-cc-llvm-clang-ld = $(1)
+        toolchain-from-cc-llvm-clang-oc = $(shell $(1) --print-prog-name llvm-objcopy 2>/dev/null)
+        toolchain-from-cc-llvm-clang-od = $(shell $(1) --print-prog-name llvm-objdump 2>/dev/null)
+        toolchain-from-cc-llvm-clang-ar = $(shell $(1) --print-prog-name llvm-ar 2>/dev/null)
 
-        toolchain-derive = $(if $3,$(call toolchain-derive-$1-$2,$3))
+        toolchain-from-cc-gnu-gcc-cpp = $(1)
+        toolchain-from-cc-gnu-gcc-as = $(1)
+        toolchain-from-cc-gnu-gcc-ld = $(1)
+        toolchain-from-cc-gnu-gcc-oc = $(shell $(1) --print-prog-name objcopy 2>/dev/null)
+        toolchain-from-cc-gnu-gcc-od = $(shell $(1) --print-prog-name objdump 2>/dev/null)
+        toolchain-from-cc-gnu-gcc-ar = $(shell $(1) --print-prog-name ar 2>/dev/null)
+
+        toolchain-from-cc = $(and $(filter-out cc,$(2)),$($(1)-cc),$\
+                $(call toolchain-from-cc-$($(1)-cc-id)-$(2),$($(1)-cc)))
+
+        toolchain-from-default = $(firstword $\
+                $(foreach candidate,$($(1)-$(2)-default),$\
+                        $(if $(call which,$(candidate)),$(candidate))) $\
+                $($(1)-$(2)-default))
+
+        #
+        # Compiler configuration for the correct ARCH
+        #
+
+        target-arch-aarch32-arm-clang := arm-arm-none-eabi
+        target-arch-aarch64-arm-clang := aarch64-arm-none-eabi
+        target-arch-aarch32-llvm-clang := arm-arm-none-eabi
+        target-arch-aarch64-llvm-clang := aarch64-arm-none-elf
+
+        target-flag-aarch32-arm-clang := -target $(target-arch-aarch32-arm-clang)
+        target-flag-aarch64-arm-clang := -target $(target-arch-aarch64-arm-clang)
+        target-flag-aarch32-llvm-clang := -target $(target-arch-aarch32-llvm-clang)
+        target-flag-aarch64-llvm-clang := -target $(target-arch-aarch64-llvm-clang)
+
+        # Prefixes a linker flag appropriately for the linker in use.
+        #
+        # Parameters:
+        #   - $1: A linker flag
+        #
+
+        toolchain-ld-prefix-gnu-gcc = $(addprefix -Xlinker ,$(1))
+        toolchain-ld-prefix-gnu-ld = $(1)
+        toolchain-ld-prefix-llvm-clang = $(addprefix -Xlinker ,$(1))
+        toolchain-ld-prefix-llvm-lld = $(1)
+        toolchain-ld-prefix-arm-clang = $(addprefix -Xlinker ,$(1))
+        toolchain-ld-prefix-arm-link = $(1)
+
+        #
+        # Discover whether a linker supports any given option (passed in $(2))
+        # Depending on which linker is in use and how exactly it is used (via a
+        # wrapper or not) the discovery process is different for each one
+        #
+        # Parameters:
+        #   - $1: The ARCH prefix of the toolchain (eg TF-A's or the native one)
+        #   - $2: The flag to test
+        # Returns the option with the wrapper's prefix (-Xlinker) if necessary
+        #
+        # Optionally works with lists of options, although granularity will be
+        # lost
+        #
+
+        # shorthand for the below helpers, assuming we're building TF-A
+        toolchain-ld-option = $(call toolchain-ld-option-$($(1)-ld-id),$(1),$(2))
+        toolchain-ld-option-gnu-gcc = $(if $\
+                $(shell $($(1)-ld) $(call toolchain-ld-prefix-gnu-gcc,$(2)) -Xlinker --help >/dev/null 2>&1 && echo 1),$\
+                $(call toolchain-ld-prefix-gnu-gcc,$(2)))
+        toolchain-ld-option-gnu-ld = $(shell $($(1)-ld) $(2) --help >/dev/null 2>&1 && $\
+                echo $(call escape-shell,$(2)))
+
+        toolchain-ld-option-llvm-clang = $(shell $($(1)-ld) $(target-flag-$(1)-llvm-clang) $\
+                $(call toolchain-ld-prefix-llvm-clang,$(2)) -Xlinker --help >/dev/null 2>&1 && $\
+                echo $(call escape-shell,$(call toolchain-ld-prefix-llvm-clang,$(2))))
+        toolchain-ld-option-llvm-lld = $(shell $($(1)-ld) $(2) --help >/dev/null 2>&1 && $\
+                echo $(call escape-shell,$(2)))
+
+        toolchain-ld-option-arm-clang = $(shell $($(1)-ld) $(target-flag-$(1)-arm-clang) $\
+                $(call toolchain-ld-prefix-arm-clang,$(2)) -Xlinker --help >/dev/null 2>&1 && $\
+                echo $(call escape-shell,$(call toolchain-ld-prefix-arm-clang,$(2))))
+        toolchain-ld-option-arm-link = $(shell $($(1)-ld) $(2) --help >/dev/null 2>&1 && $\
+                echo $(call escape-shell,$(2)))
 
         #
         # Configure a toolchain.
@@ -403,32 +518,52 @@ ifndef toolchain-mk
         #
 
         define toolchain-determine-tool
-                toolchain-$1-$2-derive-from-cc = $$(if $$(filter-out cc,$2),$\
-                        $$(call toolchain-derive,$$($1-cc-id),$2,$$($1-cc)))
+                #
+                # Try to determine the tool command by:
+                #
+                #   1. Using the user-specified value (if one is provided).
+                #   2. Otherwise, inferring a reasonable default by:
+                #      a. Querying the C compiler, if available.
+                #      b. Falling back to a hard-coded default, if specified.
+                #      c. Giving up, and erroring out if the tool is mandatory.
+                #
 
-                toolchain-$1-$2-shell = $\
-                        $$(if $$(call defined,$$($1-$2-parameter)),$\
-                                $$($$($1-$2-parameter)),$\
-                                $$(or $$(toolchain-$1-$2-derive-from-cc),$\
-                                        $$(toolchain-$1-$2-default)))
+                $1-$2-from-parameter = $$(call toolchain-from-parameter,$1,$2)
+                $1-$2-from-cc = $$(call toolchain-from-cc,$1,$2)
+                $1-$2-from-default = $$(call toolchain-from-default,$1,$2)
 
-                toolchain-$1-$2-default = $$(firstword $\
-                        $$(foreach default,$$($1-$2-default),$\
-                                $$(if $$(call which,$$(default)),$$(default))) $\
-                        $$($1-$2-default))
+                ifneq ($$($1-$2-from-parameter),)
+                        $1-$2-from := $$($1-$2-from-parameter)
+                        $1-$2-origin := via `$$($1-$2-parameter)` parameter
+                else ifneq ($$($1-$2-from-cc),)
+                        $1-$2-from := $$($1-$2-from-cc)
+                        $1-$2-origin := inferred from C compiler
+                else ifneq ($$($1-$2-from-default),)
+                        $1-$2-from := $$($1-$2-from-default)
+                        $1-$2-origin := default
+                endif
 
-                $1-$2 := $$(if $$(call which,$$(toolchain-$1-$2-shell)),$\
-                        $$(call escape-shell,$$(toolchain-$1-$2-shell)),$\
-                        $$(toolchain-$1-$2-shell))
+                #
+                # Sanitize the command for the shell by either escaping the
+                # entire string if it's a program name/path, or by expanding and
+                # escaping each shell word.
+                #
+
+                $1-$2 := $$(call shell-program,$$($1-$2-from))
+
+                $$(if $$(or $$($1-$2),$$($1-$2-optional)),,$\
+                        $$(error no $$($1-name) $$(toolchain-tool-class-name-$2) configured))
 
                 $1-$2-id := $$(if $$($1-$2),$$(or $\
                         $$(call toolchain-guess-tool,$$\
                                 $$(toolchain-tools-$2),$$($1-$2)),$\
-                        $$($1-$2-default-id)))
+                        $$(call toolchain-warn-unrecognized,$1,$2)$\
+                                $$($1-$2-default-id)))
 
-                ifeq ($$(or $$($1-$2-id),$$(call bool,$$($1-$2-optional))),)
-                        $$(call toolchain-warn-unrecognized,$1,$2)
-                endif
+                $1-$2-program := $$(call toolchain-tool-program,$\
+                        $$($1-$2-id),$$($1-$2))
+                $1-$2-wrapper := $$(call toolchain-tool-wrapper,$\
+                        $$($1-$2-id),$$($1-$2))
         endef
 
         $(foreach toolchain,$(toolchains), \

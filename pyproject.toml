@@ -1,21 +1,16 @@
 [tool.poetry]
 name = "trusted-firmware-a"
-version = "2.12.0"
+version = "2.14.0"
 description = "Trusted Firmware-A (TF-A) Python dependencies."
 authors = ["Arm Ltd."]
 license = "BSD-3-Clause"
 readme = "readme.rst"
-packages = [
-	{ include = "memory", from = "tools/memory"}
-]
-
-[tool.poetry.scripts]
-memory = "memory.memmap:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
 cot-dt2c = {path = "tools/cot_dt2c", develop = true}
-tlc = {path = "tools/tlc", develop = true}
+memory = {path = "tools/memory", develop = true}
+tlc = {path = "contrib/libtl/tlc", develop = true}
 
 [tool.poetry.group.docs]
 optional = true
@@ -30,9 +25,4 @@ sphinxcontrib-svg2pdfconverter = "^1.2.2"
 
 [tool.poetry.group.ci.dependencies]
 click = "^8.1.3"
-
-[tool.poetry.group.memory.dependencies]
-pyelftools = "^0.29"
-anytree = "^2.8.0"
-click = "^8.1.3"
-prettytable = "^3.5.0"
+fdt = "^0.3.0"

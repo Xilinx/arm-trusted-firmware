@@ -1,18 +1,34 @@
 /*
- * Copyright (c) 2021-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <stdint.h>
 
-#include <drivers/measured_boot/event_log/event_log.h>
-#include <drivers/measured_boot/metadata.h>
+#if TRANSFER_LIST
+#include <tpm_event_log.h>
+#endif
 #include <plat/arm/common/plat_arm.h>
+
+#include <drivers/auth/crypto_mod.h>
+#include <drivers/measured_boot/metadata.h>
+#include <event_measure.h>
+#include <event_print.h>
 #include <tools_share/zero_oid.h>
 
 /* Event Log data */
+#if TRANSFER_LIST
+static uint8_t *event_log;
+#else
 static uint8_t event_log[PLAT_ARM_EVENT_LOG_MAX_SIZE];
+#endif
+
+static const struct event_log_hash_info crypto_hash_info = {
+	.func = crypto_mod_calc_hash,
+	.ids = (const uint32_t[]){ CRYPTO_MD_ID },
+	.count = 1U,
+};
 
 /* FVP table with platform specific image IDs, names and PCRs */
 const event_log_metadata_t fvp_event_log_metadata[] = {
@@ -20,29 +36,65 @@ const event_log_metadata_t fvp_event_log_metadata[] = {
 	{ TB_FW_CONFIG_ID, MBOOT_TB_FW_CONFIG_STRING, PCR_0 },
 	{ BL2_IMAGE_ID, MBOOT_BL2_IMAGE_STRING, PCR_0 },
 
-	{ EVLOG_INVALID_ID, NULL, (unsigned int)(-1) }	/* Terminator */
+	{ EVLOG_INVALID_ID, NULL, (unsigned int)(-1) } /* Terminator */
 };
 
 void bl1_plat_mboot_init(void)
 {
-	event_log_init(event_log, event_log + sizeof(event_log));
-	event_log_write_header();
+	size_t event_log_max_size;
+	int rc;
+
+#if TRANSFER_LIST
+	event_log_max_size = PLAT_ARM_EVENT_LOG_MAX_SIZE;
+
+	event_log =
+		transfer_list_event_log_extend(secure_tl, event_log_max_size);
+	assert(event_log != NULL);
+#else
+	event_log_max_size = sizeof(event_log);
+#endif
+
+	rc = event_log_init_and_reg(event_log, event_log + event_log_max_size,
+				    &crypto_hash_info);
+	if (rc < 0) {
+		ERROR("Failed to initialize event log (%d).\n", rc);
+		panic();
+	}
+
+	rc = event_log_write_header();
+	if (rc < 0) {
+		ERROR("Failed to write event log header (%d).\n", rc);
+		panic();
+	}
 }
 
 void bl1_plat_mboot_finish(void)
 {
-	size_t event_log_cur_size;
+	size_t event_log_cur_size = event_log_get_cur_size(event_log);
 
-	event_log_cur_size = event_log_get_cur_size(event_log);
-	int rc = arm_set_tb_fw_info((uintptr_t)event_log,
-				    event_log_cur_size,
-				    PLAT_ARM_EVENT_LOG_MAX_SIZE);
-	if (rc != 0) {
-		/*
-		 * It is a fatal error because on FVP platform, BL2 software
-		 * assumes that a valid Event Log buffer exist and it will use
-		 * same Event Log buffer to append image measurements.
-		 */
-		panic();
+#if TRANSFER_LIST
+	uint8_t *rc = transfer_list_event_log_finish(
+		secure_tl, (uintptr_t)event_log + event_log_cur_size);
+
+	/* Ensure changes are visible to the next stage. */
+	flush_dcache_range((uintptr_t)secure_tl, secure_tl->size);
+
+	if (rc != NULL) {
+		return;
 	}
+#else
+	int rc = arm_set_tb_fw_info((uintptr_t)event_log, event_log_cur_size,
+				PLAT_ARM_EVENT_LOG_MAX_SIZE);
+	if (rc == 0) {
+		return;
+	}
+#endif
+
+	/*
+	 * Panic if we fail to set up the event log for the next stage. This is a fatal
+	 * error because, on the FVP platform, BL2 software assumes that a valid
+	 * Event Log buffer exists and will use the same Event Log buffer to append image
+	 * measurements.
+	 */
+	panic();
 }

@@ -1,11 +1,14 @@
-FF-A manifest binding to device tree
-====================================
+FF-A manifests binding to device tree
+=====================================
 
 This document defines the nodes and properties used to define a partition,
-according to the FF-A specification.
+according to the FF-A specification, and the SPMC manifest.
 
-Partition Properties
---------------------
+FF-A Partition Manifest Properties
+----------------------------------
+
+The FF-A partition manifest is consumed by the SPMC to configure the state
+associated with the related Secure Partition.
 
 - compatible [mandatory]
    - value type: <string>
@@ -29,8 +32,13 @@ Partition Properties
 
 - uuid [mandatory]
    - value type: <prop-encoded-array>
-   - An array consisting of 4 <u32> values, identifying the UUID of the service
-     implemented by this partition. The UUID format is described in RFC 4122.
+   - An array of comma separated tuples each consisting of 4 <u32> values,
+     identifying the UUID of the services implemented by this partition.
+     The UUID format is described in RFC 4122.
+   - These 4 <u32> values are packed similar to the UUID register mapping
+     specified in section '5.3 Unique Identification format', SMC Calling
+     Convention, DEN0028, v1.6 G BET0
+     (https://developer.arm.com/documentation/den0028/latest/).
 
 - id
    - value type: <u32>
@@ -143,6 +151,24 @@ Partition Properties
       - 0x0: Other-Secure interrupt is queued
       - 0x1: Other-Secure interrupt is signaled
 
+- sri-interrupts-policy
+
+  - value type: <u32>
+  - Specifies how secure interrupts are handled when the SP is in a waiting
+    state and is targeted by a secure interrupt, or when the SP attempts to
+    return to a waiting state with pending secure interrupts. The value is a
+    bitfield.
+
+      - 0x0: Proactively inject the VI and resume SP when handling a secure
+        interrupt and SP in the waiting state.
+      - 0x1: Only when a secure interrupt is fired while target SP in the
+        waiting state, pend SRI to the NWd and rely on the scheduler to
+        explicitly donate CPU cycles to the SP.
+      - 0x2: Only when the SP attempts to go back to the waiting state while
+        having pending secure interrupts, trigger the SRI to the NWd and rely
+        on the scheduler to explicitly donate CPU cycles to the SP.
+      - 0x3: Enable both actions for values 0x1 and 0x2.
+
 - has-primary-scheduler
    - value type: <empty>
    - Presence of this field indicates that the partition implements the primary
@@ -183,10 +209,28 @@ Partition Properties
       - Bit[0]: VM created
       - Bit[1]: VM destroyed
 
+- lifecycle-support
+   - value type: <empty>
+   - Presence of this field indicates support for all partition lifecycle states
+     defined in the FF-A v1.3 ALP2 spec.
+
+- abort-action
+   - value type: <u32>
+   - Specifies the action that the SPMC takes when a partition encounters a fatal
+     error.
+
+      - 0x0: STOP
+      - 0x1: DESTROY
+      - 0x2: RESTART
+      - 0x3: PROPAGATE
+
+   - All other values are unsupported. If a partition does not specify this
+     field in the manifest, the SPMC takes implementation defined action.
+
 .. _memory_region_node:
 
 Memory Regions
---------------
+~~~~~~~~~~~~~~
 
 - compatible [mandatory]
    - value type: <string>
@@ -250,7 +294,7 @@ Memory Regions
 .. _device_region_node:
 
 Device Regions
---------------
+~~~~~~~~~~~~~~
 
 - compatible [mandatory]
    - value type: <string>
@@ -343,6 +387,41 @@ Device Regions
    - Presence of this field implies that this endpoint must be granted exclusive
      access and ownership of this device's MMIO region.
 
+SPMC Manifest Properties
+------------------------
+
+This manifest contains the SPMC *attribute* node consumed by the SPMD at
+boot time.
+
+attribute
+~~~~~~~~~
+
+- spmc_id
+   - value type: <u32>
+   - Defines the endpoint ID value that SPMC can query through ``FFA_ID_GET``.
+- maj_ver
+   - value type: <u32>
+   - Major of the FF-A version implemented by the SPMC. SPMD checks against its own
+     version.
+- min_ver
+   - value type>: <u32>
+   - Minor of the FF-A version implemented by the SPMC. SPMD checks against its own
+     version.
+- exec_state
+   - value type: <u32>
+   - Defines the SPMC execution state (AArch64 or AArch32).
+- load_address
+   - value type: <u64>
+   - Base physical address in which the SPMC binary is placed. Should be page aligned.
+- entrypoint:
+   - value type: <u64>
+   - Defines the physical address for the cold boot primary core entrypoint used by the SPMD
+     (currently matches ``BL32_BASE``) to enter the SPMC.
+- binary_size
+   - value type: <u32>
+   - Defines the maximum size of the SPMC binary. It is used with load_address to sanitize the
+     specified entrypoint.
+
 --------------
 
-*Copyright (c) 2019-2024, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2019-2025, Arm Limited and Contributors. All rights reserved.*

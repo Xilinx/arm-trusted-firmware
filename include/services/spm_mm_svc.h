@@ -67,6 +67,13 @@
 #define MM_SP_MEMORY_ATTRIBUTES_SET_AARCH64	U(0xC4000065)
 
 /*
+ * Vendor-specific EL3 range SMC IDs defined for TPM start method for pre-FFA
+ * configuration. These SMCs are converted to MM_COMMUNICATE calls.
+ */
+#define TPM_START_SMC_32			U(0x87000040)
+#define TPM_START_SMC_64			U(0xC7000040)
+
+/*
  * Macros used by MM_SP_MEMORY_ATTRIBUTES_SET_AARCH64.
  */
 
@@ -91,6 +98,17 @@
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
+#include <tools_share/uuid.h>
+
+/*
+ * MM Communicate information structure. Required to generate MM Communicate
+ * payload to be shared with Standalone MM.
+ */
+typedef struct mm_communicate_header {
+	struct efi_guid	header_guid;
+	size_t message_len;
+	uint8_t data[1];
+} mm_communicate_header_t;
 
 int32_t spm_mm_setup(void);
 
@@ -108,6 +126,16 @@ uint64_t spm_mm_sp_call(uint32_t smc_fid,
 			uint64_t x1,
 			uint64_t x2,
 			uint64_t x3);
+
+/* Helper to handle TPM Start SVC call */
+uint64_t spm_mm_tpm_start_handler(uint32_t smc_fid,
+				  uint64_t x1,
+				  uint64_t x2,
+				  uint64_t x3,
+				  uint64_t x4,
+				  void *cookie,
+				  void *handle,
+				  uint64_t flags);
 
 #endif /* __ASSEMBLER__ */
 

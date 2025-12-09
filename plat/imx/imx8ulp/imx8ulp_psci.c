@@ -289,7 +289,9 @@ void imx_set_pwr_mode_cfg(abs_pwr_mode_t mode)
 		/* LDO1 should be power off in PD mode */
 		} else if (mode == PD_PWR_MODE) {
 			/* overwrite the buck3 voltage setting in active mode */
-			upower_pmic_i2c_read(0x22, &volt);
+			if (upower_pmic_i2c_read(0x22, &volt) != 0) {
+				panic();
+			}
 			pd_pmic_reg_cfgs[3].i2c_data = volt;
 			memcpy(&pwr_sys_cfg->ps_apd_pmic_reg_data_cfg, &pd_pmic_reg_cfgs,
 				 sizeof(ps_apd_pmic_reg_data_cfgs_t));
@@ -538,7 +540,7 @@ static const plat_psci_ops_t imx_plat_psci_ops = {
 	.pwr_domain_suspend_finish = imx_domain_suspend_finish,
 	.get_sys_suspend_power_state = imx_get_sys_suspend_power_state,
 	.validate_power_state = imx_validate_power_state,
-	.pwr_domain_pwr_down_wfi = imx8ulp_pwr_domain_pwr_down_wfi,
+	.pwr_domain_pwr_down = imx8ulp_pwr_domain_pwr_down_wfi,
 };
 
 int plat_setup_psci_ops(uintptr_t sec_entrypoint,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,7 +12,9 @@
 #include <fvp_pas_def.h>
 #include <lib/fconf/fconf.h>
 #include <lib/fconf/fconf_dyn_cfg_getter.h>
-#include <lib/transfer_list.h>
+#if TRANSFER_LIST
+#include <transfer_list.h>
+#endif
 
 #include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
@@ -30,30 +32,29 @@ static pas_region_t pas_regions[] = {
 	ARM_PAS_SECURE,
 	ARM_PAS_REALM,
 	ARM_PAS_EL3_DRAM,
+#ifdef ARM_PAS_GPTS
 	ARM_PAS_GPTS,
-	ARM_PAS_KERNEL_1
+#endif
+	ARM_PAS_KERNEL_1,
+	ARM_PAS_PCI_MEM_1,
+	ARM_PAS_PCI_MEM_2
 };
 
 static const arm_gpt_info_t arm_gpt_info = {
 	.pas_region_base  = pas_regions,
 	.pas_region_count = (unsigned int)ARRAY_SIZE(pas_regions),
-	.l0_base = (uintptr_t)ARM_L0_GPT_BASE,
-	.l1_base = (uintptr_t)ARM_L1_GPT_BASE,
-	.l0_size = (size_t)ARM_L0_GPT_SIZE,
-	.l1_size = (size_t)ARM_L1_GPT_SIZE,
-	.pps = GPCCR_PPS_64GB,
+	.l0_base = ARM_L0_GPT_BASE,
+	.l1_base = ARM_L1_GPT_BASE,
+	.l0_size = ARM_L0_GPT_SIZE,
+	.l1_size = ARM_L1_GPT_SIZE,
+	.pps = GPCCR_PPS_1TB,
 	.pgs = GPCCR_PGS_4K
 };
-#endif
+#endif /* ENABLE_RME */
 
 void bl2_early_platform_setup2(u_register_t arg0, u_register_t arg1, u_register_t arg2, u_register_t arg3)
 {
-	struct transfer_list_entry *te __unused;
-
-#if TRANSFER_LIST
-	arg0 = arg3;
-#endif
-	arm_bl2_early_platform_setup((uintptr_t)arg0, (meminfo_t *)arg1);
+	arm_bl2_early_platform_setup(arg0, arg1, arg2, arg3);
 
 	/* Initialize the platform config for future decision making */
 	fvp_config_setup();
@@ -115,15 +116,6 @@ struct bl_params *plat_get_next_bl_params(void)
 	assert(fw_config_base != 0UL);
 
 	param_node->ep_info.args.arg1 = (uint32_t)fw_config_base;
-
-	/* Update BL33's ep info with the NS HW config address */
-	param_node = get_bl_mem_params_node(BL33_IMAGE_ID);
-	assert(param_node != NULL);
-
-	hw_config_info = FCONF_GET_PROPERTY(dyn_cfg, dtb, HW_CONFIG_ID);
-	assert(hw_config_info != NULL);
-
-	param_node->ep_info.args.arg1 = hw_config_info->secondary_config_addr;
 #endif /* TRANSFER_LIST */
 
 	return arm_bl_params;
@@ -157,4 +149,16 @@ int bl2_plat_handle_post_image_load(unsigned int image_id)
 #endif /* !RESET_TO_BL2 && !EL3_PAYLOAD_BASE && !TRANSFER_LIST*/
 
 	return arm_bl2_plat_handle_post_image_load(image_id);
+}
+
+uintptr_t plat_get_hw_dt_base(void)
+{
+	const struct dyn_cfg_dtb_info_t *hw_config_info;
+
+	hw_config_info = FCONF_GET_PROPERTY(dyn_cfg, dtb, HW_CONFIG_ID);
+	if (hw_config_info == NULL) {
+		return 0U;
+	}
+
+	return hw_config_info->secondary_config_addr;
 }

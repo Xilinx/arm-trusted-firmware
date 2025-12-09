@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -117,15 +117,9 @@ int css_scp_get_power_state(u_register_t mpidr, unsigned int power_level)
 /*
  * Helper function to shutdown the system via SCPI.
  */
-void __dead2 css_scp_sys_shutdown(void)
+void css_scp_sys_shutdown(void)
 {
 	uint32_t response;
-
-	/*
-	 * Disable GIC CPU interface to prevent pending interrupt
-	 * from waking up the AP from WFI.
-	 */
-	plat_arm_gic_cpuif_disable();
 
 	/* Send the power down request to the SCP */
 	response = scpi_sys_power_state(scpi_system_shutdown);
@@ -134,23 +128,14 @@ void __dead2 css_scp_sys_shutdown(void)
 		ERROR("CSS System Off: SCP error %u.\n", response);
 		panic();
 	}
-	wfi();
-	ERROR("CSS System Off: operation not handled.\n");
-	panic();
 }
 
 /*
  * Helper function to reset the system via SCPI.
  */
-void __dead2 css_scp_sys_reboot(void)
+void css_scp_sys_reboot(void)
 {
 	uint32_t response;
-
-	/*
-	 * Disable GIC CPU interface to prevent pending interrupt
-	 * from waking up the AP from WFI.
-	 */
-	plat_arm_gic_cpuif_disable();
 
 	/* Send the system reset request to the SCP */
 	response = scpi_sys_power_state(scpi_system_reboot);
@@ -159,7 +144,4 @@ void __dead2 css_scp_sys_reboot(void)
 		ERROR("CSS System Reset: SCP error %u.\n", response);
 		panic();
 	}
-	wfi();
-	ERROR("CSS System Reset: operation not handled.\n");
-	panic();
 }

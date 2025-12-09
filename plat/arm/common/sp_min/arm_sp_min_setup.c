@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2024, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,7 +16,17 @@
 #include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
 
+struct transfer_list_header *secure_tl;
+struct transfer_list_header *ns_tl __unused;
+
 static entry_point_info_t bl33_image_ep_info;
+
+#if USE_GIC_DRIVER == 3
+static const uintptr_t gicr_base_addrs[2] = {
+	PLAT_ARM_GICR_BASE,	/* GICR Base address of the primary CPU */
+	0U			/* Zero Termination */
+};
+#endif
 
 /* Weak definitions may be overridden in specific ARM standard platform */
 #pragma weak sp_min_platform_setup
@@ -28,12 +38,24 @@ static entry_point_info_t bl33_image_ep_info;
 					BL32_END - BL32_BASE,		\
 					MT_MEMORY | MT_RW | MT_SECURE)
 
+#define MAP_EL3_FW_HANDOFF                            \
+	MAP_REGION_FLAT(PLAT_ARM_EL3_FW_HANDOFF_BASE, \
+			PLAT_ARM_FW_HANDOFF_SIZE, MT_MEMORY | MT_RW | EL3_PAS)
+
+#define MAP_FW_NS_HANDOFF                                             \
+	MAP_REGION_FLAT(FW_NS_HANDOFF_BASE, PLAT_ARM_FW_HANDOFF_SIZE, \
+			MT_MEMORY | MT_RW | MT_NS)
+
 /*
  * Check that BL32_BASE is above ARM_FW_CONFIG_LIMIT. The reserved page
  * is required for SOC_FW_CONFIG/TOS_FW_CONFIG passed from BL2.
  */
 #if !RESET_TO_SP_MIN
+#if TRANSFER_LIST
+CASSERT(BL32_BASE >= PLAT_ARM_EL3_FW_HANDOFF_LIMIT, assert_bl32_base_overflows);
+#else
 CASSERT(BL32_BASE >= ARM_FW_CONFIG_LIMIT, assert_bl32_base_overflows);
+#endif
 #endif
 
 /*******************************************************************************
@@ -61,27 +83,37 @@ entry_point_info_t *sp_min_plat_get_bl33_ep_info(void)
 /*******************************************************************************
  * Utility function to perform early platform setup.
  ******************************************************************************/
-void arm_sp_min_early_platform_setup(void *from_bl2, uintptr_t tos_fw_config,
-			uintptr_t hw_config, void *plat_params_from_bl2)
+void arm_sp_min_early_platform_setup(u_register_t arg0, u_register_t arg1,
+			u_register_t arg2, u_register_t arg3)
 {
+	struct transfer_list_entry *te __unused;
+
 	/* Initialize the console to provide early debug support */
 	arm_console_boot_init();
 
+#if TRANSFER_LIST
+	secure_tl = (struct transfer_list_header *)arg3;
+
+	te = transfer_list_find(secure_tl, TL_TAG_EXEC_EP_INFO32);
+	assert(te != NULL);
+
+	bl33_image_ep_info =
+		*(struct entry_point_info *)transfer_list_entry_data(te);
+	return;
+#endif /* TRANSFER_LIST */
+
 #if RESET_TO_SP_MIN
 	/* Populate entry point information for BL33 */
-	SET_PARAM_HEAD(&bl33_image_ep_info,
-				PARAM_EP,
-				VERSION_1,
-				0);
+	SET_PARAM_HEAD(&bl33_image_ep_info, PARAM_EP, VERSION_1, 0);
 	/*
 	 * Tell SP_MIN where the non-trusted software image
 	 * is located and the entry state information
 	 */
 	bl33_image_ep_info.pc = plat_get_ns_image_entrypoint();
-	bl33_image_ep_info.spsr = arm_get_spsr_for_bl33_entry();
+	bl33_image_ep_info.spsr = arm_get_spsr(BL33_IMAGE_ID);
 	SET_SECURITY_STATE(bl33_image_ep_info.h.attr, NON_SECURE);
 
-# if ARM_LINUX_KERNEL_AS_BL33
+#if ARM_LINUX_KERNEL_AS_BL33
 	/*
 	 * According to the file ``Documentation/arm/Booting`` of the Linux
 	 * kernel tree, Linux expects:
@@ -99,7 +131,7 @@ void arm_sp_min_early_platform_setup(void *from_bl2, uintptr_t tos_fw_config,
 	/*
 	 * Check params passed from BL2 should not be NULL,
 	 */
-	bl_params_t *params_from_bl2 = (bl_params_t *)from_bl2;
+	bl_params_t *params_from_bl2 = (bl_params_t *)arg0;
 	assert(params_from_bl2 != NULL);
 	assert(params_from_bl2->h.type == PARAM_BL_PARAMS);
 	assert(params_from_bl2->h.version >= VERSION_2);
@@ -132,8 +164,9 @@ void arm_sp_min_early_platform_setup(void *from_bl2, uintptr_t tos_fw_config,
 void plat_arm_sp_min_early_platform_setup(u_register_t arg0, u_register_t arg1,
 			u_register_t arg2, u_register_t arg3)
 {
-	arm_sp_min_early_platform_setup((void *)arg0, arg1, arg2, (void *)arg3);
+	arm_sp_min_early_platform_setup(arg0, arg1, arg2, arg3);
 
+#if !HW_ASSISTED_COHERENCY
 	/*
 	 * Initialize Interconnect for this cluster during cold boot.
 	 * No need for locks as no other CPU is active.
@@ -149,6 +182,7 @@ void plat_arm_sp_min_early_platform_setup(u_register_t arg0, u_register_t arg1,
 	 * clusters.
 	 */
 	plat_arm_interconnect_enter_coherency();
+#endif
 }
 
 void sp_min_early_platform_setup2(u_register_t arg0, u_register_t arg1,
@@ -176,9 +210,38 @@ void arm_sp_min_plat_runtime_setup(void)
  ******************************************************************************/
 void sp_min_platform_setup(void)
 {
+	struct transfer_list_entry *te __unused;
+
 	/* Initialize the GIC driver, cpu and distributor interfaces */
-	plat_arm_gic_driver_init();
-	plat_arm_gic_init();
+	unsigned int core_pos = plat_my_core_pos();
+
+#if USE_GIC_DRIVER == 3
+	gic_set_gicr_frames(gicr_base_addrs);
+#endif
+	gic_init(core_pos);
+	gic_pcpu_init(core_pos);
+	gic_cpuif_enable(core_pos);
+
+#if TRANSFER_LIST
+	ns_tl = transfer_list_ensure((void *)FW_NS_HANDOFF_BASE,
+				       PLAT_ARM_FW_HANDOFF_SIZE);
+	if (ns_tl == NULL) {
+		ERROR("Non-secure transfer list initialisation failed!\n");
+		panic();
+	}
+
+	te = transfer_list_find(secure_tl, TL_TAG_FDT);
+	if (te != NULL) {
+		te = transfer_list_add(ns_tl, TL_TAG_FDT, te->data_size,
+				  (void *)transfer_list_entry_data(te));
+		if (te == NULL) {
+			ERROR("Failed to relocate device tree into non-secure memory.\n");
+			panic();
+		}
+	}
+
+	transfer_list_set_handoff_args(ns_tl, &bl33_image_ep_info);
+#endif
 
 	/*
 	 * Do initial security configuration to allow DRAM/device access
@@ -222,6 +285,10 @@ void arm_sp_min_plat_arch_setup(void)
 		ARM_MAP_BL_RO,
 #if USE_COHERENT_MEM
 		ARM_MAP_BL_COHERENT_RAM,
+#endif
+#if TRANSFER_LIST
+		MAP_EL3_FW_HANDOFF,
+		MAP_FW_NS_HANDOFF,
 #endif
 		{0}
 	};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2022-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -64,24 +64,17 @@ smc_args_t *set_smc_args(uint64_t arg0,
 /*******************************************************************************
  * Setup function for TSP.
  ******************************************************************************/
-void tsp_setup(void)
+void tsp_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
+	       u_register_t arg3)
 {
 	/* Enable early console if EARLY_CONSOLE flag is enabled */
 	plat_setup_early_console();
 
 	/* Perform early platform-specific setup. */
-	tsp_early_platform_setup();
+	tsp_early_platform_setup(arg0, arg1, arg2, arg3);
 
 	/* Perform late platform-specific setup. */
 	tsp_plat_arch_setup();
-
-#if ENABLE_PAUTH
-	/*
-	 * Assert that the ARMv8.3-PAuth registers are present or an access
-	 * fault will be triggered when they are being saved or restored.
-	 */
-	assert(is_armv8_3_pauth_present());
-#endif /* ENABLE_PAUTH */
 }
 
 /*******************************************************************************
@@ -104,7 +97,7 @@ smc_args_t *tsp_system_off_main(uint64_t arg0,
 	tsp_stats[linear_id].eret_count++;
 
 	INFO("TSP: cpu 0x%lx SYSTEM_OFF request\n", read_mpidr());
-	INFO("TSP: cpu 0x%lx: %d smcs, %d erets requests\n", read_mpidr(),
+	INFO("TSP: cpu 0x%lx: %u smcs, %u erets requests\n", read_mpidr(),
 	     tsp_stats[linear_id].smc_count,
 	     tsp_stats[linear_id].eret_count);
 
@@ -132,7 +125,7 @@ smc_args_t *tsp_system_reset_main(uint64_t arg0,
 	tsp_stats[linear_id].eret_count++;
 
 	INFO("TSP: cpu 0x%lx SYSTEM_RESET request\n", read_mpidr());
-	INFO("TSP: cpu 0x%lx: %d smcs, %d erets requests\n", read_mpidr(),
+	INFO("TSP: cpu 0x%lx: %u smcs, %u erets requests\n", read_mpidr(),
 	     tsp_stats[linear_id].smc_count,
 	     tsp_stats[linear_id].eret_count);
 

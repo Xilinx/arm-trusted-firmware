@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -57,11 +57,19 @@
 						PAGE_SIZE)
 
 /*
+ * Memory shared between Normal world and Secure world.
+ * In this area, PLAT_SP_IMAGE_NS_BUF and etc memories are located.
+ */
+#define ARM_SPM_NS_MEM_BASE		(ARM_AP_TZC_DRAM1_BASE -		\
+					 ARM_SPM_NS_MEM_SIZE)
+#define ARM_SPM_NS_MEM_SIZE		ULL(0x100000)
+
+/*
  * Memory shared between Normal world and S-EL0 for passing data during service
  * requests. Mapped as RW and NS. Placed after the shared memory between EL3 and
  * S-EL0.
  */
-#define PLAT_SP_IMAGE_NS_BUF_BASE	(PLAT_SPM_BUF_BASE + PLAT_SPM_BUF_SIZE)
+#define PLAT_SP_IMAGE_NS_BUF_BASE	(ARM_SPM_NS_MEM_BASE)
 #define PLAT_SP_IMAGE_NS_BUF_SIZE	ULL(0x10000)
 #define ARM_SP_IMAGE_NS_BUF_MMAP	MAP_REGION2(				\
 						PLAT_SP_IMAGE_NS_BUF_BASE,	\
@@ -83,15 +91,37 @@
 
 #define ARM_SP_IMAGE_HEAP_BASE		(PLAT_SP_IMAGE_STACK_BASE +		\
 					 ARM_SP_IMAGE_STACK_TOTAL_SIZE)
-#define ARM_SP_IMAGE_HEAP_SIZE		(ARM_SP_IMAGE_LIMIT - ARM_SP_IMAGE_HEAP_BASE)
+#define ARM_SP_IMAGE_HEAP_SIZE		(ARM_SP_IMAGE_LIMIT -			\
+					 PLAT_SP_PSEUDO_S_CRB_SIZE -		\
+					 ARM_SP_IMAGE_HEAP_BASE)
 
 #define ARM_SP_IMAGE_RW_MMAP		MAP_REGION2(				\
 						PLAT_SP_IMAGE_STACK_BASE,	\
 						PLAT_SP_IMAGE_STACK_BASE,	\
 						(ARM_SP_IMAGE_LIMIT -		\
+						 PLAT_SP_PSEUDO_S_CRB_SIZE -	\
 						 PLAT_SP_IMAGE_STACK_BASE),	\
 						MT_RW_DATA | MT_SECURE | MT_USER,\
 						PAGE_SIZE)
+
+#define PLAT_SP_PSEUDO_NS_CRB_BASE		(PLAT_SP_IMAGE_NS_BUF_BASE +	\
+						 PLAT_SP_IMAGE_NS_BUF_SIZE)
+#define PLAT_SP_PSEUDO_NS_CRB_SIZE		SZ_16K
+#define ARM_SP_PSEUDO_NS_CRB_MMAP		MAP_REGION_FLAT(		\
+							PLAT_SP_PSEUDO_NS_CRB_BASE,\
+							PLAT_SP_PSEUDO_NS_CRB_SIZE,\
+							MT_DEVICE | MT_RW |	\
+							MT_NS | MT_USER)
+
+#define PLAT_SP_PSEUDO_S_CRB_BASE		(ARM_SP_IMAGE_HEAP_BASE +	\
+						ARM_SP_IMAGE_HEAP_SIZE)
+#define PLAT_SP_PSEUDO_S_CRB_SIZE		SZ_4K
+#define ARM_SP_PSEUDO_S_CRB_MMAP		MAP_REGION_FLAT(		\
+							PLAT_SP_PSEUDO_S_CRB_BASE,\
+							PLAT_SP_PSEUDO_S_CRB_SIZE,\
+							MT_DEVICE | MT_RW |	\
+							MT_SECURE | MT_USER)
+
 
 /* Total number of memory regions with distinct properties */
 #define ARM_SP_IMAGE_NUM_MEM_REGIONS	6

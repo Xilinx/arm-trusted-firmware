@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2019-2021, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2019-2025, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -31,6 +31,8 @@
 #include "nand/nand.h"
 #include "qspi/cadence_qspi.h"
 #include "sdmmc/sdmmc.h"
+/* TODO: DTB not available */
+// #include "socfpga_dt.h"
 #include "socfpga_emac.h"
 #include "socfpga_f2sdram_manager.h"
 #include "socfpga_handoff.h"
@@ -46,7 +48,7 @@
 static struct mmc_device_info mmc_info;
 
 /* Declare cadence idmac descriptor */
-extern struct cdns_idmac_desc cdns_desc[8] __aligned(32);
+extern struct cdns_idmac_desc cdns_desc[CONFIG_CDNS_DESC_COUNT] __aligned(8);
 
 const mmap_region_t agilex_plat_mmap[] = {
 	MAP_REGION_FLAT(DRAM_BASE, DRAM_SIZE,
@@ -75,6 +77,7 @@ void bl2_el3_early_platform_setup(u_register_t x0 __unused,
 {
 	static console_t console;
 	handoff reverse_handoff_ptr;
+	uint32_t reg_val;
 
 	/* Enable nonsecure access for peripherals and other misc components */
 	enable_nonsecure_access();
@@ -136,7 +139,16 @@ void bl2_el3_early_platform_setup(u_register_t x0 __unused,
 	socfpga_emac_init();
 
 	/* DDR and IOSSM driver init */
-	agilex5_ddr_init(&reverse_handoff_ptr);
+	if ((agilex5_ddr_init(&reverse_handoff_ptr)) != 0) {
+		ERROR("SOCFPGA: Failed to initialize the ddr.\n");
+		panic();
+	}
+
+	/* TODO: DTB not available */
+	// if (socfpga_dt_open_and_check(SOCFPGA_DTB_BASE, DT_COMPATIBLE_STR) < 0) {
+		// ERROR("SOCFPGA: Failed to open device tree\n");
+		// panic();
+	// }
 
 	if (combo_phy_init(&reverse_handoff_ptr) != 0) {
 		ERROR("SOCFPGA: Combo Phy initialization failed\n");
@@ -147,31 +159,39 @@ void bl2_el3_early_platform_setup(u_register_t x0 __unused,
 		socfpga_bridges_enable(SOC2FPGA_MASK | LWHPS2FPGA_MASK |
 				       FPGA2SOC_MASK | F2SDRAM0_MASK);
 	}
+
+	/* Configure USB 3.1 in system manager */
+	reg_val = mmio_read_32(SOCFPGA_SYSMGR(USB3_MISC_CTRL_REG0));
+	reg_val |= SYSMGR_USB3_MISC0_PORT_OVR_CURR_PIPE_PWR; /* set pipe power present bit */
+	mmio_write_32(SOCFPGA_SYSMGR(USB3_MISC_CTRL_REG0), reg_val);
+	VERBOSE("USB3_MISC_CTRL_REG0 = 0x%X\n", mmio_read_32(SOCFPGA_SYSMGR(USB3_MISC_CTRL_REG0)));
 }
 
 void bl2_el3_plat_arch_setup(void)
 {
-	handoff reverse_handoff_ptr;
 	unsigned long offset = 0;
 
 	struct cdns_sdmmc_params params = EMMC_INIT_PARAMS((uintptr_t) &cdns_desc,
-							   clkmgr_get_rate(CLKMGR_SDMMC_CLK_ID));
+							   SDEMMC_SDCLK);
 
+	params.sdmclk = clkmgr_get_rate(CLKMGR_SDMMC_CLK_ID);
 	mmc_info.mmc_dev_type = MMC_DEVICE_TYPE;
 	mmc_info.ocr_voltage = OCR_3_3_3_4 | OCR_3_2_3_3;
+
+	INFO("SDMMC/NAND clock is %u\n", clkmgr_get_rate(CLKMGR_SDMMC_CLK_ID));
 
 	/* Request ownership and direct access to QSPI */
 	mailbox_hps_qspi_enable();
 
 	switch (boot_source) {
 	case BOOT_SOURCE_SDMMC:
-		NOTICE("SDMMC boot\n");
+		NOTICE("SOCFPGA: SDMMC boot\n");
 		cdns_mmc_init(&params, &mmc_info);
 		socfpga_io_setup(boot_source, PLAT_SDMMC_DATA_BASE);
 		break;
 
 	case BOOT_SOURCE_QSPI:
-		NOTICE("QSPI boot\n");
+		NOTICE("SOCFPGA: QSPI boot\n");
 		cad_qspi_init(0, QSPI_CONFIG_CPHA, QSPI_CONFIG_CPOL,
 			QSPI_CONFIG_CSDA, QSPI_CONFIG_CSDADS,
 			QSPI_CONFIG_CSEOT, QSPI_CONFIG_CSSOT, 0);
@@ -182,13 +202,13 @@ void bl2_el3_plat_arch_setup(void)
 		break;
 
 	case BOOT_SOURCE_NAND:
-		NOTICE("NAND boot\n");
-		nand_init(&reverse_handoff_ptr);
+		NOTICE("SOCFPGA: NAND boot\n");
+		nand_init();
 		socfpga_io_setup(boot_source, PLAT_NAND_DATA_BASE);
 		break;
 
 	default:
-		ERROR("Unsupported boot source\n");
+		ERROR("SOCFPGA: Unsupported boot source\n");
 		panic();
 		break;
 	}
@@ -230,7 +250,7 @@ int bl2_plat_handle_post_image_load(unsigned int image_id)
 
 	ret = socfpga_vab_init(image_id);
 	if (ret < 0) {
-		ERROR("SOCFPGA VAB Authentication failed\n");
+		ERROR("SOCFPGA: VAB Authentication failed\n");
 		wfi();
 	}
 #endif

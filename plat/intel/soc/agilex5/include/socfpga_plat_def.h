@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2019, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -29,6 +29,8 @@
 #define PLAT_L2_RESET_REQ					0xB007C0DE
 #define PLAT_HANDOFF_OFFSET					0x0007F000
 #define PLAT_TIMER_BASE_ADDR					0x10D01000
+#define SOCFPGA_DTB_BASE			0x80020000
+#define DT_COMPATIBLE_STR			"arm,altera socfpga-agilex5"
 
 /* System Counter */
 /* TODO: Update back to 400MHz.
@@ -64,6 +66,8 @@
 #define SOCFPGA_MMC_BLOCK_SIZE					U(8192)
 #endif
 
+#define PLAT_NAND_SCRATCH_BUFF					(0x96400000)
+
 /* Register Mapping */
 #define SOCFPGA_CCU_NOC_REG_BASE				0x1c000000
 #define SOCFPGA_F2SDRAMMGR_REG_BASE				0x18001000
@@ -95,6 +99,21 @@
 #define OCRAM_REGION_0_REG_BASE					(OCRAM_REG_BASE + \
 								OCRAM_REGION_0_OFFSET)
 #define OCRAM_NON_SECURE_ENABLE					0x0
+
+
+/*
+ * Magic key bits: 4 bits[5:2] from boot scratch register COLD3 are used to
+ * indicate the below requests/status
+ *     0x0       : Default value on reset, not used
+ *     0x1       : L2/warm reset is completed
+ *     0x2       : SMP secondary core boot requests
+ *     0x3 - 0xF : Reserved for future use
+ */
+#define BS_REG_MAGIC_KEYS_MASK			0x3C
+#define BS_REG_MAGIC_KEYS_POS			0x02
+#define L2_RESET_DONE_STATUS			(0x01 << BS_REG_MAGIC_KEYS_POS)
+#define SMP_SEC_CORE_BOOT_REQ			(0x02 << BS_REG_MAGIC_KEYS_POS)
+#define ALIGN_CHECK_64BIT_MASK			0x07
 
 /*******************************************************************************
  * Platform memory map related constants
@@ -157,9 +176,9 @@
 #define SDMMC_WRITE_BLOCKS					sdmmc_write_blocks
 
 /*******************************************************************************
- * sysmgr.boot_scratch_cold6 & 7 (64bit) are used to indicate L2 reset
- * is done and HPS should trigger warm reset via RMR_EL3.
+ * sysmgr.boot_scratch_cold3 bits[5:2] are used to indicate L2 reset
+ * is done, or SMP secondary cores boot request status.
  ******************************************************************************/
-#define L2_RESET_DONE_REG					0x10D12218
+#define L2_RESET_DONE_REG					SOCFPGA_SYSMGR(BOOT_SCRATCH_COLD_3)
 
 #endif /* PLAT_SOCFPGA_DEF_H */

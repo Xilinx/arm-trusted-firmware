@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Arm Limited. All rights reserved.
+ * Copyright (c) 2022-2025 Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier:    BSD-3-Clause
  *
@@ -34,6 +34,8 @@ static drtm_features_t plat_drtm_features;
 
 /* DRTM-formatted memory map. */
 static drtm_memory_region_descriptor_table_t *plat_drtm_mem_map;
+static const plat_drtm_dma_prot_features_t *plat_dma_prot_feat;
+static const plat_drtm_tpm_features_t *plat_tpm_feat;
 
 /* DLME header */
 struct_dlme_data_header dlme_data_hdr_init;
@@ -44,8 +46,6 @@ uint64_t dlme_data_min_size;
 int drtm_setup(void)
 {
 	bool rc;
-	const plat_drtm_tpm_features_t *plat_tpm_feat;
-	const plat_drtm_dma_prot_features_t *plat_dma_prot_feat;
 
 	INFO("DRTM service setup\n");
 
@@ -104,15 +104,17 @@ int drtm_setup(void)
 	dlme_data_hdr_init.dlme_addr_map_size = drtm_get_address_map_size();
 	dlme_data_hdr_init.dlme_tcb_hashes_table_size =
 				plat_drtm_get_tcb_hash_table_size();
+	dlme_data_hdr_init.dlme_acpi_tables_region_size =
+				plat_drtm_get_acpi_tables_region_size();
 	dlme_data_hdr_init.dlme_impdef_region_size =
 				plat_drtm_get_imp_def_dlme_region_size();
 
-	dlme_data_min_size += dlme_data_hdr_init.dlme_addr_map_size +
-			      PLAT_DRTM_EVENT_LOG_MAX_SIZE +
+	dlme_data_min_size += sizeof(struct_dlme_data_header) +
+			      dlme_data_hdr_init.dlme_addr_map_size +
+			      ARM_DRTM_MIN_EVENT_LOG_SIZE +
 			      dlme_data_hdr_init.dlme_tcb_hashes_table_size +
+			      dlme_data_hdr_init.dlme_acpi_tables_region_size +
 			      dlme_data_hdr_init.dlme_impdef_region_size;
-
-	dlme_data_min_size = page_align(dlme_data_min_size, UP)/PAGE_SIZE;
 
 	/* Fill out platform DRTM features structure */
 	/* Only support default PCR schema (0x1) in this implementation. */
@@ -123,7 +125,7 @@ int drtm_setup(void)
 	ARM_DRTM_TPM_FEATURES_SET_FW_HASH(plat_drtm_features.tpm_features,
 		plat_tpm_feat->firmware_hash_algorithm);
 	ARM_DRTM_MIN_MEM_REQ_SET_MIN_DLME_DATA_SIZE(plat_drtm_features.minimum_memory_requirement,
-		dlme_data_min_size);
+		page_align(dlme_data_min_size, UP)/PAGE_SIZE);
 	ARM_DRTM_MIN_MEM_REQ_SET_DCE_SIZE(plat_drtm_features.minimum_memory_requirement,
 		plat_drtm_get_min_size_normal_world_dce());
 	ARM_DRTM_DMA_PROT_FEATURES_SET_MAX_REGIONS(plat_drtm_features.dma_prot_features,
@@ -132,6 +134,8 @@ int drtm_setup(void)
 		plat_dma_prot_feat->dma_protection_support);
 	ARM_DRTM_TCB_HASH_FEATURES_SET_MAX_NUM_HASHES(plat_drtm_features.tcb_hash_features,
 		plat_drtm_get_tcb_hash_features());
+	ARM_DRTM_DLME_IMG_AUTH_SUPPORT(plat_drtm_features.dlme_image_auth_features,
+		plat_drtm_get_dlme_img_auth_features());
 
 	return 0;
 }
@@ -173,6 +177,12 @@ static inline uint64_t drtm_features_tcb_hashes(void *ctx)
 		 plat_drtm_features.tcb_hash_features);
 }
 
+static inline uint64_t drtm_features_dlme_img_auth_features(void *ctx)
+{
+	SMC_RET2(ctx, 1ULL, /* DLME Image auth is supported */
+		 plat_drtm_features.dlme_image_auth_features);
+}
+
 static enum drtm_retc drtm_dl_check_caller_el(void *ctx)
 {
 	uint64_t spsr_el3 = read_ctx_reg(get_el3state_ctx(ctx), CTX_SPSR_EL3);
@@ -208,7 +218,7 @@ static enum drtm_retc drtm_dl_check_cores(void)
 		return DENIED;
 	}
 
-	running_on_single_core = psci_is_last_on_cpu_safe();
+	running_on_single_core = psci_is_last_on_cpu_safe(plat_my_core_pos());
 	if (!running_on_single_core) {
 		ERROR("DRTM: invalid launch due to non-boot PE not being turned off\n");
 		return SECONDARY_PE_NOT_OFF;
@@ -237,7 +247,7 @@ static enum drtm_retc drtm_dl_prepare_dlme_data(const struct_drtm_dl_args *args)
 	 */
 	if (dlme_data_max_size < dlme_data_min_size) {
 		ERROR("%s: assertion failed:"
-		      " dlme_data_max_size (%ld) < dlme_data_total_bytes_req (%ld)\n",
+		      " dlme_data_max_size (%ld) < dlme_data_min_size (%ld)\n",
 		      __func__, dlme_data_max_size, dlme_data_min_size);
 		panic();
 	}
@@ -282,9 +292,9 @@ static enum drtm_retc drtm_dl_prepare_dlme_data(const struct_drtm_dl_args *args)
 
 	/* Prepare DRTM event log for DLME. */
 	drtm_serialise_event_log(dlme_data_cursor, &serialised_bytes_actual);
-	assert(serialised_bytes_actual <= PLAT_DRTM_EVENT_LOG_MAX_SIZE);
+	assert(serialised_bytes_actual <= ARM_DRTM_MIN_EVENT_LOG_SIZE);
 	dlme_data_hdr->dlme_tpm_log_size = serialised_bytes_actual;
-	dlme_data_cursor += serialised_bytes_actual;
+	dlme_data_cursor +=  serialised_bytes_actual;
 
 	/*
 	 * TODO: Prepare the TCB hashes for DLME, currently its size
@@ -310,6 +320,39 @@ static enum drtm_retc drtm_dl_prepare_dlme_data(const struct_drtm_dl_args *args)
 	}
 
 	return SUCCESS;
+}
+
+/* Function to check if the value is valid for each bit field */
+static int drtm_dl_check_features_sanity(uint32_t val)
+{
+	/**
+	 * Ensure that if DLME Authorities Schema (Bits [2:1]) is set, then
+	 * DLME image authentication (Bit[6]) must also be set
+	 */
+	if ((EXTRACT(DRTM_LAUNCH_FEAT_PCR_USAGE_SCHEMA, val) == DLME_AUTH_SCHEMA) &&
+	    (EXTRACT(DRTM_LAUNCH_FEAT_DLME_IMG_AUTH, val) != DLME_IMG_AUTH)) {
+		return INVALID_PARAMETERS;
+	}
+
+	/**
+	 * Check if Bits [5:3] (Memory protection type) matches with platform's
+	 * memory protection type
+	 */
+	if (EXTRACT(DRTM_LAUNCH_FEAT_MEM_PROTECTION_TYPE, val) !=
+	    __builtin_ctz(plat_dma_prot_feat->dma_protection_support)) {
+		return INVALID_PARAMETERS;
+	}
+
+	/**
+	 * Check if Bits [0] (Type of hashing) matches with platform's
+	 * supported hash type.
+	 */
+	if (EXTRACT(DRTM_LAUNCH_FEAT_HASHING_TYPE, val) !=
+	    plat_tpm_feat->tpm_based_hash_support) {
+		return INVALID_PARAMETERS;
+	}
+
+	return 0;
 }
 
 /*
@@ -359,7 +402,7 @@ static enum drtm_retc drtm_dl_check_args(uint64_t x1,
 	args_buf = *a;
 
 	rc = mmap_remove_dynamic_region(va_mapping, va_mapping_size);
-	if (rc) {
+	if (rc != 0) {
 		ERROR("%s(): mmap_remove_dynamic_region() failed unexpectedly"
 		      " rc=%d\n", __func__, rc);
 		panic();
@@ -371,6 +414,13 @@ static enum drtm_retc drtm_dl_check_args(uint64_t x1,
 		ERROR("DRTM: parameters structure version %u is unsupported\n",
 		      a->version);
 		return NOT_SUPPORTED;
+	}
+
+	rc = drtm_dl_check_features_sanity(a->features);
+	if (rc != 0) {
+		ERROR("%s(): drtm_dl_check_features_sanity() failed.\n"
+				" rc=%d\n", __func__, rc);
+		return rc;
 	}
 
 	if (!(a->dlme_img_off < a->dlme_size &&
@@ -487,12 +537,6 @@ static enum drtm_retc drtm_dl_check_args(uint64_t x1,
 static void drtm_dl_reset_dlme_el_state(enum drtm_dlme_el dlme_el)
 {
 	uint64_t sctlr;
-
-	/*
-	 * TODO: Set PE state according to the PSCI's specification of the initial
-	 * state after CPU_ON, or to reset values if unspecified, where they exist,
-	 * or define sensible values otherwise.
-	 */
 
 	switch (dlme_el) {
 	case DLME_AT_EL1:
@@ -785,6 +829,12 @@ uint64_t drtm_smc_handler(uint32_t smc_fid,
 				INFO("++ DRTM service handler: "
 				     "TCB-hashes features\n");
 				return drtm_features_tcb_hashes(handle);
+				break;	/* not reached */
+
+			case ARM_DRTM_FEATURES_DLME_IMG_AUTH:
+				INFO("++ DRTM service handler: "
+				     "DLME Image authentication features\n");
+				return drtm_features_dlme_img_auth_features(handle);
 				break;	/* not reached */
 
 			default:

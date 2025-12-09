@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2024-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -33,7 +33,7 @@
  */
 #define NRD_CSS_BL31_SIZE		UL(116 * 1024)	/* 116 KB */
 
-#define NRD_CSS_DRAM1_CARVEOUT_SIZE	UL(0x0C000000)	/* 117MB */
+#define NRD_CSS_DRAM1_CARVEOUT_SIZE	UL(0x0C000000)	/* 192MB */
 
 /*******************************************************************************
  * Console config
@@ -110,6 +110,20 @@
 			ARM_REALM_BASE,					\
 			ARM_REALM_SIZE,					\
 			MT_MEMORY | MT_RW | MT_REALM)
+
+#if SPD_spmd && SPMD_SPM_AT_SEL2
+#define NRD_CSS_SPM_CORE_REGION_MMAP						\
+		MAP_REGION_FLAT(					\
+			BL32_BASE,					\
+			BL32_LIMIT - BL32_BASE,				\
+			MT_MEMORY | MT_RW | MT_SECURE)
+#endif
+
+/*******************************************************************************
+ * Helper macros
+ ******************************************************************************/
+
+#define NRD_CSS_PAGE_ALIGN_CEIL(x) (((x) + PAGE_SIZE_MASK) & ~(PAGE_SIZE_MASK))
 
 #if RESET_TO_BL31
 /*******************************************************************************

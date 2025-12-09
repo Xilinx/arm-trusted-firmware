@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2020-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -20,7 +20,7 @@
 	attribute {
 		spmc_id = <0x8000>;
 		maj_ver = <0x1>;
-		min_ver = <0x2>;
+		min_ver = <0x3>;
 		exec_state = <0x0>;
 		load_address = <0x0 0x6000000>;
 		entrypoint = <0x0 0x6000000>;
@@ -34,7 +34,7 @@
 			debug_name = "cactus-primary";
 			load_address = <0x7000000>;
 			vcpu_count = <8>;
-			mem_size = <1048576>;
+			mem_size = <0x100000>;
 			/*
 			 * Platform specific SiP SMC call handled at EL3. Used
 			 * to pend an interrupt for testing purpose.
@@ -46,21 +46,21 @@
 			debug_name = "cactus-secondary";
 			load_address = <0x7100000>;
 			vcpu_count = <8>;
-			mem_size = <1048576>;
+			mem_size = <0x100000>;
 		};
 		vm3 {
 			is_ffa_partition;
 			debug_name = "cactus-tertiary";
 			load_address = <0x7200000>;
 			vcpu_count = <1>;
-			mem_size = <1048576>;
+			mem_size = <0x300000>;
 		};
 		vm4 {
 			is_ffa_partition;
 			debug_name = "ivy";
 			load_address = <0x7600000>;
 			vcpu_count = <1>;
-			mem_size = <1048576>;
+			mem_size = <0x100000>;
 		};
 	};
 
@@ -100,7 +100,7 @@
 	memory@2 {
 		device_type = "device-memory";
 		reg = <0x0 0x1c0b0000 0x0 0x20000>, /* UART 2-3 */
-		      <0x0 0x2bfe0000 0x0 0x20000>, /* SMMUv3TestEngine */
+		      <0x0 0x2b500000 0x0 0x20000>, /* SMMUv3TestEngine */
 		      <0x0 0x2a490000 0x0 0x20000>, /* SP805 Trusted Watchdog */
 		      <0x0 0x1c130000 0x0 0x10000>; /* Virtio block device */
 	};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2024-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,10 @@
 #include <common/runtime_svc.h>
 #include <lib/debugfs.h>
 #include <lib/pmf/pmf.h>
+#if PLAT_ARM_ACS_SMC_HANDLER
+#include <plat/arm/common/plat_acs_smc_handler.h>
+#endif /* PLAT_ARM_ACS_SMC_HANDLER */
+#include <services/spm_mm_svc.h>
 #include <services/ven_el3_svc.h>
 #include <tools_share/uuid.h>
 
@@ -71,6 +75,15 @@ static uintptr_t ven_el3_svc_handler(unsigned int smc_fid,
 
 #endif /* ENABLE_PMF */
 
+#if PLAT_ARM_ACS_SMC_HANDLER
+	/*
+	 * Dispatch ACS calls to ACS SMC handler and return its return value
+	 */
+	if (is_acs_fid(smc_fid)) {
+		return plat_arm_acs_smc_handler(smc_fid, x1, x2, x3, x4, handle);
+	}
+#endif /* PLAT_ARM_ACS_SMC_HANDLER */
+
 	switch (smc_fid) {
 	case VEN_EL3_SVC_UID:
 		/* Return UID to the caller */
@@ -79,6 +92,16 @@ static uintptr_t ven_el3_svc_handler(unsigned int smc_fid,
 	case VEN_EL3_SVC_VERSION:
 		SMC_RET2(handle, VEN_EL3_SVC_VERSION_MAJOR, VEN_EL3_SVC_VERSION_MINOR);
 		break;
+#if SPM_MM
+	/*
+	 * Handle TPM start SMC as mentioned in TCG ACPI specification.
+	 */
+	case TPM_START_SMC_32:
+	case TPM_START_SMC_64:
+		return spm_mm_tpm_start_handler(smc_fid, x1, x2, x3, x4, cookie,
+						handle, flags);
+		break;
+#endif
 	default:
 		WARN("Unimplemented vendor-specific EL3 Service call: 0x%x\n", smc_fid);
 		SMC_RET1(handle, SMC_UNK);

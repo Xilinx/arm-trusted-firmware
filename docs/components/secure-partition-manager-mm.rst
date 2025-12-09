@@ -652,6 +652,13 @@ Secure Partition.
     There are no alignment restrictions on the Base Address. The permission
     attributes of the translation granule it lies in are returned.
 
+  - **uint32** Input Page Count
+
+    This parameter is the number of translation granule size pages from
+    *Base Address* whose permission should be returned.
+    This is calculated as *Input Page count + 1*.
+    (i.e. If Input Page Count is 0, then it is calculated as 1).
+
 - Return parameters
 
   - **int32** - Memory Attributes/Return Code
@@ -686,6 +693,16 @@ Secure Partition.
 
     See `Error Codes`_ for integer values that are associated with each return
     code.
+
+  - **uint32** - Output Page Count
+
+    On success, the number of translation granule size pages from
+    the *Base address* whose permissions match those returned in the
+    *Memory Attributes* output parameter.
+    This is calculated as *Output Page count + 1*.
+    (i.e. If Output Page Count is 0, It is calculated as 1).
+
+    On failure, It must be zero:
 
 - Usage
 
@@ -815,12 +832,12 @@ Error Codes
 
 --------------
 
-*Copyright (c) 2017-2021, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.*
 
 .. _Armv8-A ARM: https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile
 .. _instructions in the EDK2 repository: https://github.com/tianocore/edk2-staging/blob/AArch64StandaloneMm/HowtoBuild.MD
-.. _Management Mode Interface Specification: http://infocenter.arm.com/help/topic/com.arm.doc.den0060a/DEN0060A_ARM_MM_Interface_Specification.pdf
-.. _SDEI Specification: http://infocenter.arm.com/help/topic/com.arm.doc.den0054a/ARM_DEN0054A_Software_Delegated_Exception_Interface.pdf
+.. _Management Mode Interface Specification: https://developer.arm.com/documentation/den0060
+.. _SDEI Specification: https://developer.arm.com/documentation/den0054
 .. _SMC Calling Convention: https://developer.arm.com/docs/den0028/latest
 
 .. |Image 1| image:: ../resources/diagrams/secure_sw_stack_tos.png

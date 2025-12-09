@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2023, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,6 +14,7 @@
 #include <common/tbbr/cot_def.h>
 #include <drivers/auth/auth_common.h>
 #include <drivers/auth/auth_mod.h>
+#include <drivers/auth/auth_util.h>
 #include <drivers/auth/crypto_mod.h>
 #include <drivers/auth/img_parser_mod.h>
 #include <drivers/fwu/fwu.h>
@@ -188,6 +189,18 @@ static int auth_signature(const auth_method_param_sig_t *param,
 		return rc;
 	}
 
+	/*
+	 * Set Zero-OID for ROTPK(subject key) as a the certificate
+	 * does not hold Key-OID information for ROTPK.
+	 */
+	if (param->pk->cookie != NULL) {
+		pk_oid = param->pk->cookie;
+	} else {
+		pk_oid = ZERO_OID;
+	}
+
+	set_current_pk_oid(pk_oid);
+
 	/* Get the public key from the parent. If there is no parent (NULL),
 	 * the certificate has been signed with the ROTPK, so we have to get
 	 * the PK from the platform */
@@ -265,16 +278,6 @@ static int auth_signature(const auth_method_param_sig_t *param,
 				ERROR("plat and cert ROTPK len mismatch\n");
 				return -1;
 			}
-		}
-
-		/*
-		 * Set Zero-OID for ROTPK(subject key) as a the certificate
-		 * does not hold Key-OID information for ROTPK.
-		 */
-		if (param->pk->cookie != NULL) {
-			pk_oid = param->pk->cookie;
-		} else {
-			pk_oid = ZERO_OID;
 		}
 
 		/*
@@ -390,6 +393,15 @@ static int auth_nvctr(const auth_method_param_nv_ctr_t *param,
 		if (fwu_get_active_bank_state() == FWU_BANK_STATE_ACCEPTED) {
 			*need_nv_ctr_upgrade = true;
 		} else {
+			*need_nv_ctr_upgrade = false;
+		}
+#elif PSA_FWU_SUPPORT && IMAGE_BL1
+		/* The check is for bl1 only */
+		if (bl1_plat_is_shared_nv_ctr() == false) {
+			/* If NV ctr is not shared, it can be upgraded */
+			*need_nv_ctr_upgrade = true;
+		} else {
+			/* If NV ctr is shared, the upgrade should happens in BL2 */
 			*need_nv_ctr_upgrade = false;
 		}
 #else

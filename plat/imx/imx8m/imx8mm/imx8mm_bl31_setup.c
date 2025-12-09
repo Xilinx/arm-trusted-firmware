@@ -67,8 +67,10 @@ static struct imx_rdc_cfg rdc[] = {
 	RDC_MDAn(RDC_MDA_M4, DID1),
 
 	/* peripherals domain permission */
-	RDC_PDAPn(RDC_PDAP_UART4, D1R | D1W),
+	RDC_PDAPn(RDC_PDAP_UART1, D0R | D0W | D1R | D1W | D2R | D2W | D3R | D3W),
 	RDC_PDAPn(RDC_PDAP_UART2, D0R | D0W),
+	RDC_PDAPn(RDC_PDAP_UART3, D0R | D0W | D1R | D1W | D2R | D2W | D3R | D3W),
+	RDC_PDAPn(RDC_PDAP_UART4, D1R | D1W),
 
 	/* memory region */
 
@@ -128,26 +130,6 @@ static uint32_t get_spsr_for_bl33_entry(void)
 
 	spsr = SPSR_64(mode, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
 	return spsr;
-}
-
-void bl31_tzc380_setup(void)
-{
-	unsigned int val;
-
-	val = mmio_read_32(IMX_IOMUX_GPR_BASE + 0x28);
-	if ((val & GPR_TZASC_EN) != GPR_TZASC_EN)
-		return;
-
-	tzc380_init(IMX_TZASC_BASE);
-
-	/*
-	 * Need to substact offset 0x40000000 from CPU address when
-	 * programming tzasc region for i.mx8mm.
-	 */
-
-	/* Enable 1G-5G S/NS RW */
-	tzc380_configure_region(0, 0x00000000, TZC_ATTR_REGION_SIZE(TZC_REGION_SIZE_4G) |
-		TZC_ATTR_REGION_EN_MASK | TZC_ATTR_SP_ALL);
 }
 
 void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
@@ -219,8 +201,6 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 #if !defined(SPD_opteed) && !defined(SPD_trusty)
 	enable_snvs_privileged_access();
 #endif
-
-	bl31_tzc380_setup();
 }
 
 #define MAP_BL31_TOTAL										   \

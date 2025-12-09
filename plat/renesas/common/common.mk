@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2022, Renesas Electronics Corporation. All rights reserved.
+# Copyright (c) 2018-2025, Renesas Electronics Corporation. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -21,7 +21,7 @@ HANDLE_EA_EL3_FIRST_NS		:= 1
 # Crypto module.
 override CRYPTO_SUPPORT		:= 0
 
-$(eval $(call add_define,PLAT_EXTRA_LD_SCRIPT))
+PLAT_EXTRA_LD_SCRIPT	:=	1
 
 ifeq (${SPD},none)
   SPD_NONE:=1
@@ -102,6 +102,7 @@ BL2_SOURCES	+=	${RCAR_GIC_SOURCES}				\
 			plat/renesas/common/bl2_cpg_init.c		\
 			drivers/renesas/common/console/rcar_printf.c	\
 			drivers/renesas/common/scif/scif.S		\
+			drivers/renesas/common/scif/scif_helpers.S	\
 			drivers/renesas/common/common.c			\
 			drivers/renesas/common/io/io_emmcdrv.c		\
 			drivers/renesas/common/io/io_memdrv.c		\
@@ -135,6 +136,7 @@ BL31_SOURCES	+=	${RCAR_GIC_SOURCES}				\
 			drivers/renesas/common/delay/micro_delay.c	\
 			drivers/renesas/common/pwrc/call_sram.S		\
 			drivers/renesas/common/pwrc/pwrc.c		\
+			drivers/renesas/common/timer/timer.c		\
 			drivers/renesas/common/common.c			\
 			drivers/arm/cci/cci.c
 

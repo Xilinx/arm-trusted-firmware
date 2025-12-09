@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -13,7 +13,12 @@
 #include <common/debug.h>
 #include <drivers/arm/pl011.h>
 #include <drivers/console.h>
+#if TRANSFER_LIST && MEASURED_BOOT
+#include <event_measure.h>
+#include <event_print.h>
+#endif
 #include <plat/arm/common/plat_arm.h>
+#include <plat/common/platform.h>
 
 /* Weak definitions may be overridden in specific ARM standard platform */
 #pragma weak tsp_early_platform_setup
@@ -25,13 +30,32 @@
 					BL32_END - BL32_BASE,		\
 					MT_MEMORY | MT_RW | MT_SECURE)
 
+#define MAP_FW_HANDOFF		MAP_REGION_FLAT(			\
+					PLAT_ARM_EL3_FW_HANDOFF_BASE,	\
+					PLAT_ARM_FW_HANDOFF_SIZE,	\
+					MT_MEMORY | MT_RO | MT_SECURE)
+
+struct transfer_list_header *secure_tl __unused;
+
 /*******************************************************************************
  * Initialize the UART
  ******************************************************************************/
 static console_t arm_tsp_runtime_console;
 
-void arm_tsp_early_platform_setup(void)
+void arm_tsp_early_platform_setup(u_register_t arg0, u_register_t arg1,
+			      u_register_t arg2, u_register_t arg3)
 {
+#if TRANSFER_LIST
+	secure_tl = (struct transfer_list_header *)arg3;
+	assert(secure_tl != NULL);
+
+	if (transfer_list_check_header(secure_tl) == TL_OPS_NON) {
+		ERROR("Invalid transfer list received");
+		transfer_list_dump(secure_tl);
+		panic();
+	}
+#endif
+
 	/*
 	 * Initialize a different console than already in use to display
 	 * messages from TSP
@@ -40,16 +64,18 @@ void arm_tsp_early_platform_setup(void)
 					PLAT_ARM_TSP_UART_CLK_IN_HZ,
 					ARM_CONSOLE_BAUDRATE,
 					&arm_tsp_runtime_console);
-	if (rc == 0)
+	if (rc == 0) {
 		panic();
+	}
 
 	console_set_scope(&arm_tsp_runtime_console,
 			  CONSOLE_FLAG_BOOT | CONSOLE_FLAG_RUNTIME);
 }
 
-void tsp_early_platform_setup(void)
+void tsp_early_platform_setup(u_register_t arg0, u_register_t arg1,
+			      u_register_t arg2, u_register_t arg3)
 {
-	arm_tsp_early_platform_setup();
+	arm_tsp_early_platform_setup(arg0, arg1, arg2, arg3);
 }
 
 /*******************************************************************************
@@ -57,7 +83,26 @@ void tsp_early_platform_setup(void)
  ******************************************************************************/
 void tsp_platform_setup(void)
 {
-	plat_arm_gic_driver_init();
+	struct transfer_list_entry *te __unused;
+
+	/*
+	 * On GICv2 the driver must be initialised before calling the plat_ic_*
+	 * functions as they need the data structures. Higher versions don't.
+	 */
+#if USE_GIC_DRIVER == 2
+	gic_init(plat_my_core_pos());
+#endif
+
+#if TRANSFER_LIST && MEASURED_BOOT
+	te = transfer_list_find(secure_tl, TL_TAG_TPM_EVLOG);
+	assert(te != NULL);
+
+	/*
+	 * Note the actual log is offset 4-bytes from the start of entry data, the
+	 * first bytes are reserved.
+	 */
+	event_log_dump(transfer_list_entry_data(te) + U(4), te->data_size - U(4));
+#endif
 }
 
 /*******************************************************************************
@@ -74,6 +119,9 @@ void tsp_plat_arch_setup(void)
 	const mmap_region_t bl_regions[] = {
 		MAP_BL_TSP_TOTAL,
 		ARM_MAP_BL_RO,
+#if TRANSFER_LIST
+		MAP_FW_HANDOFF,
+#endif
 		{0}
 	};
 

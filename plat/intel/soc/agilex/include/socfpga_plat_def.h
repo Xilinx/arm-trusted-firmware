@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2019-2022, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -107,7 +107,7 @@
 /*******************************************************************************
  * WDT related constants
  ******************************************************************************/
-#define WDT_BASE			(0xFFD00200)
+#define WDT_BASE				(0xFFD00200)
 
 /*******************************************************************************
  * GIC related constants
@@ -118,7 +118,17 @@
 #define PLAT_GICR_BASE				0
 
 #define PLAT_SYS_COUNTER_FREQ_IN_TICKS		(400000000)
-#define PLAT_HZ_CONVERT_TO_MHZ		(1000000)
+#define PLAT_HZ_CONVERT_TO_MHZ			(1000000)
+
+/*******************************************************************************
+ * SMMU related constants
+ ******************************************************************************/
+#define SMMU_SACR_CACHE_LOCK			BIT(26)
+#define SMMU_IDR7				0x03C
+#define SMMU_SACR				0x010
+#define SMMU_IDR7_MINOR(val)			(((val) >> 0) & 0xF)
+#define SMMU_IDR7_MAJOR(val)			(((val) >> 4) & 0xF)
+#define SMMU_REG_BASE				0xFA000000
 
 /*******************************************************************************
  * SDMMC related pointer function
@@ -127,10 +137,20 @@
 #define SDMMC_WRITE_BLOCKS			mmc_write_blocks
 
 /*******************************************************************************
- * sysmgr.boot_scratch_cold6 & 7 (64bit) are used to indicate L2 reset
+ * sysmgr.boot_scratch_cold6 Bits[3:0] is used to indicate L2 reset
  * is done and HPS should trigger warm reset via RMR_EL3.
  ******************************************************************************/
-#define L2_RESET_DONE_REG			0xFFD12218
+/*
+ * Magic key bits: 4 bits[3:0] from boot scratch register COLD6 are used to
+ * indicate the below requests/status
+ *     0x0       : Default value on reset, not used
+ *     0x1       : L2/warm reset is completed
+ *     0x2 - 0xF : Reserved for future use
+ */
+#define BS_REG_MAGIC_KEYS_MASK			0xFFFFFFFF
+#define L2_RESET_DONE_STATUS			0x1228E5E7
+
+#define L2_RESET_DONE_REG			SOCFPGA_SYSMGR(BOOT_SCRATCH_COLD_6)
 
 /* Platform specific system counter */
 #define PLAT_SYS_COUNTER_FREQ_IN_MHZ		U(400)

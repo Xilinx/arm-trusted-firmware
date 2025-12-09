@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -140,6 +140,11 @@ func sp_min_entrypoint
 	sub	r1, r1, r0
 	bl	clean_dcache_range
 
+	ldr	r0, =__PER_CPU_START__
+	ldr	r1, =__PER_CPU_END__
+	sub	r1, r1, r0
+	bl	clean_dcache_range
+
 	bl	smc_get_next_ctx
 
 	/* r0 points to `smc_ctx_t` */
@@ -191,7 +196,7 @@ func sp_min_handle_smc
 	 */
 	ldrd	r4, r5, [sp], #8
 	bl	_cpu_data
-	strd	r4, r5, [r0, #CPU_DATA_PMF_TS0_OFFSET]
+	strd	r4, r5, [r0, #CPU_DATA_CPU_DATA_PMF_TS]
 
 	/* Restore handle */
 	mov	r2, r6

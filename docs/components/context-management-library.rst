@@ -106,7 +106,6 @@ for lower exception levels.
 	#define FEAT_STATE_DISABLED     	0
 	#define FEAT_STATE_ENABLED      	1
 	#define FEAT_STATE_CHECK        	2
-	#define FEAT_STATE_CHECK_ASYMMETRIC	3
 
 A pattern is established for feature enablement behavior.
 Each feature must support the 3 possible values with rigid semantics.
@@ -120,15 +119,15 @@ Each feature must support the 3 possible values with rigid semantics.
 - **FEAT_STATE_CHECK** - same as ``FEAT_STATE_ALWAYS`` except that the feature's
   existence will be checked at runtime. Default on dynamic platforms (example: FVP).
 
-- **FEAT_STATE_CHECK_ASYMMETRIC** - same as ``FEAT_STATE_CHECK`` except that the feature's
-  existence is asymmetric across cores, which requires the feature existence is checked
-  during warmboot path also. Note that only limited number of features can be asymmetric.
-
  .. note::
-   Only limited number of features can be ``FEAT_STATE_CHECK_ASYMMETRIC`` this is due to
-   the fact that Operating systems are designed for SMP systems.
-   There are no clear guidelines what kind of mismatch is allowed but following pointers
-   can help making a decision
+
+   In general, it is assumed that all cores will support the same set of
+   architectural features (features will be symmetrical). However, there are
+   cases where this is impractical to achieve. Only some features can be
+   mismatched among cores and this is the exception rather than the rule. This
+   is due to the fact that Operating systems are designed for SMP systems. There
+   are no clear guidelines what kind of mismatch is allowed but following
+   pointers can help in making a decision:
 
     - All mandatory features must be symmetric.
     - Any feature that impacts the generation of page tables must be symmetric.
@@ -136,8 +135,9 @@ Each feature must support the 3 possible values with rigid semantics.
     - Features related with profiling, debug and trace could be asymmetric
     - Migration of vCPU/tasks between CPUs should not cause an error
 
-    Whenever there is asymmetric feature support is added for a feature TF-A need to add
-    feature specific code in context management code.
+   TF-A caters for mismatched features, however, this is not regularly tested
+   for all features and may not work as expected, even without considering OS
+   support.
 
  .. note::
    ``FEAT_RAS`` is an exception here, as it impacts the execution of EL3 and
@@ -222,6 +222,9 @@ the Non-Secure, Realm and Secure security state context structures as listed bel
 	....
 	....
 
+	#if (ENABLE_FEAT_IDTE3 && defined(__aarch64__))
+	percpu_idregs_t idregs[CPU_CONTEXT_NUM];
+	#endif
 	}cpu_data_t;
 
 |CPU Data Structure|
@@ -230,6 +233,18 @@ At runtime, ``cpu_context[CPU_DATA_CONTEXT_NUM]`` array will be intitialised wit
 the Secure, Non-Secure and Realm context structure addresses to ensure proper
 handling of the register state.
 See :ref:`Library APIs` section for more details.
+
+When FEAT_IDTE3 is enabled, the ID registers ID_AA64DFR0_EL1 and
+ID_AA64DFR1_EL1 are cached in the
+percpu_idregs_t idregs[CPU_CONTEXT_NUM] array within the CPU data
+structure. These cached copies are used to service trapped reads of the
+corresponding registers from lower exception levels. Because debug and
+trace features can vary across CPUs, these ID registers are cached
+per-CPU and per-world to accurately represent asymmetric
+configurations.
+
+The per-cpu cached ID registers are initialized in ``psci_arch_setup()``
+via ``cm_init_percpu_once_regs()``.
 
 CPU Context and Memory allocation
 =================================
@@ -279,7 +294,7 @@ handles memory allocation for ``Non-Secure`` world context for all CPUs.
 
 .. code:: c
 
-	static cpu_context_t psci_ns_context[PLATFORM_CORE_COUNT];
+	static PER_CPU_DEFINE(cpu_context_t, psci_ns_context);
 
 Secure-Context Memory
 ~~~~~~~~~~~~~~~~~~~~~
@@ -288,7 +303,7 @@ world context of all CPUs.
 
 .. code:: c
 
-	static spmd_spm_core_context_t spm_core_context[PLATFORM_CORE_COUNT];
+	static PER_CPU_DEFINE(spmd_spm_core_context_t, spm_core_context);
 
 Realm-Context Memory
 ~~~~~~~~~~~~~~~~~~~~
@@ -297,7 +312,7 @@ context of all CPUs.
 
 .. code:: c
 
-	rmmd_rmm_context_t rmm_context[PLATFORM_CORE_COUNT];
+	PER_CPU_DEFINE(rmmd_rmm_context_t, rmm_context);
 
 To summarize, the world-specific context structures are synchronized with
 per-CPU data structures, which means that each CPU will have an array of pointers
@@ -345,9 +360,9 @@ more details on the warm boot.
 
 |Context Init WarmBoot|
 
-The primary CPU initializes the Non-Secure context for the secondary CPU while
-restoring re-entry information for the Non-Secure world.
-It initialises via ``cm_init_context_by_index(target_idx, ep )``.
+The primary CPU writes the entrypoint for the secondary CPU. When the secondary
+wakes up it initialises its own context via ``cm_init_my_context( ep )`` using
+the provided entrypoint.
 
 ``psci_warmboot_entrypoint()`` is the warm boot entrypoint procedure.
 During the warm bootup process, secondary CPUs have their secure context
@@ -498,9 +513,20 @@ structure and is intended to manage specific EL3 registers.
 
 	typedef struct per_world_context {
 		uint64_t ctx_cptr_el3;
-		uint64_t ctx_zcr_el3;
 		uint64_t ctx_mpam3_el3;
+	#if (ENABLE_FEAT_IDTE3 && IMAGE_BL31)
+		perworld_idregs_t idregs;
+	#endif
 	} per_world_context_t;
+
+When FEAT_IDTE3 (Trapping ID register accesses to EL3) is enabled,
+the ``per_world_context_t`` structure includes a ``perworld_idregs_t`` member
+that caches architectural ID registers common across all CPUs in a world.
+This cache allows EL3 firmware to provide consistent, virtualized ID register
+values to lower exception levels when traps occur. The cached values stored in
+``idregs`` are returned in place of the actual hardware register values.
+During initialization, the per-world ID register cache is populated by
+``idte3_init_cached_idregs_per_world()``.
 
 These functions facilitate the activation of architectural extensions that possess
 identical values across all cores for the individual Non-secure, Secure, and
@@ -555,7 +581,7 @@ EL3.
 EL3 execution context needs to setup at both boot time (cold and warm boot)
 entrypaths and at all the possible exception handlers routing to EL3 at runtime.
 
-*Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2024-2025, Arm Limited and Contributors. All rights reserved.*
 
 .. |Context Memory Allocation| image:: ../resources/diagrams/context_memory_allocation.png
 .. |CPU Context Memory Configuration| image:: ../resources/diagrams/cpu_data_config_context_memory.png

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,6 +15,7 @@
 #include <arch_features.h>
 #include <arch_helpers.h>
 #include <common/debug.h>
+#include <lib/utils.h>
 #include <lib/utils_def.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
 #include <lib/xlat_tables/xlat_tables_v2.h>
@@ -210,17 +211,14 @@ uint64_t xlat_desc(const xlat_ctx_t *ctx, uint32_t attr,
 				desc |= LOWER_ATTRS(ISH);
 			}
 
-			/* Check if Branch Target Identification is enabled */
-#if ENABLE_BTI
 			/* Set GP bit for block and page code entries
 			 * if BTI mechanism is implemented.
 			 */
-			if (is_feat_bti_present() &&
+			if (is_feat_bti_supported() &&
 			   ((attr & (MT_TYPE_MASK | MT_RW |
 				MT_EXECUTE_NEVER)) == MT_CODE)) {
 				desc |= GP;
 			}
-#endif
 		} else {
 			assert(mem_type == MT_NON_CACHEABLE);
 			desc |= LOWER_ATTRS(ATTR_NON_CACHEABLE_INDEX | OSH);
@@ -1223,16 +1221,13 @@ void __init init_xlat_tables_ctx(xlat_ctx_t *ctx)
 	xlat_mmap_print(mm);
 
 	/* All tables must be zeroed before mapping any region. */
+	zeromem(ctx->base_table, ctx->base_table_entries * sizeof(uint64_t));
 
-	for (unsigned int i = 0U; i < ctx->base_table_entries; i++)
-		ctx->base_table[i] = INVALID_DESC;
-
-	for (int j = 0; j < ctx->tables_num; j++) {
 #if PLAT_XLAT_TABLES_DYNAMIC
-		ctx->tables_mapped_regions[j] = 0;
+	zeromem(ctx->tables_mapped_regions, ctx->tables_num * sizeof(uint32_t));
 #endif
-		for (unsigned int i = 0U; i < XLAT_TABLE_ENTRIES; i++)
-			ctx->tables[j][i] = INVALID_DESC;
+	for (int i = 0; i < ctx->tables_num; i++) {
+		zeromem(ctx->tables[i], XLAT_TABLE_ENTRIES * sizeof(uint64_t));
 	}
 
 	while (mm->size != 0U) {

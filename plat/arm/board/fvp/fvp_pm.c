@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -180,12 +180,6 @@ static void fvp_pwr_domain_off(const psci_power_state_t *target_state)
 	 * by the cluster specific operations if applicable.
 	 */
 
-	/* Prevent interrupts from spuriously waking up this cpu */
-	plat_arm_gic_cpuif_disable();
-
-	/* Turn redistributor off */
-	plat_arm_gic_redistif_off();
-
 	/* Program the power controller to power off this cpu. */
 	fvp_pwrc_write_ppoffr(read_mpidr_el1());
 
@@ -220,9 +214,6 @@ static void fvp_pwr_domain_suspend(const psci_power_state_t *target_state)
 	/* Program the power controller to enable wakeup interrupts. */
 	fvp_pwrc_set_wen(mpidr);
 
-	/* Prevent interrupts from spuriously waking up this cpu */
-	plat_arm_gic_cpuif_disable();
-
 	/*
 	 * The Redistributor is not powered off as it can potentially prevent
 	 * wake up events reaching the CPUIF and/or might lead to losing
@@ -253,7 +244,6 @@ static void fvp_pwr_domain_suspend(const psci_power_state_t *target_state)
 static void fvp_pwr_domain_on_finish(const psci_power_state_t *target_state)
 {
 	fvp_power_domain_on_finish_common(target_state);
-
 }
 
 /*******************************************************************************
@@ -263,11 +253,9 @@ static void fvp_pwr_domain_on_finish(const psci_power_state_t *target_state)
  ******************************************************************************/
 static void fvp_pwr_domain_on_finish_late(const psci_power_state_t *target_state)
 {
-	/* Program GIC per-cpu distributor or re-distributor interface */
-	plat_arm_gic_pcpu_init();
-
-	/* Enable GIC CPU interface */
-	plat_arm_gic_cpuif_enable();
+#if USE_GIC_DRIVER == 3
+	fvp_pcpu_init();
+#endif
 }
 
 /*******************************************************************************
@@ -287,36 +275,27 @@ static void fvp_pwr_domain_suspend_finish(const psci_power_state_t *target_state
 		return;
 
 	fvp_power_domain_on_finish_common(target_state);
-
-	/* Enable GIC CPU interface */
-	plat_arm_gic_cpuif_enable();
 }
 
 /*******************************************************************************
  * FVP handlers to shutdown/reboot the system
  ******************************************************************************/
-static void __dead2 fvp_system_off(void)
+static void fvp_system_off(void)
 {
 	/* Write the System Configuration Control Register */
 	mmio_write_32(V2M_SYSREGS_BASE + V2M_SYS_CFGCTRL,
 		V2M_CFGCTRL_START |
 		V2M_CFGCTRL_RW |
 		V2M_CFGCTRL_FUNC(V2M_FUNC_SHUTDOWN));
-	wfi();
-	ERROR("FVP System Off: operation not handled.\n");
-	panic();
 }
 
-static void __dead2 fvp_system_reset(void)
+static void fvp_system_reset(void)
 {
 	/* Write the System Configuration Control Register */
 	mmio_write_32(V2M_SYSREGS_BASE + V2M_SYS_CFGCTRL,
 		V2M_CFGCTRL_START |
 		V2M_CFGCTRL_RW |
 		V2M_CFGCTRL_FUNC(V2M_FUNC_REBOOT));
-	wfi();
-	ERROR("FVP System Reset: operation not handled.\n");
-	panic();
 }
 
 static int fvp_node_hw_state(u_register_t target_cpu,
@@ -329,8 +308,9 @@ static int fvp_node_hw_state(u_register_t target_cpu,
 	 * The format of 'power_level' is implementation-defined, but 0 must
 	 * mean a CPU. We also allow 1 to denote the cluster
 	 */
-	if ((power_level < ARM_PWR_LVL0) || (power_level > ARM_PWR_LVL1))
+	if (power_level > ARM_PWR_LVL1) {
 		return PSCI_E_INVALID_PARAMS;
+	}
 
 	/*
 	 * Read the status of the given MPDIR from FVP power controller. The

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,15 +12,7 @@
 #include <plat_macros.S>
 #include <lib/cpus/errata.h>
 
-	/* ---------------------------------------------
-	 * Disable L1 data cache and unified L2 cache
-	 * ---------------------------------------------
-	 */
-func cortex_a53_disable_dcache
-	sysreg_bit_clear sctlr_el3, SCTLR_C_BIT
-	isb
-	ret
-endfunc cortex_a53_disable_dcache
+cpu_reset_prologue cortex_a53
 
 	/* ---------------------------------------------
 	 * Disable intra-cluster coherency
@@ -36,12 +28,12 @@ endfunc cortex_a53_disable_smp
 /* Due to the nature of the errata it is applied unconditionally when chosen */
 check_erratum_ls cortex_a53, ERRATUM(819472), CPU_REV(0, 1)
 /* erratum workaround is interleaved with generic code */
-add_erratum_entry cortex_a53, ERRATUM(819472), ERRATUM_ALWAYS_CHOSEN, NO_APPLY_AT_RESET
+add_erratum_entry cortex_a53, ERRATUM(819472), ERRATUM_ALWAYS_CHOSEN
 
 /* Due to the nature of the errata it is applied unconditionally when chosen */
 check_erratum_ls cortex_a53, ERRATUM(824069), CPU_REV(0, 2)
 /* erratum workaround is interleaved with generic code */
-add_erratum_entry cortex_a53, ERRATUM(824069), ERRATUM_ALWAYS_CHOSEN, NO_APPLY_AT_RESET
+add_erratum_entry cortex_a53, ERRATUM(824069), ERRATUM_ALWAYS_CHOSEN
 
 workaround_reset_start cortex_a53, ERRATUM(826319), ERRATA_A53_826319
 	mrs	x1, CORTEX_A53_L2ACTLR_EL1
@@ -55,7 +47,7 @@ check_erratum_ls cortex_a53, ERRATUM(826319), CPU_REV(0, 2)
 /* Due to the nature of the errata it is applied unconditionally when chosen */
 check_erratum_ls cortex_a53, ERRATUM(827319), CPU_REV(0, 2)
 /* erratum workaround is interleaved with generic code */
-add_erratum_entry cortex_a53, ERRATUM(827319), ERRATUM_ALWAYS_CHOSEN, NO_APPLY_AT_RESET
+add_erratum_entry cortex_a53, ERRATUM(827319), ERRATUM_ALWAYS_CHOSEN
 
 check_erratum_custom_start cortex_a53, ERRATUM(835769)
 	cmp	x0, CPU_REV(0, 4)
@@ -78,7 +70,7 @@ exit_check_errata_835769:
 check_erratum_custom_end cortex_a53, ERRATUM(835769)
 
 /* workaround at build time */
-add_erratum_entry cortex_a53, ERRATUM(835769), ERRATA_A53_835769, NO_APPLY_AT_RESET
+add_erratum_entry cortex_a53, ERRATUM(835769), ERRATA_A53_835769
 
 	/*
 	 * Disable the cache non-temporal hint.
@@ -114,7 +106,7 @@ exit_check_errata_843419:
 check_erratum_custom_end cortex_a53, ERRATUM(843419)
 
 /* workaround at build time */
-add_erratum_entry cortex_a53, ERRATUM(843419), ERRATA_A53_843419, NO_APPLY_AT_RESET
+add_erratum_entry cortex_a53, ERRATUM(843419), ERRATA_A53_843419
 
 	/*
 	 * Earlier revisions of the core are affected as well, but don't
@@ -131,7 +123,7 @@ check_erratum_hs cortex_a53, ERRATUM(855873), CPU_REV(0, 3)
 check_erratum_chosen cortex_a53, ERRATUM(1530924), ERRATA_A53_1530924
 
 /* erratum has no workaround in the cpu. Generic code must take care */
-add_erratum_entry cortex_a53, ERRATUM(1530924), ERRATA_A53_1530924, NO_APPLY_AT_RESET
+add_erratum_entry cortex_a53, ERRATUM(1530924), ERRATA_A53_1530924
 
 cpu_reset_func_start cortex_a53
 	/* Enable the SMP bit. */
@@ -140,12 +132,6 @@ cpu_reset_func_end cortex_a53
 
 func cortex_a53_core_pwr_dwn
 	mov	x18, x30
-
-	/* ---------------------------------------------
-	 * Turn off caches.
-	 * ---------------------------------------------
-	 */
-	bl	cortex_a53_disable_dcache
 
 	/* ---------------------------------------------
 	 * Flush L1 caches.
@@ -164,12 +150,6 @@ endfunc cortex_a53_core_pwr_dwn
 
 func cortex_a53_cluster_pwr_dwn
 	mov	x18, x30
-
-	/* ---------------------------------------------
-	 * Turn off caches.
-	 * ---------------------------------------------
-	 */
-	bl	cortex_a53_disable_dcache
 
 	/* ---------------------------------------------
 	 * Flush L1 caches.

@@ -8,6 +8,7 @@ include lib/libfdt/libfdt.mk
 include common/fdt_wrappers.mk
 
 PLAT_INCLUDES		:=	-Iinclude/plat/arm/common/		\
+				-I${PLAT_QEMU_COMMON_PATH}/		\
 				-I${PLAT_QEMU_COMMON_PATH}/include	\
 				-I${PLAT_QEMU_PATH}/include		\
 				-Iinclude/common/tbbr
@@ -22,7 +23,6 @@ QEMU_CPU_LIBS		:=	lib/cpus/aarch64/aem_generic.S		\
 				lib/cpus/aarch64/cortex_a72.S		\
 				lib/cpus/aarch64/cortex_a76.S		\
 				lib/cpus/aarch64/cortex_a710.S		\
-				lib/cpus/aarch64/neoverse_n_common.S	\
 				lib/cpus/aarch64/neoverse_n1.S		\
 				lib/cpus/aarch64/neoverse_v1.S		\
 				lib/cpus/aarch64/neoverse_n2.S		\
@@ -65,7 +65,8 @@ BL2_SOURCES		+=	drivers/io/io_semihosting.c		\
 				${PLAT_QEMU_COMMON_PATH}/qemu_bl2_mem_params_desc.c	\
 				${PLAT_QEMU_COMMON_PATH}/qemu_image_load.c		\
 				common/desc_image_load.c		\
-				common/fdt_fixup.c
+				common/fdt_fixup.c			\
+				${FDT_WRAPPERS_SOURCES}
 
 BL31_SOURCES		+=	${QEMU_CPU_LIBS}				\
 				lib/semihosting/semihosting.c			\
@@ -121,6 +122,17 @@ ENABLE_FEAT_FGT		:=	2
 # 8.7
 ENABLE_FEAT_HCX		:=	2
 
+# 8.8
+ENABLE_FEAT_TCR2	:=	2
+ENABLE_FEAT_SCTLR2	:=	2
+ENABLE_FEAT_S2PIE	:=	2
+ENABLE_FEAT_S1PIE	:=	2
+ENABLE_FEAT_S2POE	:=	2
+ENABLE_FEAT_S1POE	:=	2
+
+# 9.3
+ENABLE_FEAT_GCS		:=	2
+
 # SPM_MM is not compatible with ENABLE_SVE_FOR_NS (build breaks)
 ifeq (${SPM_MM},1)
 	ENABLE_SVE_FOR_NS	:= 0
@@ -147,9 +159,16 @@ $(error "This is an AArch64-only port; CTX_INCLUDE_AARCH32_REGS must be disabled
 endif
 
 # Pointer Authentication sources
-ifeq (${ENABLE_PAUTH}, 1)
+ifeq ($(BRANCH_PROTECTION),$(filter $(BRANCH_PROTECTION),1 2 3 5))
 PLAT_BL_COMMON_SOURCES	+=	plat/arm/common/aarch64/arm_pauth.c
-CTX_INCLUDE_PAUTH_REGS	:=	1
+endif
+
+ifeq (${TRANSFER_LIST}, 1)
+include lib/transfer_list/transfer_list.mk
+endif
+
+ifeq (${HOB_LIST}, 1)
+include lib/hob/hob.mk
 endif
 
 endif

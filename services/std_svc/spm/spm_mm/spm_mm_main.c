@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -21,6 +21,7 @@
 #include <plat/common/platform.h>
 #include <services/spm_mm_partition.h>
 #include <services/spm_mm_svc.h>
+#include <services/ven_el3_svc.h>
 #include <smccc_helpers.h>
 
 #include "spm_common.h"
@@ -31,56 +32,30 @@
  ******************************************************************************/
 static sp_context_t sp_ctx;
 
+/********************************************************************************
+ * TPM service UUID: 17b862a4-1806-4faf-86b3-089a58353861 as mentioned in
+ * https://developer.arm.com/documentation/den0138/latest/
+ *******************************************************************************/
+DEFINE_SVC_UUID2(tpm_service_uuid,
+		 0x17b862a4, 0x1806, 0x4faf, 0x86, 0xb3,
+		 0x08, 0x9a, 0x58, 0x35, 0x38, 0x61);
+
 /*******************************************************************************
  * Set state of a Secure Partition context.
  ******************************************************************************/
-void sp_state_set(sp_context_t *sp_ptr, sp_state_t state)
+static void sp_state_set(sp_context_t *sp_ptr, sp_state_t state)
 {
-	spin_lock(&(sp_ptr->state_lock));
 	sp_ptr->state = state;
 	spin_unlock(&(sp_ptr->state_lock));
 }
 
 /*******************************************************************************
- * Wait until the state of a Secure Partition is the specified one and change it
- * to the desired state.
+ * Change the state of a Secure Partition to the one specified.
  ******************************************************************************/
-void sp_state_wait_switch(sp_context_t *sp_ptr, sp_state_t from, sp_state_t to)
+static void sp_state_wait_switch(sp_context_t *sp_ptr, sp_state_t from, sp_state_t to)
 {
-	int success = 0;
-
-	while (success == 0) {
-		spin_lock(&(sp_ptr->state_lock));
-
-		if (sp_ptr->state == from) {
-			sp_ptr->state = to;
-
-			success = 1;
-		}
-
-		spin_unlock(&(sp_ptr->state_lock));
-	}
-}
-
-/*******************************************************************************
- * Check if the state of a Secure Partition is the specified one and, if so,
- * change it to the desired state. Returns 0 on success, -1 on error.
- ******************************************************************************/
-int sp_state_try_switch(sp_context_t *sp_ptr, sp_state_t from, sp_state_t to)
-{
-	int ret = -1;
-
 	spin_lock(&(sp_ptr->state_lock));
-
-	if (sp_ptr->state == from) {
-		sp_ptr->state = to;
-
-		ret = 0;
-	}
-
-	spin_unlock(&(sp_ptr->state_lock));
-
-	return ret;
+	sp_ptr->state = to;
 }
 
 /*******************************************************************************
@@ -285,6 +260,46 @@ static uint64_t mm_communicate(uint32_t smc_fid, uint64_t mm_cookie,
 }
 
 /*******************************************************************************
+ * SPM_MM TPM start handler as mentioned in section 3.3.1 of TCG ACPI
+ * specification version 1.4
+ ******************************************************************************/
+uint64_t spm_mm_tpm_start_handler(uint32_t smc_fid,
+				  uint64_t x1,
+				  uint64_t x2,
+				  uint64_t x3,
+				  uint64_t x4,
+				  void *cookie,
+				  void *handle,
+				  uint64_t flags)
+{
+	mm_communicate_header_t *mm_comm_header = (void *)PLAT_SPM_BUF_BASE;
+	uint32_t spm_mm_smc_fid;
+
+	if (!is_caller_non_secure(flags)) {
+		ERROR("spm_mm TPM START must be requested from normal world only.\n");
+		SMC_RET1(handle, SMC_UNK);
+	}
+
+	switch (smc_fid) {
+	case TPM_START_SMC_32:
+		spm_mm_smc_fid = MM_COMMUNICATE_AARCH32;
+		break;
+	case TPM_START_SMC_64:
+		spm_mm_smc_fid = MM_COMMUNICATE_AARCH64;
+		break;
+	default:
+		ERROR("Unexpected SMC FID\n");
+		SMC_RET1(handle, SMC_UNK);
+		break;
+	}
+
+	memset(mm_comm_header, 0U, sizeof(mm_communicate_header_t));
+	memcpy(&mm_comm_header->header_guid, &tpm_service_uuid, sizeof(struct efi_guid));
+
+	return mm_communicate(spm_mm_smc_fid, x1,  (uint64_t)mm_comm_header, x3, handle);
+}
+
+/*******************************************************************************
  * Secure Partition Manager SMC handler.
  ******************************************************************************/
 uint64_t spm_mm_smc_handler(uint32_t smc_fid,
@@ -297,6 +312,9 @@ uint64_t spm_mm_smc_handler(uint32_t smc_fid,
 			 uint64_t flags)
 {
 	unsigned int ns;
+	int32_t ret;
+	uint32_t attr;
+	uint32_t page_count;
 
 	/* Determine which security state this SMC originated from */
 	ns = is_caller_non_secure(flags);
@@ -325,9 +343,17 @@ uint64_t spm_mm_smc_handler(uint32_t smc_fid,
 				WARN("MM_SP_MEMORY_ATTRIBUTES_GET_AARCH64 is available at boot time only\n");
 				SMC_RET1(handle, SPM_MM_NOT_SUPPORTED);
 			}
-			SMC_RET1(handle,
-				 spm_memory_attributes_get_smc_handler(
-					 &sp_ctx, x1));
+
+			/* x2 = page_count - 1 */
+			page_count = x2 + 1;
+
+			ret = spm_memory_attributes_get_smc_handler(
+					&sp_ctx, x1, &page_count, &attr);
+			if (ret != SPM_MM_SUCCESS) {
+				SMC_RET1(handle, ret);
+			} else {
+				SMC_RET2(handle, attr, --page_count);
+			}
 
 		case MM_SP_MEMORY_ATTRIBUTES_SET_AARCH64:
 			INFO("Received MM_SP_MEMORY_ATTRIBUTES_SET_AARCH64 SMC\n");

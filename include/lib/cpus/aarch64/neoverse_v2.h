@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -32,12 +32,14 @@
  * CPU Extended Control register 2 specific definitions.
  ******************************************************************************/
 #define NEOVERSE_V2_CPUECTLR2_EL1			S3_0_C15_C1_5
-#define NEOVERSE_V2_CPUECTLR2_EL1_PF_MODE_CNSRV		ULL(9)
-#define NEOVERSE_V2_CPUECTLR2_EL1_PF_MODE_LSB		U(11)
-#define NEOVERSE_V2_CPUECTLR2_EL1_PF_MODE_WIDTH		U(4)
 #define NEOVERSE_V2_CPUECTLR2_EL1_TXREQ_STATIC_FULL	ULL(0)
 #define NEOVERSE_V2_CPUECTLR2_EL1_TXREQ_LSB		U(0)
 #define NEOVERSE_V2_CPUECTLR2_EL1_TXREQ_WIDTH		U(3)
+
+/*******************************************************************************
+ * CPU Auxiliary Control register specific definitions.
+ ******************************************************************************/
+#define NEOVERSE_V2_CPUACTLR_EL1			S3_0_C15_C1_0
 
 /*******************************************************************************
  * CPU Auxiliary Control register 2 specific definitions.
@@ -57,5 +59,14 @@
 #define NEOVERSE_V2_CPUACTLR5_EL1			S3_0_C15_C8_0
 #define NEOVERSE_V2_CPUACTLR5_EL1_BIT_56		(ULL(1) << 56)
 #define NEOVERSE_V2_CPUACTLR5_EL1_BIT_55		(ULL(1) << 55)
+
+/*******************************************************************************
+ * CPU Auxiliary control register 6 specific definitions
+ ******************************************************************************/
+#define NEOVERSE_V2_CPUACTLR6_EL1			S3_0_C15_C8_1
+
+#ifndef __ASSEMBLER__
+long check_erratum_neoverse_v2_3701771(long cpu_rev);
+#endif /* __ASSEMBLER__ */
 
 #endif /* NEOVERSE_V2_H */

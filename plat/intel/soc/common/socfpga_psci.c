@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2019-2023, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -19,6 +19,7 @@
 #include <plat/common/platform.h>
 #if PLATFORM_MODEL == PLAT_SOCFPGA_AGILEX5
 #include "agilex5_cache.h"
+#include "agilex5_power_manager.h"
 #endif
 #include "ccu/ncore_ccu.h"
 #include "socfpga_mailbox.h"
@@ -55,6 +56,7 @@ int socfpga_pwr_domain_on(u_register_t mpidr)
 {
 	unsigned int cpu_id = plat_core_pos_by_mpidr(mpidr);
 #if PLATFORM_MODEL == PLAT_SOCFPGA_AGILEX5
+	unsigned int pch_cpu = 0x0;
 	/* TODO: Add in CPU FUSE from SDM */
 #else
 	uint32_t psci_boot = 0x00;
@@ -77,6 +79,13 @@ int socfpga_pwr_domain_on(u_register_t mpidr)
 
 	/* release core reset */
 #if PLATFORM_MODEL == PLAT_SOCFPGA_AGILEX5
+	pch_cpu = mmio_read_32(AGX5_PWRMGR(MPU_PCHCTLR)) &
+		  AGX5_PWRMGR_CPU_POWER_STATE_MASK;
+
+	/* Check if the CPU ON Request is post POR */
+	if ((AGX5_PWRMGR_MPU_TRIGGER_PCH_CPU(1 << cpu_id) & (pch_cpu)) != 0)
+		bl31_plat_reset_secondary_cpu(cpu_id);
+
 	bl31_plat_set_secondary_cpu_entrypoint(cpu_id);
 #else
 	mmio_setbits_32(SOCFPGA_RSTMGR(MPUMODRST), 1 << cpu_id);
@@ -223,11 +232,18 @@ static int socfpga_system_reset2(int is_vendor, int reset_type,
 	invalidate_cache_low_el();
 #endif
 
+	/* Set warm reset request bit before issuing the command to SDM. */
+	mmio_clrsetbits_32(L2_RESET_DONE_REG, BS_REG_MAGIC_KEYS_MASK,
+			   L2_RESET_DONE_STATUS);
+
 #if PLATFORM_MODEL == PLAT_SOCFPGA_AGILEX5
 	mailbox_reset_warm(reset_type);
 #else
 	if (cold_reset_for_ecc_dbe()) {
 		mailbox_reset_cold();
+	} else {
+		/* Store magic number */
+		mmio_write_32(L2_RESET_DONE_REG, L2_RESET_DONE_STATUS);
 	}
 #endif
 
@@ -237,9 +253,6 @@ static int socfpga_system_reset2(int is_vendor, int reset_type,
 #else
 	gicv2_cpuif_disable();
 #endif
-
-	/* Store magic number */
-	mmio_write_32(L2_RESET_DONE_REG, L2_RESET_DONE_STATUS);
 
 	/* Increase timeout */
 	mmio_write_32(SOCFPGA_RSTMGR(HDSKTIMEOUT), 0xffffff);

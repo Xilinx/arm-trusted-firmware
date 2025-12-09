@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -39,19 +39,17 @@ $(eval $(call add_define,SPMC_OPTEE))
 add-lib-optee 		:= 	yes
 endif
 
-ifeq (${TRANSFER_LIST},1)
-include lib/transfer_list/transfer_list.mk
-endif
-
 ifeq ($(NEED_BL32),yes)
 $(eval $(call add_define,QEMU_LOAD_BL32))
 endif
 
 ifneq (${TRUSTED_BOARD_BOOT},0)
 
-    AUTH_SOURCES	:=	drivers/auth/auth_mod.c			\
-				drivers/auth/img_parser_mod.c		\
-				drivers/auth/tbbr/tbbr_cot_common.c
+    AUTH_MK := drivers/auth/auth.mk
+    $(info Including ${AUTH_MK})
+    include ${AUTH_MK}
+
+    AUTH_SOURCES	+=	drivers/auth/tbbr/tbbr_cot_common.c
 
     BL1_SOURCES		+=	${AUTH_SOURCES}				\
 				bl1/tbbr/tbbr_img_desc.c		\
@@ -97,26 +95,31 @@ ifeq (${MEASURED_BOOT},1)
     include ${MEASURED_BOOT_MK}
 
     BL2_SOURCES		+=	plat/qemu/qemu/qemu_measured_boot.c	\
-				plat/qemu/qemu/qemu_helpers.c		\
-				${EVENT_LOG_SOURCES}
+				plat/qemu/qemu/qemu_helpers.c
+
+    BL2_LIBS += $(LIBEVLOG_LIBS)
+    BL2_INCLUDE_DIRS += $(LIBEVLOG_INCLUDE_DIRS)
 
      BL1_SOURCES	+=      plat/qemu/qemu/qemu_bl1_measured_boot.c
 
 endif
 
+ifeq (${MEASURED_BOOT},1)
+ifeq (${TRUSTED_BOARD_BOOT},0)
+    CRYPTO_SOURCES    :=    drivers/auth/crypto_mod.c
+
+    BL1_SOURCES        +=    ${CRYPTO_SOURCES}
+    BL2_SOURCES        +=    ${CRYPTO_SOURCES}
+endif
+endif
+
 ifneq ($(filter 1,${MEASURED_BOOT} ${TRUSTED_BOARD_BOOT}),)
-    CRYPTO_SOURCES	:=	drivers/auth/crypto_mod.c
-
-    BL1_SOURCES		+=	${CRYPTO_SOURCES}
-    BL2_SOURCES		+=	${CRYPTO_SOURCES}
-
     # We expect to locate the *.mk files under the directories specified below
     #
     include drivers/auth/mbedtls/mbedtls_crypto.mk
 endif
 
-BL2_SOURCES		+=	${FDT_WRAPPERS_SOURCES}					\
-				common/uuid.c
+BL2_SOURCES		+=	common/uuid.c
 
 ifeq ($(add-lib-optee),yes)
 BL2_SOURCES		+=	lib/optee/optee_utils.c

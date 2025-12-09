@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, Arm Limited. All rights reserved.
+# Copyright (c) 2022-2025, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -58,11 +58,6 @@ armv8-5-a-feats         := ENABLE_FEAT_RNG ENABLE_FEAT_SB
 armv8-5-a-feats         += ${armv8-4-a-feats}
 
 FEAT_LIST               := ${armv8-5-a-feats}
-# Enable Memory tagging, Branch Target Identification for aarch64 only.
-ifeq ($(ARCH), aarch64)
-	mem_tag_arch_support		?= 	yes
-endif #(ARCH=aarch64)
-
 endif
 
 # Enable the features which are mandatory from ARCH version 8.6 and upwards.
@@ -83,6 +78,7 @@ endif
 
 # Enable the features which are mandatory from ARCH version 8.8 and upwards.
 ifeq "8.8" "$(word 1, $(sort 8.8 $(ARM_ARCH_MAJOR).$(ARM_ARCH_MINOR)))"
+armv8-8-a-feats		:= ENABLE_FEAT_MOPS
 # 8.7 Compliant
 armv8-8-a-feats         += ${armv8-7-a-feats}
 FEAT_LIST               := ${armv8-8-a-feats}
@@ -90,7 +86,8 @@ endif
 
 # Enable the features which are mandatory from ARCH version 8.9 and upwards.
 ifeq "8.9" "$(word 1, $(sort 8.9 $(ARM_ARCH_MAJOR).$(ARM_ARCH_MINOR)))"
-armv8-9-a-feats         := ENABLE_FEAT_TCR2 ENABLE_FEAT_DEBUGV8P9 ENABLE_FEAT_SCTLR2
+armv8-9-a-feats         := ENABLE_FEAT_TCR2 ENABLE_FEAT_DEBUGV8P9	\
+			   ENABLE_FEAT_SCTLR2 ENABLE_FEAT_CLRBHB
 # 8.8 Compliant
 armv8-9-a-feats         += ${armv8-8-a-feats}
 FEAT_LIST               := ${armv8-9-a-feats}
@@ -159,6 +156,11 @@ ENABLE_FEAT_RAS			?=	0
 # direct setting. Use BRANCH_PROTECTION to enable PAUTH.
 ENABLE_PAUTH			?=	0
 
+# FEAT_PAUTH_LR is an optional architectural feature, so this flag must be set
+# manually in addition to the BRANCH_PROTECTION flag which is used for other
+# branch protection and pointer authentication features.
+ENABLE_FEAT_PAUTH_LR		?=	0
+
 # Include pointer authentication (ARMv8.3-PAuth) registers in cpu context. This
 # must be set to 1 if the platform wants to use this feature in the Secure
 # world. It is not necessary for use in the Non-secure world.
@@ -213,6 +215,14 @@ ENABLE_FEAT_FGT			?=	0
 ENABLE_FEAT_HCX			?=	0
 
 #----
+# 8.8
+#----
+
+# Flag to enable FEAT_MOPS (Standardization of Memory operations)
+# when INIT_UNUSED_NS_EL2 = 1
+ENABLE_FEAT_MOPS		?=	0
+
+#----
 # 8.9
 #----
 
@@ -232,6 +242,9 @@ ENABLE_FEAT_SCTLR2		?=	0
 #----
 # 8.0
 #----
+
+# Flag to enable support for clrbhb instruction.
+ENABLE_FEAT_CLRBHB			?=	0
 
 # Flag to enable CSV2_2 extension.
 ENABLE_FEAT_CSV2_2			?=	0
@@ -282,7 +295,6 @@ endif
 # Feature flags for supporting Activity monitor extensions.
 ENABLE_FEAT_AMU				?=	0
 ENABLE_AMU_AUXILIARY_COUNTERS		?=	0
-ENABLE_AMU_FCONF			?=	0
 AMU_RESTRICT_COUNTERS			?=	1
 
 # Build option to enable MPAM for lower ELs.
@@ -365,6 +377,12 @@ ENABLE_FEAT_S1POE			?=	0
 # Flag to enable access to Arm v8.9 Debug extension
 ENABLE_FEAT_DEBUGV8P9			?=	0
 
+# AIE extension using the (A)MAIR2 system registers
+ENABLE_FEAT_AIE				?=	0
+
+# PFAR extension using the PFAR system registers
+ENABLE_FEAT_PFAR			?=	0
+
 #----
 # 9.0
 #----
@@ -408,15 +426,47 @@ ENABLE_SME_FOR_SWD			?=	0
 # if FEAT_BRBE is implemented.
 ENABLE_BRBE_FOR_NS			?=	0
 
+# Flag to enable Floating point exception Mode Register Feature (FEAT_FPMR)
+ENABLE_FEAT_FPMR			?=	0
+
+# Flag to enable Memory Encryption Contexts (FEAT_MEC).
+ENABLE_FEAT_MEC				?=	0
+
 #----
 # 9.3
 #----
 # Flag to enable access to Arm v9.3 FEAT_D128 extension
 ENABLE_FEAT_D128			?=	0
 
+# Flag to enable access to GICv5 CPU interface extension (FEAT_GCIE)
+ENABLE_FEAT_GCIE			?=	0
+
+# Enables access to PE-side MPAM bandwidth controls (FEAT_MPAM_PE_BW_CTRL)
+ENABLE_FEAT_MPAM_PE_BW_CTRL		?=	0
+
+# Flag to enable Exception-based Event Profiling (FEAT_EBEP)
+ENABLE_FEAT_EBEP			?=	0
+
 #----
 #9.4
 #----
 
+# Flag to enable FEAT_RME_GDI
+ENABLE_FEAT_RME_GDI			?=	0
+
 # Flag to enable access to Guarded Control Stack (FEAT_GCS).
 ENABLE_FEAT_GCS				?=	0
+
+# Flag to enable Fine Grained Write Traps (FEAT_FGWTE3) for EL3.
+ENABLE_FEAT_FGWTE3			?=	0
+
+# Flag to enable checked pointer arithmetic (FEAT_CPA2) for EL3.
+# We don't have a flag for FEAT_CPA since that has no effect on software
+ENABLE_FEAT_CPA2			?=	0
+
+#----
+#9.6
+#----
+
+# Flag to enable trapping of ID registers to EL3
+ENABLE_FEAT_IDTE3                       ?=      0

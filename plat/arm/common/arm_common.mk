@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -79,6 +79,15 @@ ARM_BL31_IN_DRAM		:=	0
 $(eval $(call assert_boolean,ARM_BL31_IN_DRAM))
 $(eval $(call add_define,ARM_BL31_IN_DRAM))
 
+# Macro to enable ACS SMC handler
+PLAT_ARM_ACS_SMC_HANDLER	:=	0
+ifeq (${ENABLE_ACS_SMC}, 1)
+PLAT_ARM_ACS_SMC_HANDLER	:=	1
+endif
+
+# Build macro necessary for branching to ACS tests
+$(eval $(call add_define,PLAT_ARM_ACS_SMC_HANDLER))
+
 # As per CCA security model, all root firmware must execute from on-chip secure
 # memory. This means we must not run BL31 from TZC-protected DRAM.
 ifeq (${ARM_BL31_IN_DRAM},1)
@@ -103,18 +112,20 @@ $(eval $(call assert_boolean,ARM_LINUX_KERNEL_AS_BL33))
 $(eval $(call add_define,ARM_LINUX_KERNEL_AS_BL33))
 
 ifeq (${ARM_LINUX_KERNEL_AS_BL33},1)
+  USE_KERNEL_DT_CONVENTION  := 1
+
   ifneq (${ARCH},aarch64)
     ifneq (${RESET_TO_SP_MIN},1)
       $(error ARM_LINUX_KERNEL_AS_BL33 is only available if RESET_TO_SP_MIN=1.)
     endif
   endif
-  ifndef PRELOADED_BL33_BASE
-    $(error PRELOADED_BL33_BASE must be set if ARM_LINUX_KERNEL_AS_BL33 is used.)
-  endif
-  ifeq (${RESET_TO_BL31},1)
+  ifndef HW_CONFIG_BASE
     ifndef ARM_PRELOADED_DTB_BASE
-      $(error ARM_PRELOADED_DTB_BASE must be set if ARM_LINUX_KERNEL_AS_BL33 is used with RESET_TO_BL31.)
+      $(error If ARM_LINUX_KERNEL_AS_BL33 is used, either HW_CONFIG_BASE or \
+          ARM_PRELOADED_DTB_BASE must be set. )
     endif
+
+    HW_CONFIG_BASE := ${ARM_PRELOADED_DTB_BASE}
     $(eval $(call add_define,ARM_PRELOADED_DTB_BASE))
   endif
 endif
@@ -227,13 +238,8 @@ ifeq (${ARM_XLAT_TABLES_LIB_V1}, 1)
 PLAT_BL_COMMON_SOURCES 	+=	lib/xlat_tables/xlat_tables_common.c	      \
 				lib/xlat_tables/${ARCH}/xlat_tables.c
 else
-ifeq (${XLAT_MPU_LIB_V1}, 1)
-include lib/xlat_mpu/xlat_mpu.mk
-PLAT_BL_COMMON_SOURCES	+=	${XLAT_MPU_LIB_V1_SRCS}
-else
 include lib/xlat_tables_v2/xlat_tables.mk
 PLAT_BL_COMMON_SOURCES	+=      ${XLAT_TABLES_LIB_SRCS}
-endif
 endif
 
 ARM_IO_SOURCES		+=	plat/arm/common/arm_io_storage.c		\
@@ -294,7 +300,7 @@ endif
 ifeq (${JUNO_AARCH32_EL3_RUNTIME},1)
 BL2_SOURCES		+=	plat/arm/common/aarch32/arm_bl2_mem_params_desc.c
 else
-ifeq ($(filter $(PLAT), corstone1000 rd1ae),)
+ifeq ($(filter $(PLAT), corstone1000 rd1ae rdaspen),)
 BL2_SOURCES		+=	plat/arm/common/${ARCH}/arm_bl2_mem_params_desc.c
 endif
 endif
@@ -313,8 +319,17 @@ BL31_SOURCES		+=	plat/arm/common/arm_bl31_setup.c		\
 				plat/arm/common/arm_topology.c			\
 				plat/common/plat_psci_common.c
 
+ifeq (${PLAT_ARM_ACS_SMC_HANDLER},1)
+BL31_SOURCES		+=	plat/arm/common/plat_acs_smc_handler.c		\
+				${VENDOR_EL3_SRCS}
+endif
+
 ifeq (${TRANSFER_LIST}, 1)
-	TRANSFER_LIST_SOURCES += plat/arm/common/arm_transfer_list.c
+include lib/transfer_list/transfer_list.mk
+
+BL1_SOURCES += plat/arm/common/arm_transfer_list.c
+BL2_SOURCES += plat/arm/common/arm_transfer_list.c
+BL31_SOURCES += plat/arm/common/arm_transfer_list.c
 endif
 
 ifneq ($(filter 1,${ENABLE_PMF} ${ETHOSN_NPU_DRIVER}),)
@@ -356,14 +371,8 @@ BL31_SOURCES		+=	plat/arm/common/fconf/fconf_sdei_getter.c
 endif
 endif
 
-# RAS sources
-ifeq (${ENABLE_FEAT_RAS}-${HANDLE_EA_EL3_FIRST_NS},1-1)
-BL31_SOURCES		+=	lib/extensions/ras/std_err_record.c		\
-				lib/extensions/ras/ras_common.c
-endif
-
 # Pointer Authentication sources
-ifeq (${ENABLE_PAUTH}, 1)
+ifeq ($(BRANCH_PROTECTION),$(filter $(BRANCH_PROTECTION),1 2 3 5))
 PLAT_BL_COMMON_SOURCES	+=	plat/arm/common/aarch64/arm_pauth.c
 endif
 
@@ -382,19 +391,22 @@ endif
 ifneq ($(filter 1,${MEASURED_BOOT} ${TRUSTED_BOARD_BOOT} ${DRTM_SUPPORT}),)
     PLAT_INCLUDES		+=	-Iplat/arm/common	\
 					-Iinclude/drivers/auth/mbedtls
-    # Specify mbed TLS configuration file
-    ifeq (${PSA_CRYPTO},1)
-      MBEDTLS_CONFIG_FILE	?=	"<plat_arm_psa_mbedtls_config.h>"
+    ifeq (${HASH_ALG}, sha512)
+      ARM_ROTPK_HASH_LEN	:=	64
+    else ifeq (${HASH_ALG}, sha384)
+      ARM_ROTPK_HASH_LEN	:=	48
     else
-      MBEDTLS_CONFIG_FILE	?=	"<plat_arm_mbedtls_config.h>"
+      ARM_ROTPK_HASH_LEN	:=	32
     endif
+    $(eval $(call add_define,ARM_ROTPK_HASH_LEN))
 endif
 
 ifneq (${TRUSTED_BOARD_BOOT},0)
 
     # Include common TBB sources
-    AUTH_SOURCES 	:= 	drivers/auth/auth_mod.c	\
-				drivers/auth/img_parser_mod.c
+    AUTH_MK := drivers/auth/auth.mk
+    $(info Including ${AUTH_MK})
+    include ${AUTH_MK}
 
     # Include the selected chain of trust sources.
     ifeq (${COT},tbbr)
@@ -424,12 +436,12 @@ ifneq (${TRUSTED_BOARD_BOOT},0)
 
     ifeq (${COT_DESC_IN_DTB},0)
       ifeq (${COT},dualroot)
-        COTDTPATH := fdts/dualroot_cot_descriptors.dtsi
+        COTDTPATH := fdts/dualroot_cot_descriptors.dts
       else ifeq (${COT},cca)
-        COTDTPATH := fdts/cca_cot_descriptors.dtsi
+        COTDTPATH := fdts/cca_cot_descriptors.dts
       else ifeq (${COT},tbbr)
         ifneq (${PLAT},juno)
-          COTDTPATH := fdts/tbbr_cot_descriptors.dtsi
+          COTDTPATH := fdts/tbbr_cot_descriptors.dts
         endif
       endif
     endif
@@ -459,21 +471,40 @@ ifneq ($(filter 1,${MEASURED_BOOT} ${DRTM_SUPPORT}),)
     include ${MEASURED_BOOT_MK}
 
     ifeq (${MEASURED_BOOT},1)
-         BL1_SOURCES		+= 	${EVENT_LOG_SOURCES}
-         BL2_SOURCES		+= 	${EVENT_LOG_SOURCES}
+        BL1_LIBS += $(LIBEVLOG_LIBS)
+        BL1_INCLUDE_DIRS += $(LIBEVLOG_INCLUDE_DIRS)
+
+        BL2_LIBS += $(LIBEVLOG_LIBS)
+        BL2_INCLUDE_DIRS += $(LIBEVLOG_INCLUDE_DIRS)
+
+         ifeq (${SPD_tspd},1)
+            BL32_LIBS += $(LIBEVLOG_LIBS)
+            BL32_INCLUDE_DIRS += $(LIBEVLOG_INCLUDE_DIRS)
+         endif
     endif
 
     ifeq (${DRTM_SUPPORT},1)
-         BL31_SOURCES	        += 	${EVENT_LOG_SOURCES}
+        BL31_LIBS += $(LIBEVLOG_LIBS)
+        BL31_INCLUDE_DIRS += $(LIBEVLOG_INCLUDE_DIRS)
     endif
 endif
 
-ifneq ($(filter 1,${MEASURED_BOOT} ${TRUSTED_BOARD_BOOT} ${DRTM_SUPPORT}),)
-    CRYPTO_SOURCES	:=	drivers/auth/crypto_mod.c 	\
-				lib/fconf/fconf_tbbr_getter.c
+ifneq ($(filter 1,${MEASURED_BOOT} ${DRTM_SUPPORT}),)
+ifeq (${TRUSTED_BOARD_BOOT},0)
+    CRYPTO_SOURCES	:=	drivers/auth/crypto_mod.c
     BL1_SOURCES		+=	${CRYPTO_SOURCES}
     BL2_SOURCES		+=	${CRYPTO_SOURCES}
+endif
+endif
+
+ifeq (${DRTM_SUPPORT},1)
     BL31_SOURCES	+=	drivers/auth/crypto_mod.c
+endif
+
+ifneq ($(filter 1,${MEASURED_BOOT} ${TRUSTED_BOARD_BOOT} ${DRTM_SUPPORT}),)
+    FCONF_TBB_SOURCES	:=	lib/fconf/fconf_tbbr_getter.c
+    BL1_SOURCES		+=	${FCONF_TBB_SOURCES}
+    BL2_SOURCES		+=	${FCONF_TBB_SOURCES}
 
     # We expect to locate the *.mk files under the directories specified below
     CRYPTO_LIB_MK := drivers/auth/mbedtls/mbedtls_crypto.mk
@@ -489,22 +520,12 @@ ifeq (${RECLAIM_INIT_CODE}, 1)
 endif
 
 ifneq ($(COTDTPATH),)
-        cot-dt-defines = IMAGE_BL2 $(BL2_DEFINES) $(PLAT_BL_COMMON_DEFINES)
-        cot-dt-include-dirs = $(BL2_INCLUDE_DIRS) $(PLAT_BL_COMMON_INCLUDE_DIRS)
+        # no custom flags
+        $(eval $(call MAKE_PRE,$(BUILD_PLAT)/$(COTDTPATH),$(COTDTPATH),$(BUILD_PLAT)/$(COTDTPATH:.dts=.o.d)))
 
-        cot-dt-cpp-flags  = $(cot-dt-defines:%=-D%)
-        cot-dt-cpp-flags += $(cot-dt-include-dirs:%=-I%)
-
-        cot-dt-cpp-flags += $(BL2_CPPFLAGS) $(PLAT_BL_COMMON_CPPFLAGS)
-        cot-dt-cpp-flags += $(CPPFLAGS) $(BL_CPPFLAGS) $(TF_CFLAGS_$(ARCH))
-        cot-dt-cpp-flags += -c -x assembler-with-cpp -E -P -o $@ $<
-
-        $(BUILD_PLAT)/$(COTDTPATH:.dtsi=.dts): $(COTDTPATH) | $$(@D)/
-		$(q)$($(ARCH)-cpp) $(cot-dt-cpp-flags)
-
-        $(BUILD_PLAT)/$(COTDTPATH:.dtsi=.c): $(BUILD_PLAT)/$(COTDTPATH:.dtsi=.dts) | $$(@D)/
-		$(if $(host-poetry),$(q)poetry -q install)
+        $(BUILD_PLAT)/$(COTDTPATH:.dts=.c): $(BUILD_PLAT)/$(COTDTPATH) | $$(@D)/
+		$(if $(host-poetry),$(q)poetry -q install --no-root)
 		$(q)$(if $(host-poetry),poetry run )cot-dt2c convert-to-c $< $@
 
-        BL2_SOURCES += $(BUILD_PLAT)/$(COTDTPATH:.dtsi=.c)
+        BL2_SOURCES += $(BUILD_PLAT)/$(COTDTPATH:.dts=.c)
 endif

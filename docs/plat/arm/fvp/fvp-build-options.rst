@@ -27,6 +27,7 @@ Arm FVP Platform Specific Build Options
 
    -  ``FVP_GICV2`` : The GICv2 only driver is selected
    -  ``FVP_GICV3`` : The GICv3 only driver is selected (default option)
+   -  ``FVP_GICV5`` : The GICv5 only driver is selected
 
 -  ``FVP_HW_CONFIG_DTS`` : Specify the path to the DTS file to be compiled
    to DTB and packaged in FIP as the HW_CONFIG. See :ref:`Firmware Design` for
@@ -46,6 +47,16 @@ Arm FVP Platform Specific Build Options
    is ``0``, which means the redistributor pages of all CPU cores are marked
    as read and write.
 
+-  ``INITRD_SIZE`` : Enable the insertion of initrd properties to the device
+   tree blob at build time. Takes an initrd size value in hex format
+
+-  ``INITRD_PATH`` : Enable the insertion of initrd properties to the device tree
+   blob at build time. Takes a path to an initrd file. Can be used as an
+   alternative to ``INITRD_SIZE``. ``INITRD_SIZE`` takes precedence over
+   ``INITRD_PATH`` if both values are provided.
+
+-  ``INITRD_BASE`` : Provide the preloaded initrd base address in memory (hex format).
+
 --------------
 
-*Copyright (c) 2019-2024, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2025, Arm Limited. All rights reserved.*

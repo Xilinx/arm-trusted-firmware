@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2023, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2025, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -28,6 +28,9 @@ extern uint32_t __bl31_sram_text_start, __bl31_sram_text_end;
 extern uint32_t __bl31_sram_data_start, __bl31_sram_data_end;
 extern uint32_t __bl31_sram_stack_start, __bl31_sram_stack_end;
 extern uint32_t __bl31_sram_text_real_end, __bl31_sram_data_real_end;
+extern uint32_t __bl31_pmusram_text_start, __bl31_pmusram_text_end;
+extern uint32_t __bl31_pmusram_data_start, __bl31_pmusram_data_end;
+extern uint32_t __bl31_pmusram_text_real_end, __bl31_pmusram_data_real_end;
 extern uint32_t __sram_incbin_start, __sram_incbin_end;
 extern uint32_t __sram_incbin_real_end;
 
@@ -126,9 +129,9 @@ int rockchip_soc_hlvl_pwr_dm_resume(uint32_t lvl,
 int rockchip_soc_cores_pwr_dm_resume(void);
 void __dead2 rockchip_soc_soft_reset(void);
 void __dead2 rockchip_soc_system_off(void);
-void __dead2 rockchip_soc_cores_pd_pwr_dn_wfi(
+void rockchip_soc_cores_pd_pwr_dn_wfi(
 				const psci_power_state_t *target_state);
-void __dead2 rockchip_soc_sys_pd_pwr_dn_wfi(void);
+void rockchip_soc_sys_pd_pwr_dn_wfi(void);
 
 extern const unsigned char rockchip_power_domain_tree_desc[];
 

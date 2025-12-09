@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -74,6 +74,8 @@ static void spmd_cpu_on_finish_handler(u_register_t unused)
 
 	spin_lock(&g_spmd_pm.lock);
 
+	spmd_setup_context(linear_id);
+
 	/*
 	 * Leave the possibility that the SPMC does not call
 	 * FFA_SECONDARY_EP_REGISTER in which case re-use the
@@ -81,8 +83,8 @@ static void spmd_cpu_on_finish_handler(u_register_t unused)
 	 */
 	if (g_spmd_pm.secondary_ep_locked == true) {
 		/*
-		 * The CPU context has already been initialized at boot time
-		 * (in spmd_spmc_init by a call to cm_setup_context). Adjust
+		 * The CPU context has already been initialized
+		 * (in spmd_setup_context by a call to cm_setup_context). Adjust
 		 * below the target core entry point based on the address
 		 * passed to by FFA_SECONDARY_EP_REGISTER.
 		 */
@@ -117,6 +119,8 @@ static int32_t spmd_cpu_off_handler(u_register_t unused)
 	spmd_spm_core_context_t *ctx = spmd_get_context();
 	unsigned int linear_id = plat_my_core_pos();
 	int64_t rc;
+	uint32_t ffa_resp_func_id, msg_flags;
+	int status;
 
 	assert(ctx != NULL);
 	assert(ctx->state != SPMC_STATE_OFF);
@@ -137,23 +141,59 @@ static int32_t spmd_cpu_off_handler(u_register_t unused)
 	write_ctx_reg(gpregs, CTX_GPREG_X16, 0);
 	write_ctx_reg(gpregs, CTX_GPREG_X17, 0);
 
+	/* Mark current core as processing a PSCI operation. */
+	ctx->psci_operation_ongoing = true;
+
 	rc = spmd_spm_core_sync_entry(ctx);
+
 	if (rc != 0ULL) {
 		ERROR("%s failed (%" PRIu64 ") on CPU%u\n", __func__, rc, linear_id);
 	}
 
+	ctx->psci_operation_ongoing = false;
+
 	/* Expect a direct message response from the SPMC. */
-	u_register_t ffa_resp_func = read_ctx_reg(get_gpregs_ctx(&ctx->cpu_ctx),
+	ffa_resp_func_id = (uint32_t)read_ctx_reg(get_gpregs_ctx(&ctx->cpu_ctx),
 						  CTX_GPREG_X0);
-	if (ffa_resp_func != FFA_MSG_SEND_DIRECT_RESP_SMC32) {
-		ERROR("%s invalid SPMC response (%lx).\n",
-			__func__, ffa_resp_func);
-		return -EINVAL;
+
+	/*
+	 * Retrieve flags indicating framework message and power management
+	 * response.
+	 */
+	msg_flags = (uint32_t)read_ctx_reg(get_gpregs_ctx(&ctx->cpu_ctx),
+						  CTX_GPREG_X2);
+
+	/* Retrieve error code indicating status of power management operation. */
+	status = (int)read_ctx_reg(get_gpregs_ctx(&ctx->cpu_ctx),
+						  CTX_GPREG_X3);
+
+	if (ffa_resp_func_id == FFA_ERROR) {
+		/*
+		 * It is likely that SPMC does not support receiving PSCI
+		 * operation through framework message. SPMD takes an
+		 * implementation defined choice to not treat it as a fatal
+		 * error. Consequently, SPMD ignores the error and continues
+		 * with power management operation.
+		 */
+		VERBOSE("SPMC ignored PSCI CPU_OFF framework message\n");
+	} else if (ffa_resp_func_id != FFA_MSG_SEND_DIRECT_RESP_SMC32) {
+		ERROR("%s invalid SPMC response (%x).\n",
+			__func__, ffa_resp_func_id);
+		panic();
+	} else if (((msg_flags & FFA_FWK_MSG_BIT) == 0U) ||
+			 ((msg_flags & FFA_FWK_MSG_MASK) != FFA_PM_MSG_PM_RESP)) {
+		ERROR("SPMC failed to send framework message response for power"
+			" management operation, message flags = (%x)\n",
+			 msg_flags);
+		panic();
+	} else if (status != PSCI_E_SUCCESS) {
+		ERROR("SPMC denied CPU_OFF power management request\n");
+		panic();
+	} else {
+		VERBOSE("CPU %u off!\n", linear_id);
 	}
 
 	ctx->state = SPMC_STATE_OFF;
-
-	VERBOSE("CPU %u off!\n", linear_id);
 
 	return 0;
 }

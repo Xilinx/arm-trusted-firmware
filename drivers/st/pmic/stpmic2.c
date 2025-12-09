@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2024-2025, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -247,10 +247,6 @@ int stpmic2_regulator_levels_mv(struct pmic_handle_s *pmic,
 {
 	const struct regul_struct *regul = &regul_table[id];
 
-	if (regul == NULL) {
-		return RET_ERROR_BAD_PARAMETERS;
-	}
-
 	if (levels_count != NULL) {
 		*levels_count = regul->volt_table_size;
 	}
@@ -438,9 +434,9 @@ int stpmic2_regulator_set_prop(struct pmic_handle_s *pmic, uint8_t id,
 	return -EPERM;
 }
 
-#if EVENT_LOG_LEVEL == LOG_LEVEL_VERBOSE
 void stpmic2_dump_regulators(struct pmic_handle_s *pmic)
 {
+#if LOG_LEVEL >= LOG_LEVEL_VERBOSE
 	size_t i;
 	char const *name;
 
@@ -460,8 +456,8 @@ void stpmic2_dump_regulators(struct pmic_handle_s *pmic)
 		VERBOSE("PMIC regul %s: %s, %dmV\n",
 			name, state ? "EN" : "DIS", val);
 	}
-}
 #endif
+}
 
 int stpmic2_get_version(struct pmic_handle_s *pmic, uint8_t *val)
 {

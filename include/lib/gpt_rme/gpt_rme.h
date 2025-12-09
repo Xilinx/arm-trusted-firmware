@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, Arm Limited. All rights reserved.
+ * Copyright (c) 2022-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,12 +8,19 @@
 #define GPT_RME_H
 
 #include <stdint.h>
-
-#include <arch.h>
+#include <lib/spinlock.h>
 
 /******************************************************************************/
 /* GPT helper macros and definitions                                          */
 /******************************************************************************/
+
+#if (RME_GPT_BITLOCK_BLOCK != 0)
+#define LOCK_SIZE	sizeof(((bitlock_t *)NULL)->lock)
+#define LOCK_TYPE	typeof(((bitlock_t *)NULL)->lock)
+#define LOCK_BITS	(LOCK_SIZE * UL(8))
+
+CASSERT((UL(1) == LOCK_SIZE), assert_bitlock_type_not_uint8_t);
+#endif /* RME_GPT_BITLOCK_BLOCK */
 
 /*
  * Structure for specifying a mapping range and it's properties. This should not
@@ -28,10 +35,13 @@ typedef struct pas_region {
 
 /* GPT GPI definitions */
 #define GPT_GPI_NO_ACCESS		U(0x0)
+#define GPT_GPI_SA			U(0x4)
+#define GPT_GPI_NSP			U(0x5)
 #define GPT_GPI_SECURE			U(0x8)
 #define GPT_GPI_NS			U(0x9)
 #define GPT_GPI_ROOT			U(0xA)
 #define GPT_GPI_REALM			U(0xB)
+#define GPT_GPI_NSO			U(0xD)
 #define GPT_GPI_ANY			U(0xF)
 #define GPT_GPI_VAL_MASK		UL(0xF)
 
@@ -41,6 +51,11 @@ typedef struct pas_region {
 #define GPT_NSE_REALM			U(0b11)
 
 #define GPT_NSE_SHIFT                   U(62)
+
+#define GPT_NSE2_SA			U(0b001)
+#define GPT_NSE2_NSP			U(0b101)
+
+#define GPT_NSE2_SHIFT			U(61)
 
 /* PAS attribute GPI definitions. */
 #define GPT_PAS_ATTR_GPI_SHIFT		U(0)
@@ -97,6 +112,18 @@ typedef struct pas_region {
 /******************************************************************************/
 /* GPT register field definitions                                             */
 /******************************************************************************/
+
+/* NSO bit definitions */
+#define GPCCR_NSO_SHIFT		U(19)
+#define GPCCR_NSO_BIT		(ULL(1) << GPCCR_NSO_SHIFT)
+
+/* SA bit definitions */
+#define GPCCR_NSP_SHIFT		U(26)
+#define GPCCR_NSP_BIT		(ULL(1) << GPCCR_NSP_SHIFT)
+
+/* SA bit definitions */
+#define GPCCR_SA_SHIFT		U(25)
+#define GPCCR_SA_BIT		(ULL(1) << GPCCR_SA_SHIFT)
 
 /*
  * Least significant address bits protected by each entry in level 0 GPT. This
@@ -238,10 +265,14 @@ int gpt_init_pas_l1_tables(gpccr_pgs_e pgs,
  * initialization from a previous stage. Granule protection checks must be
  * enabled already or this function will return an error.
  *
+ * Parameters
+ *   l1_bitlocks_base	Base address of memory for L1 tables bitlocks.
+ *   l1_bitlocks_size	Total size of memory available for L1 tables bitlocks.
+ *
  * Return
  *   Negative Linux error code in the event of a failure, 0 for success.
  */
-int gpt_runtime_init(void);
+int gpt_runtime_init(uintptr_t l1_bitlocks_base, size_t l1_bitlocks_size);
 
 /*
  * Public API to enable granule protection checks once the tables have all been

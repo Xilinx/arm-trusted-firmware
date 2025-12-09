@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -238,7 +238,14 @@ DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e3r)
 /*******************************************************************************
  * Strip Pointer Authentication Code
  ******************************************************************************/
-DEFINE_SYSOP_PARAM_FUNC(xpaci)
+static inline u_register_t xpaci(u_register_t arg)
+{
+	__asm__ (".arch armv8.3-a\n"
+		 "xpaci %0\n"
+		 : "+r" (arg));
+
+	return arg;
+}
 
 void flush_dcache_range(uintptr_t addr, size_t size);
 void flush_dcache_to_popa_range(uintptr_t addr, size_t size);
@@ -264,22 +271,81 @@ void disable_mpu_icache_el2(void);
 #define write_daifclr(val) SYSREG_WRITE_CONST(daifclr, val)
 #define write_daifset(val) SYSREG_WRITE_CONST(daifset, val)
 
-#if ENABLE_FEAT_D128
+
+#if ENABLE_FEAT_D128 && !IMAGE_BL32
+/* Don't use mrrs/msrr read/write implementation with tspd,
+ * While using SPD=tspd, tspd compiles with current arch_helpers
+ * thus trying to use mrrs/msrr read/write from Secure-world.
+ * SCR_EL3.D128en is set only for Non-Secure world, which may cause
+ * panic while using mrrs/msrr from tspd secure world.
+ */
 DECLARE_SYSREG128_RW_FUNCS(par_el1)
+
+DECLARE_SYSREG128_RW_FUNCS(ttbr0_el1)
+DECLARE_SYSREG128_RW_FUNCS(ttbr1_el1)
+
+DECLARE_SYSREG128_RW_FUNCS(ttbr0_el2)
+DECLARE_SYSREG128_RW_FUNCS(ttbr1_el2)
+DECLARE_SYSREG128_RW_FUNCS(vttbr_el2)
+
+/* FEAT_THE Registers */
+DECLARE_SYSREG128_RW_FUNCS(rcwmask_el1)
+DECLARE_SYSREG128_RW_FUNCS(rcwsmask_el1)
 #else
 DEFINE_SYSREG_RW_FUNCS(par_el1)
-#endif
 
+DEFINE_SYSREG_RW_FUNCS(ttbr0_el1)
+DEFINE_SYSREG_RW_FUNCS(ttbr1_el1)
+
+DEFINE_SYSREG_RW_FUNCS(ttbr0_el2)
+DEFINE_RENAME_SYSREG_RW_FUNCS(ttbr1_el2, TTBR1_EL2)
+DEFINE_SYSREG_RW_FUNCS(vttbr_el2)
+
+/* FEAT_THE Registers */
+DEFINE_RENAME_SYSREG_RW_FUNCS(rcwmask_el1, RCWMASK_EL1)
+DEFINE_RENAME_SYSREG_RW_FUNCS(rcwsmask_el1, RCWSMASK_EL1)
+
+#endif /* ENABLE_FEAT_D128 && !IMAGE_BL32 */
+
+DEFINE_IDREG_READ_FUNC(id_pfr0_el1)
 DEFINE_IDREG_READ_FUNC(id_pfr1_el1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_pfr2_el1, ID_PFR2_EL1)
+DEFINE_IDREG_READ_FUNC(id_afr0_el1)
+DEFINE_IDREG_READ_FUNC(id_dfr0_el1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_dfr1_el1, ID_DFR1_EL1)
+DEFINE_IDREG_READ_FUNC(id_mmfr0_el1)
+DEFINE_IDREG_READ_FUNC(id_mmfr1_el1)
+DEFINE_IDREG_READ_FUNC(id_mmfr2_el1)
+DEFINE_IDREG_READ_FUNC(id_mmfr3_el1)
+DEFINE_IDREG_READ_FUNC(id_mmfr4_el1)
+DEFINE_IDREG_READ_FUNC(id_mmfr5_el1)
+DEFINE_IDREG_READ_FUNC(id_isar0_el1)
+DEFINE_IDREG_READ_FUNC(id_isar1_el1)
+DEFINE_IDREG_READ_FUNC(id_isar2_el1)
+DEFINE_IDREG_READ_FUNC(id_isar3_el1)
+DEFINE_IDREG_READ_FUNC(id_isar4_el1)
+DEFINE_IDREG_READ_FUNC(id_isar5_el1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_isar6_el1, ID_ISAR6_EL1)
+DEFINE_IDREG_READ_FUNC(mvfr0_el1)
+DEFINE_IDREG_READ_FUNC(mvfr1_el1)
+DEFINE_IDREG_READ_FUNC(mvfr2_el1)
+
 DEFINE_IDREG_READ_FUNC(id_aa64isar0_el1)
 DEFINE_IDREG_READ_FUNC(id_aa64isar1_el1)
 DEFINE_RENAME_IDREG_READ_FUNC(id_aa64isar2_el1, ID_AA64ISAR2_EL1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_aa64isar3_el1, ID_AA64ISAR3_EL1)
 DEFINE_IDREG_READ_FUNC(id_aa64pfr0_el1)
 DEFINE_IDREG_READ_FUNC(id_aa64pfr1_el1)
 DEFINE_RENAME_IDREG_READ_FUNC(id_aa64pfr2_el1, ID_AA64PFR2_EL1)
 DEFINE_IDREG_READ_FUNC(id_aa64dfr0_el1)
 DEFINE_IDREG_READ_FUNC(id_aa64dfr1_el1)
-DEFINE_IDREG_READ_FUNC(id_afr0_el1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_aa64zfr0_el1, ID_AA64ZFR0_EL1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_aa64fpfr0_el1, ID_AA64FPFR0_EL1)
+DEFINE_RENAME_IDREG_READ_FUNC(id_aa64dfr2_el1, ID_AA64DFR2_EL1)
+DEFINE_IDREG_READ_FUNC(id_aa64afr0_el1)
+DEFINE_IDREG_READ_FUNC(id_aa64afr1_el1)
+DEFINE_RENAME_IDREG_READ_FUNC(gmid_el1, GMID_EL1)
+
 DEFINE_SYSREG_READ_FUNC(CurrentEl)
 DEFINE_SYSREG_READ_FUNC(ctr_el0)
 DEFINE_SYSREG_RW_FUNCS(daif)
@@ -295,6 +361,7 @@ DEFINE_SYSREG_RW_FUNCS(dbgdtrrx_el0)
 DEFINE_SYSREG_RW_FUNCS(dbgdtrtx_el0)
 DEFINE_SYSREG_RW_FUNCS(sp_el1)
 DEFINE_SYSREG_RW_FUNCS(sp_el2)
+DEFINE_SYSREG_RW_FUNCS(dbgprcr_el1)
 
 DEFINE_SYSOP_FUNC(wfi)
 DEFINE_SYSOP_FUNC(wfe)
@@ -449,20 +516,6 @@ DEFINE_SYSREG_RW_FUNCS(tcr_el1)
 DEFINE_SYSREG_RW_FUNCS(tcr_el2)
 DEFINE_SYSREG_RW_FUNCS(tcr_el3)
 
-#if ENABLE_FEAT_D128
-DECLARE_SYSREG128_RW_FUNCS(ttbr0_el1)
-DECLARE_SYSREG128_RW_FUNCS(ttbr1_el1)
-DECLARE_SYSREG128_RW_FUNCS(ttbr0_el2)
-DECLARE_SYSREG128_RW_FUNCS(ttbr1_el2)
-DECLARE_SYSREG128_RW_FUNCS(vttbr_el2)
-#else
-DEFINE_SYSREG_RW_FUNCS(ttbr0_el1)
-DEFINE_SYSREG_RW_FUNCS(ttbr1_el1)
-DEFINE_SYSREG_RW_FUNCS(ttbr0_el2)
-DEFINE_RENAME_SYSREG_RW_FUNCS(ttbr1_el2, TTBR1_EL2)
-DEFINE_SYSREG_RW_FUNCS(vttbr_el2)
-#endif
-
 DEFINE_SYSREG_RW_FUNCS(ttbr0_el3)
 
 DEFINE_SYSREG_RW_FUNCS(cptr_el2)
@@ -535,6 +588,12 @@ DEFINE_SYSREG_RW_FUNCS(spsr_fiq)
 DEFINE_SYSREG_RW_FUNCS(dacr32_el2)
 DEFINE_SYSREG_RW_FUNCS(ifsr32_el2)
 
+/* GICv5 System Registers */
+DEFINE_RENAME_SYSREG_RW_FUNCS(icc_ppi_domainr0_el3, ICC_PPI_DOMAINR0_EL3)
+DEFINE_RENAME_SYSREG_RW_FUNCS(icc_ppi_domainr1_el3, ICC_PPI_DOMAINR1_EL3)
+DEFINE_RENAME_SYSREG_RW_FUNCS(icc_ppi_domainr2_el3, ICC_PPI_DOMAINR2_EL3)
+DEFINE_RENAME_SYSREG_RW_FUNCS(icc_ppi_domainr3_el3, ICC_PPI_DOMAINR3_EL3)
+
 /* GICv3 System Registers */
 
 DEFINE_RENAME_SYSREG_RW_FUNCS(icc_sre_el1, ICC_SRE_EL1)
@@ -563,6 +622,27 @@ DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenclr0_el0, AMCNTENCLR0_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenset0_el0, AMCNTENSET0_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenclr1_el0, AMCNTENCLR1_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenset1_el0, AMCNTENSET1_EL0)
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr00_el0, AMEVCNTR00_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr01_el0, AMEVCNTR01_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr02_el0, AMEVCNTR02_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr03_el0, AMEVCNTR03_EL0);
+
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr10_el0, AMEVCNTR10_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr11_el0, AMEVCNTR11_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr12_el0, AMEVCNTR12_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr13_el0, AMEVCNTR13_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr14_el0, AMEVCNTR14_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr15_el0, AMEVCNTR15_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr16_el0, AMEVCNTR16_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr17_el0, AMEVCNTR17_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr18_el0, AMEVCNTR18_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr19_el0, AMEVCNTR19_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr1a_el0, AMEVCNTR1A_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr1b_el0, AMEVCNTR1B_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr1c_el0, AMEVCNTR1C_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr1d_el0, AMEVCNTR1D_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr1e_el0, AMEVCNTR1E_EL0);
+DEFINE_RENAME_SYSREG_RW_FUNCS(amevcntr1f_el0, AMEVCNTR1F_EL0);
 
 DEFINE_RENAME_SYSREG_RW_FUNCS(pmblimitr_el1, PMBLIMITR_EL1)
 
@@ -571,6 +651,7 @@ DEFINE_RENAME_SYSREG_WRITE_FUNC(zcr_el2, ZCR_EL2)
 
 DEFINE_RENAME_IDREG_READ_FUNC(id_aa64smfr0_el1, ID_AA64SMFR0_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(smcr_el3, SMCR_EL3)
+DEFINE_RENAME_SYSREG_RW_FUNCS(svcr, SVCR)
 
 DEFINE_RENAME_SYSREG_READ_FUNC(erridr_el1, ERRIDR_EL1)
 DEFINE_RENAME_SYSREG_WRITE_FUNC(errselr_el1, ERRSELR_EL1)
@@ -683,18 +764,10 @@ DEFINE_RENAME_SYSREG_RW_FUNCS(gcscre0_el1, GCSCRE0_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(gcspr_el1, GCSPR_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(gcspr_el0, GCSPR_EL0)
 
-/* FEAT_THE Registers */
-#if ENABLE_FEAT_D128
-DECLARE_SYSREG128_RW_FUNCS(rcwmask_el1)
-DECLARE_SYSREG128_RW_FUNCS(rcwsmask_el1)
-#else
-DEFINE_RENAME_SYSREG_RW_FUNCS(rcwmask_el1, RCWMASK_EL1)
-DEFINE_RENAME_SYSREG_RW_FUNCS(rcwsmask_el1, RCWSMASK_EL1)
-#endif
-
 /* FEAT_SCTLR2 Registers */
 DEFINE_RENAME_SYSREG_RW_FUNCS(sctlr2_el1, SCTLR2_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(sctlr2_el2, SCTLR2_EL2)
+DEFINE_RENAME_SYSREG_RW_FUNCS(sctlr2_el3, SCTLR2_EL3)
 
 /* FEAT_LS64_ACCDATA Registers */
 DEFINE_RENAME_SYSREG_RW_FUNCS(accdata_el1, ACCDATA_EL1)
@@ -709,14 +782,32 @@ DEFINE_RENAME_SYSREG_RW_FUNCS(clusterpmovsclr_el1, CLUSTERPMOVSCLR_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(clusterpmselr_el1, CLUSTERPMSELR_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(clusterpmxevcntr_el1, CLUSTERPMXEVCNTR_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(clusterpmxevtyper_el1, CLUSTERPMXEVTYPER_EL1)
+DEFINE_RENAME_SYSREG_RW_FUNCS(clusterpmmdcr_el3, CLUSTERPMMDCR_EL3)
 
 /* CPU Power/Performance Management registers */
 DEFINE_RENAME_SYSREG_RW_FUNCS(cpuppmcr_el3, CPUPPMCR_EL3)
 DEFINE_RENAME_SYSREG_RW_FUNCS(cpumpmmcr_el3, CPUMPMMCR_EL3)
 
+/* Armv9.1 FEAT_BRBE Registers */
+DEFINE_RENAME_SYSREG_RW_FUNCS(brbcr_el2, BRBCR_EL2)
+
 /* Armv9.2 RME Registers */
 DEFINE_RENAME_SYSREG_RW_FUNCS(gptbr_el3, GPTBR_EL3)
 DEFINE_RENAME_SYSREG_RW_FUNCS(gpccr_el3, GPCCR_EL3)
+
+DEFINE_RENAME_SYSREG_RW_FUNCS(fpmr, FPMR)
+
+/* FEAT_MEC Registers */
+DEFINE_RENAME_SYSREG_READ_FUNC(mecidr_el2, MECIDR_EL2)
+
+DEFINE_RENAME_IDREG_READ_FUNC(id_aa64mmfr4_el1, ID_AA64MMFR4_EL1)
+
+/* FEAT_FGWTE3 Registers */
+DEFINE_RENAME_SYSREG_RW_FUNCS(fgwte3_el3, FGWTE3_EL3)
+
+/* Armv9.3 MPAM_PE_BW_CTRL Registers */
+DEFINE_RENAME_SYSREG_RW_FUNCS(mpambw2_el2, MPAMBW2_EL2)
+DEFINE_RENAME_SYSREG_RW_FUNCS(mpambw3_el3, MPAMBW3_EL3)
 
 #define IS_IN_EL(x) \
 	(GET_EL(read_CurrentEl()) == MODE_EL##x)
@@ -759,6 +850,14 @@ static inline uint64_t el_implemented(unsigned int el)
 
 		return (read_id_aa64pfr0_el1() >> shift) & ID_AA64PFR0_ELX_MASK;
 	}
+}
+
+/*
+ * Read number of break points available.
+ */
+static inline unsigned int read_brps_id_field(void)
+{
+	return EXTRACT(ID_AA64DFR1_BRP, read_id_aa64dfr1_el1());
 }
 
 /*
@@ -888,6 +987,9 @@ static inline void tlbirpalos_512m(uintptr_t addr)
 
 #define read_clusterpmxevtyper()	read_clusterpmxevtyper_el1()
 #define write_clusterpmxevtyper(_v)	write_clusterpmxevtyper_el1(_v)
+
+#define read_clusterpmmdcr()		read_clusterpmmdcr_el3()
+#define write_clusterpmmdcr(_v)		write_clusterpmmdcr_el3(_v)
 
 #if ERRATA_SPECULATIVE_AT
 /*

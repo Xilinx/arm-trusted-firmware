@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2018-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,6 +16,8 @@
 #include "n1sdp_def.h"
 #include "n1sdp_private.h"
 #include <platform_def.h>
+
+#define RT_OWNER 0
 
 /*
  * Platform information structure stored in SDS.
@@ -44,12 +46,16 @@ static scmi_channel_plat_info_t n1sdp_scmi_plat_info = {
 };
 
 static struct gic600_multichip_data n1sdp_multichip_data __init = {
-	.rt_owner_base = PLAT_ARM_GICD_BASE,
-	.rt_owner = 0,
+	.base_addrs = {
+		PLAT_ARM_GICD_BASE
+	},
+	.rt_owner = RT_OWNER,
 	.chip_count = 1,
 	.chip_addrs = {
-		PLAT_ARM_GICD_BASE >> 16,
-		PLAT_ARM_GICD_BASE >> 16
+		[RT_OWNER] = {
+			PLAT_ARM_GICD_BASE >> 16,
+			PLAT_ARM_GICD_BASE >> 16
+		}
 	},
 	.spi_ids = {
 		{PLAT_ARM_GICD_BASE, 32, 511},
@@ -118,7 +124,6 @@ void remote_dmc_ecc_setup(uint8_t remote_ddr_size)
 
 void n1sdp_bl31_multichip_setup(void)
 {
-	plat_arm_override_gicr_frames(n1sdp_multichip_gicr_frames);
 	gic600_multichip_init(&n1sdp_multichip_data);
 }
 
@@ -157,6 +162,15 @@ void bl31_platform_setup(void)
 		n1sdp_bl31_multichip_setup();
 	}
 	arm_bl31_platform_setup();
+
+	/*
+	 * Initialise the GIC's frame. Hide the second frame when not operating
+	 * in multichip mode.
+	 */
+	if (!plat_info.multichip_mode) {
+		n1sdp_multichip_gicr_frames[1] = 0;
+	}
+	gic_set_gicr_frames(n1sdp_multichip_gicr_frames);
 
 	/* Check if remote memory is present */
 	if ((plat_info.multichip_mode) && (plat_info.remote_ddr_size != 0))

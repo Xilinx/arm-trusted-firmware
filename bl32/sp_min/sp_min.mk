@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -17,6 +17,7 @@ BL32_SOURCES		+=	bl32/sp_min/sp_min_main.c			\
 				bl32/sp_min/aarch32/entrypoint.S		\
 				common/runtime_svc.c				\
 				plat/common/aarch32/plat_sp_min_common.c	\
+				lib/per_cpu/per_cpu.c				\
 				services/arm_arch_svc/arm_arch_svc_setup.c	\
 				services/std_svc/std_svc_setup.c		\
 				${PSCI_LIB_SOURCES}
@@ -58,12 +59,6 @@ endif
 
 BL32_DEFAULT_LINKER_SCRIPT_SOURCE := bl32/sp_min/sp_min.ld.S
 
-ifeq ($($(ARCH)-ld-id),gnu-gcc)
-        BL32_LDFLAGS	+=	-Wl,--sort-section=alignment
-else ifneq ($(filter llvm-lld gnu-ld,$($(ARCH)-ld-id)),)
-        BL32_LDFLAGS	+=	--sort-section=alignment
-endif
-
 # Include the platform-specific SP_MIN Makefile
 # If no platform-specific SP_MIN Makefile exists, it means SP_MIN is not supported
 # on this platform.
@@ -83,3 +78,7 @@ $(eval $(call assert_boolean,RESET_TO_SP_MIN))
 SP_MIN_WITH_SECURE_FIQ 	?= 0
 $(eval $(call add_define,SP_MIN_WITH_SECURE_FIQ))
 $(eval $(call assert_boolean,SP_MIN_WITH_SECURE_FIQ))
+
+ifeq (${TRANSFER_LIST},1)
+BL32_SOURCES	+=	$(TRANSFER_LIST_SOURCES)
+endif

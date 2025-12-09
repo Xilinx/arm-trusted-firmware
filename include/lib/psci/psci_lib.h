@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,7 +25,7 @@ typedef struct spd_pm_ops {
 	int32_t (*svc_off)(u_register_t __unused unused);
 	void (*svc_suspend)(u_register_t max_off_pwrlvl);
 	void (*svc_on_finish)(u_register_t __unused unused);
-	void (*svc_suspend_finish)(u_register_t max_off_pwrlvl);
+	void (*svc_suspend_finish)(u_register_t max_off_pwrlvl, bool abandon);
 	int32_t (*svc_migrate)(u_register_t from_cpu, u_register_t to_cpu);
 	int32_t (*svc_migrate_info)(u_register_t *resident_cpu);
 	void (*svc_system_off)(void);
@@ -69,7 +69,7 @@ typedef struct psci_lib_args {
 		&& ((_p)->h.type == PARAM_PSCI_LIB_ARGS)	\
 		&& ((_p)->h.version == VERSION_1)		\
 		&& ((_p)->h.size == sizeof(*(_p)))		\
-		&& ((_p)->h.attr == 0U)				\
+		&& ((_p)->h.attr == 0)				\
 		&& ((_p)->mailbox_ep != NULL))
 
 /******************************************************************************
@@ -85,16 +85,20 @@ u_register_t psci_smc_handler(uint32_t smc_fid,
 			  u_register_t flags);
 int psci_setup(const psci_lib_args_t *lib_args);
 int psci_secondaries_brought_up(void);
-void psci_warmboot_entrypoint(void);
+void psci_warmboot_entrypoint(unsigned int cpu_idx);
 void psci_register_spd_pm_hook(const spd_pm_ops_t *pm);
 void psci_prepare_next_non_secure_ctx(
 			  entry_point_info_t *next_image_info);
-int psci_stop_other_cores(unsigned int wait_ms,
+int psci_stop_other_cores(unsigned int this_cpu_idx, unsigned int wait_ms,
 			  void (*stop_func)(u_register_t mpidr));
-bool psci_is_last_on_cpu_safe(void);
-bool psci_are_all_cpus_on_safe(void);
+bool psci_is_last_on_cpu_safe(unsigned int this_core);
+bool psci_are_all_cpus_on_safe(unsigned int this_core);
 void psci_pwrdown_cpu(unsigned int power_level);
+void psci_pwrdown_cpu_start(unsigned int power_level);
+void __dead2 psci_pwrdown_cpu_end_terminal(void);
+void psci_pwrdown_cpu_end_wakeup(unsigned int power_level);
 void psci_do_manage_extensions(void);
+unsigned int psci_num_cpus_running_on_safe(unsigned int this_core);
 
 #endif /* __ASSEMBLER__ */
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -40,6 +40,36 @@ endef
 define default_ones
 	$(foreach var,$1,$(eval $(call default_one,$(var))))
 endef
+
+# Convenience function for setting CRYPTO_SUPPORT per component based on build flags
+# and set MBEDTLS_LIB based on CRYPTO_SUPPORT
+# $(eval $(call set_crypto_support,NEED_AUTH,NEED_HASH))
+#   $(1) = NEED_AUTH, determines need for authentication verification support
+#   $(2) = NEED_HASH, determines need for hash calculation support
+# CRYPTO_SUPPORT is set to 0 (default), 1 (authentication only), 2 (hash only), or
+# 3 (both) based on what support is required.
+define set_crypto_support
+	ifeq ($($1)-$($2),1-1)
+		CRYPTO_SUPPORT := 3
+	else ifeq ($($2),1)
+		CRYPTO_SUPPORT := 2
+	else ifeq ($($1),1)
+		CRYPTO_SUPPORT := 1
+	else
+		CRYPTO_SUPPORT := 0
+	endif
+	MBEDTLS_LIB ?= $(BUILD_PLAT)/lib/libmbedtls.a
+	CRYPTO_LIB := $(if $(filter-out 0,$(CRYPTO_SUPPORT)),$(MBEDTLS_LIB),)
+endef
+
+# Convenience function for creating a build definition
+# $(call make_define,FOO) will have:
+# -DFOO if $(FOO) is empty; -DFOO=$(FOO) otherwise
+make_define = -D$(1)$(if $($(1)),=$($(1)))
+
+# Convenience function for creating multiple build definitions
+# For BL1, BL1_CPPFLAGS += $(call make_defines,FOO BOO)
+make_defines = $(foreach def,$(1),$(call make_define,$(def)))
 
 # Convenience function for adding build definitions
 # $(eval $(call add_define,FOO)) will have:
@@ -90,9 +120,15 @@ define assert_numerics
     $(foreach num,$1,$(eval $(call assert_numeric,$(num))))
 endef
 
-# Convenience function to check for a given linker option. An call to
-# $(call ld_option, --no-XYZ) will return --no-XYZ if supported by the linker
-ld_option = $(shell $($(ARCH)-ld) $(1) -Wl,--version >/dev/null 2>&1 || $($(ARCH)-ld) $(1) -v >/dev/null 2>&1 && echo $(1))
+# Convenience function to check for a given linker option. A call to
+# $(call ld_option, --no-XYZ) will return --no-XYZ if supported by the linker,
+# prefixed appropriately for the linker in use
+ld_option = $(call toolchain-ld-option,$(ARCH),$(1))
+
+# Convenience function to add a prefix to a linker flag if necessary. Useful
+# when the flag is known to be supported and it just needs to be prefixed
+# correctly.
+ld_prefix = $(toolchain-ld-prefix-$($(ARCH)-ld-id))
 
 # Convenience function to check for a given compiler option. A call to
 # $(call cc_option, --no-XYZ) will return --no-XYZ if supported by the compiler
@@ -282,8 +318,51 @@ GZIP_SUFFIX := .gz
 # Auxiliary macros to build TF images from sources
 ################################################################################
 
-MAKE_DEP = -Wp,-MD,$(DEP) -MT $$@ -MP
+MAKE_DEP = -Wp,-MD,$1 -MT $2 -MP
 
+# MAKE_TOOL_C builds a C source file and generates the dependency file
+#   $(1) = output directory
+#   $(2) = source file (%.c)
+#   $(3) = lowercase name of the tool
+#   $(4) = uppercase name of the tool
+define MAKE_TOOL_C
+
+$(eval SRC := $(2))
+$(eval OBJ := $(patsubst %.c,$(1)/$(3)/%.o,$(SRC)))
+$(eval DEP := $(patsubst %.o,%.d,$(OBJ)))
+
+$(eval TOOL_DEFINES := $($(4)_DEFINES))
+$(eval TOOL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS))
+$(eval TOOL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(TOOL_DEFINES)) $(addprefix -I,$(TOOL_INCLUDE_DIRS)))
+$(eval TOOL_CFLAGS := $($(4)_CFLAGS))
+
+$(OBJ): $(SRC) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
+	$$(s)echo "  HOSTCC      $$<"
+	$$(q)$(host-cc) $$(HOSTCCFLAGS) $(TOOL_CPPFLAGS) $(TOOL_CFLAGS) $(call MAKE_DEP,$(DEP),$(OBJ)) -c $$< -o $$@
+
+-include $(DEP)
+
+endef
+
+# MAKE_TOOL
+#   $(1) = output directory
+#   $(2) = lowercase name of the tool
+#   $(3) = uppercase name of the tool
+define MAKE_TOOL
+$(eval SRCS := $($(3)_SOURCES))
+$(eval OBJS := $(patsubst %.c,$(1)/$(2)/%.o,$(SRCS)))
+$(eval DST := $(1)/$(2)/$(2)$(.exe))
+$(eval $(foreach src,$(SRCS),$(call MAKE_TOOL_C,$(1),$(src),$(2),$(3))))
+
+$(DST): $(OBJS) $(filter-out %.d,$(MAKEFILE_LIST)) | $(1)
+	$$(s)echo "  HOSTLD  $$@"
+	$$(q)$(host-cc) $${OBJS} -o $$@ $($(3)_LDFLAGS)
+	$$(s)echo
+	$$(s)echo "Built $$@ successfully"
+	$$(s)echo
+
+all: $(DST)
+endef
 
 # MAKE_C_LIB builds a C source file and generates the dependency file
 #   $(1) = output directory
@@ -297,7 +376,7 @@ $(eval LIB := $(notdir $(1)))
 
 $(OBJ): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
 	$$(s)echo "  CC      $$<"
-	$$(q)$($(ARCH)-cc) $$($(LIB)_CFLAGS) $$(TF_CFLAGS) $$(CFLAGS) $(MAKE_DEP) -c $$< -o $$@
+	$$(q)$($(ARCH)-cc) $$(LIB$(4)_CFLAGS) $$(TF_CFLAGS) $(call MAKE_DEP,$(DEP),$(OBJ)) -c $$< -o $$@
 
 -include $(DEP)
 
@@ -314,7 +393,7 @@ $(eval DEP := $(patsubst %.o,%.d,$(OBJ)))
 
 $(OBJ): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
 	$$(s)echo "  AS      $$<"
-	$$(q)$($(ARCH)-as) -x assembler-with-cpp $$(TF_CFLAGS_$(ARCH)) $$(ASFLAGS) $(MAKE_DEP) -c $$< -o $$@
+	$$(q)$($(ARCH)-as) -x assembler-with-cpp $$(TF_CFLAGS) $$(ASFLAGS) $(call MAKE_DEP,$(DEP),$(OBJ)) -c $$< -o $$@
 
 -include $(DEP)
 
@@ -331,14 +410,14 @@ define MAKE_C
 $(eval OBJ := $(1)/$(patsubst %.c,%.o,$(notdir $(2))))
 $(eval DEP := $(patsubst %.o,%.d,$(OBJ)))
 
-$(eval BL_DEFINES := IMAGE_$(4) $($(4)_DEFINES) $(PLAT_BL_COMMON_DEFINES))
-$(eval BL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS) $(PLAT_BL_COMMON_INCLUDE_DIRS))
-$(eval BL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(BL_DEFINES)) $(addprefix -I,$(BL_INCLUDE_DIRS)) $(PLAT_BL_COMMON_CPPFLAGS))
-$(eval BL_CFLAGS := $($(4)_CFLAGS) $(PLAT_BL_COMMON_CFLAGS))
+$(eval BL_DEFINES := IMAGE_$(4) $($(4)_DEFINES))
+$(eval BL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS))
+$(eval BL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(BL_DEFINES)) $(addprefix -I,$(BL_INCLUDE_DIRS)))
+$(eval BL_CFLAGS := $($(4)_CFLAGS))
 
-$(OBJ): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
+$(OBJ): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/ $(BL_INCLUDE_DIRS:%=%/)
 	$$(s)echo "  CC      $$<"
-	$$(q)$($(ARCH)-cc) $$(LTO_CFLAGS) $$(TF_CFLAGS) $$(CFLAGS) $(BL_CPPFLAGS) $(BL_CFLAGS) $(MAKE_DEP) -c $$< -o $$@
+	$$(q)$($(ARCH)-cc) $$(LTO_CFLAGS) $$(TF_CFLAGS) $(BL_CPPFLAGS) $(BL_CFLAGS) $(call MAKE_DEP,$(DEP),$(OBJ)) -c $$< -o $$@
 
 -include $(DEP)
 
@@ -355,19 +434,33 @@ define MAKE_S
 $(eval OBJ := $(1)/$(patsubst %.S,%.o,$(notdir $(2))))
 $(eval DEP := $(patsubst %.o,%.d,$(OBJ)))
 
-$(eval BL_DEFINES := IMAGE_$(4) $($(4)_DEFINES) $(PLAT_BL_COMMON_DEFINES))
-$(eval BL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS) $(PLAT_BL_COMMON_INCLUDE_DIRS))
-$(eval BL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(BL_DEFINES)) $(addprefix -I,$(BL_INCLUDE_DIRS)) $(PLAT_BL_COMMON_CPPFLAGS))
-$(eval BL_ASFLAGS := $($(4)_ASFLAGS) $(PLAT_BL_COMMON_ASFLAGS))
+$(eval BL_DEFINES := IMAGE_$(4) $($(4)_DEFINES))
+$(eval BL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS))
+$(eval BL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(BL_DEFINES)) $(addprefix -I,$(BL_INCLUDE_DIRS)))
+$(eval BL_ASFLAGS := $($(4)_ASFLAGS))
 
-$(OBJ): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
+$(OBJ): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/ $(BL_INCLUDE_DIRS:%=%/)
 	$$(s)echo "  AS      $$<"
-	$$(q)$($(ARCH)-as) -x assembler-with-cpp $$(TF_CFLAGS_$(ARCH)) $$(ASFLAGS) $(BL_CPPFLAGS) $(BL_ASFLAGS) $(MAKE_DEP) -c $$< -o $$@
+	$$(q)$($(ARCH)-as) -x assembler-with-cpp $$(TF_CFLAGS) $$(ASFLAGS) $(BL_CPPFLAGS) $(BL_ASFLAGS) $(call MAKE_DEP,$(DEP),$(OBJ)) -c $$< -o $$@
 
 -include $(DEP)
 
 endef
 
+# MAKE_PRE run the C preprocessor on a file
+#   $(1) = output file
+#   $(2) = list of input files
+#   $(3) = dep file
+#   $(4) = list of rule-specific flags to pass
+define MAKE_PRE
+$(eval OUT := $(1))
+$(eval SRC := $(2))
+$(eval DEP := $(3))
+$(eval CUSTOM_FLAGS := $(4))
+$(OUT): $(SRC) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
+	$$(s)echo "  CPP     $$<"
+	$$(q)$($(ARCH)-cpp) -E -P -x assembler-with-cpp $$(TF_CFLAGS) $(CUSTOM_FLAGS) $(call MAKE_DEP,$(DEP),$(OUT)) -o $$@ $$<
+endef
 
 # MAKE_LD generate the linker script using the C preprocessor
 #   $(1) = output linker script
@@ -378,14 +471,14 @@ define MAKE_LD
 
 $(eval DEP := $(1).d)
 
-$(eval BL_DEFINES := IMAGE_$(4) $($(4)_DEFINES) $(PLAT_BL_COMMON_DEFINES))
-$(eval BL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS) $(PLAT_BL_COMMON_INCLUDE_DIRS))
-$(eval BL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(BL_DEFINES)) $(addprefix -I,$(BL_INCLUDE_DIRS)) $(PLAT_BL_COMMON_CPPFLAGS))
+$(eval BL_DEFINES := IMAGE_$(4) $($(4)_DEFINES))
+$(eval BL_INCLUDE_DIRS := $($(4)_INCLUDE_DIRS))
+$(eval BL_CPPFLAGS := $($(4)_CPPFLAGS) $(addprefix -D,$(BL_DEFINES)) $(addprefix -I,$(BL_INCLUDE_DIRS)))
+$(eval FLAGS := -D__LINKER__ $(BL_CPPFLAGS))
 
-$(1): $(2) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
-	$$(s)echo "  PP      $$<"
-	$$(q)$($(ARCH)-cpp) -E $$(CPPFLAGS) $(BL_CPPFLAGS) $(TF_CFLAGS_$(ARCH)) -P -x assembler-with-cpp -D__LINKER__ $(MAKE_DEP) -o $$@ $$<
+$(1): | $(BL_INCLUDE_DIRS:%=%/)
 
+$(eval $(call MAKE_PRE,$(1),$(2),$(DEP),$(FLAGS)))
 -include $(DEP)
 
 endef
@@ -478,10 +571,6 @@ define linker_script_path
         $(patsubst %.S,$(BUILD_DIR)/%,$(1))
 endef
 
-ifeq ($(USE_ROMLIB),1)
-WRAPPER_FLAGS := @${BUILD_PLAT}/romlib/romlib.ldflags
-endif
-
 # MAKE_BL macro defines the targets and options to build each BL image.
 # Arguments:
 #   $(1) = BL stage
@@ -506,6 +595,7 @@ define MAKE_BL
 
         $(eval LINKER_SCRIPT_SOURCES := $($(BL)_LINKER_SCRIPT_SOURCES))
         $(eval LINKER_SCRIPTS := $(call linker_script_path,$(LINKER_SCRIPT_SOURCES)))
+        $(eval GNU_LINKER_ARGS := $(call ld_prefix,-Map=$(MAPFILE)) $(foreach script,$(LINKER_SCRIPTS) $(DEFAULT_LINKER_SCRIPT), $(call ld_prefix,--script $(script))))
 
 $(eval $(call MAKE_OBJS,$(BUILD_DIR),$(SOURCES),$(1),$(BL)))
 
@@ -516,7 +606,7 @@ $(eval $(foreach source,$(DEFAULT_LINKER_SCRIPT_SOURCE) $(LINKER_SCRIPT_SOURCES)
 $(eval BL_LDFLAGS := $($(BL)_LDFLAGS))
 
 ifeq ($(USE_ROMLIB),1)
-$(ELF): romlib.bin | $$$$(@D)/
+$(ELF): $(BUILD_PLAT)/romlib/romlib.bin | $$$$(@D)/
 endif
 
 # MODULE_OBJS can be assigned by vendors with different compiled
@@ -531,14 +621,12 @@ ifeq ($($(ARCH)-ld-id),arm-link)
 		--predefine=$(call escape-shell,-DTF_CFLAGS=$(TF_CFLAGS)) \
 		--map --list="$(MAPFILE)" --scatter=${PLAT_DIR}/scat/${1}.scat \
 		$(LDPATHS) $(LIBWRAPPER) $(LDLIBS) $(BL_LIBS) $(OBJS)
-else ifeq ($($(ARCH)-ld-id),gnu-gcc)
-	$$(q)$($(ARCH)-ld) -o $$@ $$(TF_LDFLAGS) $$(LDFLAGS) $$(WRAPPER_FLAGS) $(BL_LDFLAGS) -Wl,-Map=$(MAPFILE) \
-		$(addprefix -Wl$(comma)--script$(comma),$(LINKER_SCRIPTS)) -Wl,--script,$(DEFAULT_LINKER_SCRIPT) \
-		$(OBJS) $(LDPATHS) $(LIBWRAPPER) $(LDLIBS) $(BL_LIBS)
 else
-	$$(q)$($(ARCH)-ld) -o $$@ $$(TF_LDFLAGS) $$(LDFLAGS) $$(WRAPPER_FLAGS) $(BL_LDFLAGS) -Map=$(MAPFILE) \
-		$(addprefix -T ,$(LINKER_SCRIPTS)) --script $(DEFAULT_LINKER_SCRIPT) \
-		$(OBJS) $(LDPATHS) $(LIBWRAPPER) $(LDLIBS) $(BL_LIBS)
+	$$(q)$($(ARCH)-ld) -o $$@ $$(TF_LDFLAGS) $$(LDFLAGS) $(BL_LDFLAGS) \
+		$(GNU_LINKER_ARGS) $(LDPATHS) \
+		$(call ld_prefix,--start-group) \
+			$(OBJS) $(LIBWRAPPER) $(LDLIBS) $(BL_LIBS) \
+		$(call ld_prefix,--end-group)
 endif
 ifeq ($(DISABLE_BIN_GENERATION),1)
 	$(s)echo
@@ -596,14 +684,12 @@ $(eval DTSDEP := $(patsubst %.dtb,%.o.d,$(DOBJ)))
 # Dependencies of the DT compilation on its pre-compiled DTS
 $(eval DTBDEP := $(patsubst %.dtb,%.d,$(DOBJ)))
 
-$(DPRE): $(2) | $$$$(@D)/
-	$$(s)echo "  CPP     $$<"
-	$(eval DTBS       := $(addprefix $(1)/,$(call SOURCES_TO_DTBS,$(2))))
-	$$(q)$($(ARCH)-cpp) -E $$(TF_CFLAGS_$(ARCH)) $$(DTC_CPPFLAGS) -MT $(DTBS) -MMD -MF $(DTSDEP) -o $(DPRE) $$<
+$(eval $(call MAKE_PRE,$(DPRE),$(2),$(DTSDEP),$(DTC_CPPFLAGS)))
 
 $(DOBJ): $(DPRE) $(filter-out %.d,$(MAKEFILE_LIST)) | $$$$(@D)/
 	$$(s)echo "  DTC     $$<"
 	$$(q)$($(ARCH)-dtc) $$(DTC_FLAGS) -d $(DTBDEP) -o $$@ $$<
+	$$($$@-after)
 
 -include $(DTBDEP)
 -include $(DTSDEP)

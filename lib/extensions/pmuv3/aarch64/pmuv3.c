@@ -21,17 +21,6 @@ static u_register_t init_mdcr_el2_hpmn(u_register_t mdcr_el2)
 	return mdcr_el2;
 }
 
-void pmuv3_enable(cpu_context_t *ctx)
-{
-#if (CTX_INCLUDE_EL2_REGS && IMAGE_BL31)
-	u_register_t mdcr_el2_val;
-
-	mdcr_el2_val = read_el2_ctx_common(get_el2_sysregs_ctx(ctx), mdcr_el2);
-	mdcr_el2_val = init_mdcr_el2_hpmn(mdcr_el2_val);
-	write_el2_ctx_common(get_el2_sysregs_ctx(ctx), mdcr_el2, mdcr_el2_val);
-#endif /* (CTX_INCLUDE_EL2_REGS && IMAGE_BL31) */
-}
-
 static u_register_t mtpmu_disable_el3(u_register_t mdcr_el3)
 {
 	if (is_feat_mtpmu_supported()) {
@@ -46,14 +35,20 @@ static u_register_t mtpmu_disable_el3(u_register_t mdcr_el3)
 	return mdcr_el3;
 }
 
-void pmuv3_init_el3(void)
+void pmuv3_enable(cpu_context_t *ctx)
 {
-	u_register_t mdcr_el3 = read_mdcr_el3();
+#if (CTX_INCLUDE_EL2_REGS && IMAGE_BL31)
+	u_register_t mdcr_el2_val;
+
+	mdcr_el2_val = read_el2_ctx_common(get_el2_sysregs_ctx(ctx), mdcr_el2);
+	mdcr_el2_val = init_mdcr_el2_hpmn(mdcr_el2_val);
+	write_el2_ctx_common(get_el2_sysregs_ctx(ctx), mdcr_el2, mdcr_el2_val);
+#endif /* (CTX_INCLUDE_EL2_REGS && IMAGE_BL31) */
+
+	el3_state_t *state = get_el3state_ctx(ctx);
+	u_register_t mdcr_el3_val = read_ctx_reg(state, CTX_MDCR_EL3);
 
 	/* ---------------------------------------------------------------------
-	 * Initialise MDCR_EL3, setting all fields rather than relying on hw.
-	 * Some fields are architecturally UNKNOWN on reset.
-	 *
 	 * MDCR_EL3.MPMX: Set to zero to not affect event counters (when
 	 * SPME = 0).
 	 *
@@ -81,14 +76,28 @@ void pmuv3_init_el3(void)
 	 *   1  |  1   |    enabled   | disabled only for counters 0 to
 	 *                              MDCR_EL2.HPMN - 1. Enabled for the rest
 	 *
+	 * MDCR_EL3.EnPM2: Set to one so that various PMUv3p9 related system
+	 * register accesses do not trap to EL3.
+	 *
 	 * MDCR_EL3.TPM: Set to zero so that EL0, EL1, and EL2 System register
 	 *  accesses to all Performance Monitors registers do not trap to EL3.
+	 *
+	 * MDCR_EL3.PMEE set to 0b01 to delegate PMU IRQ and Profiling exception
+	 * control to MDCR_EL2, to allow lower ELs own this policy.
 	 */
-	mdcr_el3 = (mdcr_el3 | MDCR_SCCD_BIT | MDCR_MCCD_BIT) &
-		  ~(MDCR_MPMX_BIT | MDCR_SPME_BIT | MDCR_TPM_BIT);
-	mdcr_el3 = mtpmu_disable_el3(mdcr_el3);
-	write_mdcr_el3(mdcr_el3);
+	mdcr_el3_val |= MDCR_SCCD_BIT | MDCR_MCCD_BIT | MDCR_EnPM2_BIT;
+	mdcr_el3_val &=	~(MDCR_MPMX_BIT | MDCR_SPME_BIT | MDCR_TPM_BIT);
+	mdcr_el3_val = mtpmu_disable_el3(mdcr_el3_val);
 
+	if (is_feat_ebep_supported()) {
+		mdcr_el3_val |= MDCR_PMEE(MDCR_PMEE_CTRL_EL2);
+	}
+
+	write_ctx_reg(state, CTX_MDCR_EL3, mdcr_el3_val);
+}
+
+void pmuv3_init_el3(void)
+{
 	/* ---------------------------------------------------------------------
 	 * Initialise PMCR_EL0 setting all fields rather than relying
 	 * on hw. Some fields are architecturally UNKNOWN on reset.

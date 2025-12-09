@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2019-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -52,6 +52,7 @@ typedef struct spmd_spm_core_context {
 	cpu_context_t cpu_ctx;
 	spmc_state_t state;
 	bool secure_interrupt_ongoing;
+	bool psci_operation_ongoing;
 #if ENABLE_SPMD_LP
 	uint8_t spmd_lp_sync_req_ongoing;
 #endif
@@ -77,6 +78,12 @@ void spmd_build_spmc_message(gp_regs_t *gpregs, uint8_t target,
 /* Functions used to enter/exit SPMC synchronously */
 uint64_t spmd_spm_core_sync_entry(spmd_spm_core_context_t *ctx);
 __dead2 void spmd_spm_core_sync_exit(uint64_t rc);
+void spmd_setup_context(unsigned int core_id);
+
+bool is_spmd_logical_sp_dir_req_in_progress(const spmd_spm_core_context_t *ctx);
+
+bool is_spmd_logical_sp_info_regs_req_in_progress(
+		const spmd_spm_core_context_t *ctx);
 
 /* Assembly helpers */
 uint64_t spmd_spm_core_enter(uint64_t *c_rt_ctx);

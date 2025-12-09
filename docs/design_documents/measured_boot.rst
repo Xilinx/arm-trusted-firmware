@@ -91,6 +91,14 @@ The Measured Boot implementation in TF-A supports:
    and the variable length crypto agile structure called TCG_PCR_EVENT2. Event
    Log driver implemented in TF-A covers later part.
 
+#. Discrete TPM
+
+   A Discrete TPM (Trusted Platform Module) can be used alongside Event Log to
+   extend measurements and validate Measured Boot functionality. The use of a
+   Discrete TPM in TF-A to extend measurements of images and other critical data
+   allows for an additional layer of security. The TPM can be used to attest the
+   integrity of the Event Log.
+
 #. |RSE|
 
    It is one of the physical backends to extend the measurements. Please refer
@@ -223,13 +231,13 @@ Responsibilities of these platform interfaces are -
    - Public key data size is passed as the third argument to this function.
    - This function must return 0 on success, a signed integer error code
      otherwise.
-   - In TC2 platform, this function is used to calculate the hash of the given
-     key and forward this hash to |RSE| alongside the measurement of the image
-     which the key signs.
+   - In Total Compute platform, this function is used to calculate the hash
+     of the given key and forward this hash to |RSE| alongside the measurement
+     of the image which the key signs.
 
 --------------
 
-*Copyright (c) 2023, Arm Limited. All rights reserved.*
+*Copyright (c) 2023-2025, Arm Limited. All rights reserved.*
 
 .. _Arm® Server Base Security Guide: https://developer.arm.com/documentation/den0086/latest
 .. _TCG EFI Protocol Specification: https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf

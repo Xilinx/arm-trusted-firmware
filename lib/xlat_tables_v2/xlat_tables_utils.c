@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -487,10 +487,10 @@ static int xlat_get_mem_attributes_internal(const xlat_ctx_t *ctx,
 
 
 int xlat_get_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
-				uint32_t *attr)
+				uint32_t *attr, unsigned int *table_level)
 {
 	return xlat_get_mem_attributes_internal(ctx, base_va, attr,
-				NULL, NULL, NULL);
+				NULL, NULL, table_level);
 }
 
 
@@ -498,7 +498,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 				   size_t size, uint32_t attr)
 {
 	/* Note: This implementation isn't optimized. */
-	int ret = 0;
+
 	assert(ctx != NULL);
 	assert(ctx->initialized);
 
@@ -509,28 +509,24 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 	if (!IS_PAGE_ALIGNED(base_va)) {
 		WARN("%s: Address 0x%lx is not aligned on a page boundary.\n",
 		     __func__, base_va);
-		ret = -EINVAL;
-		goto xlat_chn_mem_attr_ctx;
+		return -EINVAL;
 	}
 
 	if (size == 0U) {
 		WARN("%s: Size is 0.\n", __func__);
-		ret = -EINVAL;
-		goto xlat_chn_mem_attr_ctx;
+		return -EINVAL;
 	}
 
 	if ((size % PAGE_SIZE) != 0U) {
 		WARN("%s: Size 0x%zx is not a multiple of a page size.\n",
 		     __func__, size);
-		ret = -EINVAL;
-		goto xlat_chn_mem_attr_ctx;
+		return -EINVAL;
 	}
 
 	if (((attr & MT_EXECUTE_NEVER) == 0U) && ((attr & MT_RW) != 0U)) {
 		WARN("%s: Mapping memory as read-write and executable not allowed.\n",
 		     __func__);
-		ret = -EINVAL;
-		goto xlat_chn_mem_attr_ctx;
+		return -EINVAL;
 	}
 
 	size_t pages_count = size / PAGE_SIZE;
@@ -555,8 +551,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 					      &level);
 		if (entry == NULL) {
 			WARN("Address 0x%lx is not mapped.\n", base_va);
-			ret = -EINVAL;
-			goto xlat_chn_mem_attr_ctx;
+			return -EINVAL;
 		}
 
 		desc = *entry;
@@ -571,8 +566,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 			     base_va);
 			WARN("Granularity is 0x%lx, should be 0x%lx.\n",
 			     XLAT_BLOCK_SIZE(level), PAGE_SIZE);
-			ret = -EINVAL;
-			goto xlat_chn_mem_attr_ctx;
+			return -EINVAL;
 		}
 
 		/*
@@ -583,8 +577,7 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 			if ((attr & MT_EXECUTE_NEVER) == 0U) {
 				WARN("Setting device memory as executable at address 0x%lx.",
 				     base_va);
-				ret = -EINVAL;
-				goto xlat_chn_mem_attr_ctx;
+				return -EINVAL;
 			}
 		}
 
@@ -645,6 +638,5 @@ int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
 	/* Ensure that the last descriptor written is seen by the system. */
 	dsbish();
 
-xlat_chn_mem_attr_ctx:
-	return ret;
+	return 0;
 }

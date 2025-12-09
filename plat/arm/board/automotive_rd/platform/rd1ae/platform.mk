@@ -1,10 +1,12 @@
-# Copyright (c) 2024, Arm Limited. All rights reserved.
+# Copyright (c) 2024-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 # RD1AE (Kronos) platform.
 $(info Platform ${PLAT} is (kronos) specific.)
+
+$(warning Platform ${PLAT} is deprecated. Some of the features might not work as expected)
 
 RD1AE_BASE		=	plat/arm/board/automotive_rd/platform/rd1ae
 
@@ -28,21 +30,18 @@ ENABLE_FEAT_AMU				:=	1
 ENABLE_FEAT_ECV				:=	1
 ENABLE_FEAT_FGT				:=	1
 ENABLE_FEAT_MTE2			:=	1
-ENABLE_MPAM_FOR_LOWER_ELS		:=	1
+ENABLE_FEAT_MPAM			:=	1
+USE_GIC_DRIVER				:=	3
 GIC_ENABLE_V4_EXTN			:=	1
 GICV3_SUPPORT_GIC600			:=	1
 HW_ASSISTED_COHERENCY			:=	1
-PLAT_MHU_VERSION			:=	1
+NEED_BL32				:=	yes
+PLAT_MHU				:=	MHUv1
 RESET_TO_BL2				:=	1
 SVE_VECTOR_LEN				:=	128
 USE_COHERENT_MEM			:=	0
 
 RD1AE_CPU_SOURCES	:=	lib/cpus/aarch64/neoverse_v3.S
-
-include drivers/arm/gic/v3/gicv3.mk
-RD1AE_GIC_SOURCES	:=	${GICV3_SOURCES}	\
-				plat/common/plat_gicv3.c	\
-				plat/arm/common/arm_gicv3.c
 
 PLAT_BL_COMMON_SOURCES	+=	${RD1AE_BASE}/rd1ae_plat.c	\
 				${RD1AE_BASE}/include/rd1ae_helpers.S
@@ -55,7 +54,6 @@ BL2_SOURCES	+=	${RD1AE_CPU_SOURCES}	\
 			drivers/arm/sbsa/sbsa.c
 
 BL31_SOURCES	+=	${RD1AE_CPU_SOURCES}	\
-			${RD1AE_GIC_SOURCES}	\
 			${RD1AE_BASE}/rd1ae_bl31_setup.c	\
 			${RD1AE_BASE}/rd1ae_topology.c	\
 			drivers/cfi/v2m/v2m_flash.c	\
@@ -68,15 +66,19 @@ endif
 
 # Add the FDT_SOURCES and options for Dynamic Config
 FDT_SOURCES	+=	${RD1AE_BASE}/fdts/${PLAT}_fw_config.dts	\
-			fdts/${PLAT}.dts
+			fdts/${PLAT}.dts				\
+			${RD1AE_BASE}/fdts/${PLAT}_optee_spmc_manifest.dts
 
 FW_CONFIG	:=	${BUILD_PLAT}/fdts/${PLAT}_fw_config.dtb
 HW_CONFIG	:=	${BUILD_PLAT}/fdts/${PLAT}.dtb
+TOS_FW_CONFIG	:=	${BUILD_PLAT}/fdts/${PLAT}_optee_spmc_manifest.dtb
 
 # Add the FW_CONFIG to FIP and specify the same to certtool
 $(eval $(call TOOL_ADD_PAYLOAD,${FW_CONFIG},--fw-config,${FW_CONFIG}))
 # Add the HW_CONFIG to FIP and specify the same to certtool
 $(eval $(call TOOL_ADD_PAYLOAD,${HW_CONFIG},--hw-config,${HW_CONFIG}))
+# Add the TOS_FW_CONFIG to FIP and specify the same to certtool
+$(eval $(call TOOL_ADD_PAYLOAD,${TOS_FW_CONFIG},--tos-fw-config,${TOS_FW_CONFIG}))
 
 ifeq (${TRUSTED_BOARD_BOOT},1)
 FIP_BL2_ARGS	:=	tb-fw

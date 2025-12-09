@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2024-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -21,9 +21,18 @@
 #error "Cortex-A720AE supports only AArch64. Compile with CTX_INCLUDE_AARCH32_REGS=0"
 #endif
 
+cpu_reset_prologue cortex_a720_ae
+
+.global check_erratum_cortex_a720_ae_3699562
+
+add_erratum_entry cortex_a720_ae, ERRATUM(3699562), ERRATA_A720_AE_3699562
+
+check_erratum_ls cortex_a720_ae, ERRATUM(3699562), CPU_REV(0, 0)
+
 cpu_reset_func_start cortex_a720_ae
 	/* Disable speculative loads */
 	msr	SSBS, xzr
+	enable_mpmm
 cpu_reset_func_end cortex_a720_ae
 
 	/* ----------------------------------------------------

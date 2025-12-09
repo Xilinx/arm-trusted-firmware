@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,16 +8,9 @@
 #include <asm_macros.S>
 #include <cpu_macros.S>
 
-func aem_generic_core_pwr_dwn
-	/* ---------------------------------------------
-	 * Disable the Data Cache.
-	 * ---------------------------------------------
-	 */
-	mrs	x1, sctlr_el3
-	bic	x1, x1, #SCTLR_C_BIT
-	msr	sctlr_el3, x1
-	isb
+cpu_reset_prologue aem_generic
 
+func aem_generic_core_pwr_dwn
 	/* ---------------------------------------------
 	 * AEM model supports L3 caches in which case L2
 	 * will be private per core caches and flush
@@ -58,21 +51,15 @@ endfunc aem_generic_core_pwr_dwn
 
 func aem_generic_cluster_pwr_dwn
 	/* ---------------------------------------------
-	 * Disable the Data Cache.
-	 * ---------------------------------------------
-	 */
-	mrs	x1, sctlr_el3
-	bic	x1, x1, #SCTLR_C_BIT
-	msr	sctlr_el3, x1
-	isb
-
-	/* ---------------------------------------------
 	 * Flush all caches to PoC.
 	 * ---------------------------------------------
 	 */
 	mov	x0, #DCCISW
 	b	dcsw_op_all
 endfunc aem_generic_cluster_pwr_dwn
+
+cpu_reset_func_start aem_generic
+cpu_reset_func_end aem_generic
 
 	/* ---------------------------------------------
 	 * This function provides cpu specific
@@ -94,11 +81,11 @@ endfunc aem_generic_cpu_reg_dump
 
 
 /* cpu_ops for Base AEM FVP */
-declare_cpu_ops aem_generic, BASE_AEM_MIDR, CPU_NO_RESET_FUNC, \
+declare_cpu_ops aem_generic, BASE_AEM_MIDR, aem_generic_reset_func, \
 	aem_generic_core_pwr_dwn, \
 	aem_generic_cluster_pwr_dwn
 
 /* cpu_ops for Foundation FVP */
-declare_cpu_ops aem_generic, FOUNDATION_AEM_MIDR, CPU_NO_RESET_FUNC, \
+declare_cpu_ops aem_generic, FOUNDATION_AEM_MIDR, aem_generic_reset_func, \
 	aem_generic_core_pwr_dwn, \
 	aem_generic_cluster_pwr_dwn

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -52,11 +52,18 @@ const mmap_region_t plat_arm_mmap[] = {
 	ARM_MAP_OPTEE_CORE_MEM,
 	ARM_OPTEE_PAGEABLE_LOAD_MEM,
 #endif
-#if TRUSTED_BOARD_BOOT && !RESET_TO_BL2
+#if CRYPTO_SUPPORT && !RESET_TO_BL2
+	/*
+	 * To access shared the Mbed TLS heap while booting the
+	 * system with Crypto support
+	 */
 	ARM_MAP_BL1_RW,
 #endif
 #ifdef JUNO_ETHOSN_TZMP1
 	JUNO_ETHOSN_PROT_FW_RW,
+#endif
+#if SPMC_AT_EL3
+	ARM_SP_IMAGE_MMAP,
 #endif
 	{0}
 };
@@ -83,6 +90,12 @@ const mmap_region_t plat_arm_mmap[] = {
 	ARM_DTB_DRAM_NS,
 #ifdef JUNO_ETHOSN_TZMP1
 	JUNO_ETHOSN_PROT_FW_RO,
+#endif
+#ifdef JUNO_MAP_FW_NS_HANDOFF
+	JUNO_MAP_FW_NS_HANDOFF,
+#endif
+#if defined(JUNO_MAP_EL3_FW_HANDOFF) && !RESET_TO_BL31
+	JUNO_MAP_EL3_FW_HANDOFF,
 #endif
 	{0}
 };
@@ -153,3 +166,13 @@ sds_region_desc_t *plat_sds_get_regions(unsigned int *region_count)
 	return juno_sds_regions;
 }
 #endif /* CSS_USE_SCMI_SDS_DRIVER */
+
+#if CRYPTO_SUPPORT
+int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size)
+{
+	assert(heap_addr != NULL);
+	assert(heap_size != NULL);
+
+	return arm_get_mbedtls_heap(heap_addr, heap_size);
+}
+#endif

@@ -19,6 +19,7 @@ const mmap_region_t plat_arm_mmap[] = {
 #if IMAGE_BL2
 	RD1AE_MAP_NS_DRAM1,
 #endif
+	RD1AE_MAP_S_DRAM1,
 	{0}
 };
 
@@ -30,22 +31,6 @@ void plat_arm_secure_wdt_start(void)
 void plat_arm_secure_wdt_stop(void)
 {
 	sbsa_wdog_stop(SBSA_SECURE_WDOG_BASE);
-}
-
-/*
- * For rd1ae we should not do anything in these interface functions.
- * They are used to override the weak functions in cci drivers
- */
-void plat_arm_interconnect_init(void)
-{
-}
-
-void plat_arm_interconnect_enter_coherency(void)
-{
-}
-
-void plat_arm_interconnect_exit_coherency(void)
-{
 }
 
 /*

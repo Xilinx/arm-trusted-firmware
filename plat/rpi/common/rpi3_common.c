@@ -14,6 +14,7 @@
 #include <bl31/interrupt_mgmt.h>
 #include <drivers/console.h>
 #include <lib/xlat_tables/xlat_tables_v2.h>
+#include <plat/common/platform.h>
 
 #include <rpi_hw.h>
 #include <rpi_shared.h>
@@ -74,6 +75,9 @@ static const mmap_region_t plat_rpi3_mmap[] = {
 #endif
 	MAP_DEVICE0,
 	MAP_FIP,
+#if MEASURED_BOOT
+	RPI3_MAP_BL1_RW,
+#endif
 	MAP_NS_DRAM0,
 #ifdef BL32_BASE
 	MAP_BL32_MEM,
@@ -211,7 +215,7 @@ uint32_t plat_ic_get_pending_interrupt_type(void)
 	return INTR_TYPE_INVAL;
 }
 
-uint32_t plat_interrupt_type_to_line(uint32_t type, size_t security_state)
+uint32_t plat_interrupt_type_to_line(uint32_t type, uint32_t security_state)
 {
 	assert((type == INTR_TYPE_S_EL1) || (type == INTR_TYPE_EL3) ||
 	       (type == INTR_TYPE_NS));
@@ -225,3 +229,10 @@ uint32_t plat_interrupt_type_to_line(uint32_t type, size_t security_state)
 	/* Secure interrupts are signalled on the FIQ line always. */
 	return  __builtin_ctz(SCR_FIQ_BIT);
 }
+
+#if MEASURED_BOOT || TRUSTED_BOARD_BOOT
+int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size)
+{
+	return get_mbedtls_heap_helper(heap_addr, heap_size);
+}
+#endif

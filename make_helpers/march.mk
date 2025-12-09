@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, Arm Limited. All rights reserved.
+# Copyright (c) 2023-2025, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -81,6 +81,24 @@ endif # provided-march supported
 endif # not clang
 
 march-directive := -march=${provided-march}
+
+################################################################################
+# Get Architecture Feature Modifiers
+################################################################################
+arch-features		=	${ARM_ARCH_FEATURE}
+
+# This section is where we place modifiers for optional arch features. If they
+# are enabled with build flags, then we need to explicitly enable them in the
+# compiler as well since they are not enabled by default.
+ifneq ($(ENABLE_FEAT_PAUTH_LR), 0)
+    # Currently, FEAT_PAUTH_LR is only supported by arm/clang compilers
+    # TODO implement for GCC when support is added
+    ifeq ($($(ARCH)-cc-id),arm-clang)
+            arch-features	:= $(arch-features)+pauth-lr
+    else
+            $(error Error: ENABLE_FEAT_PAUTH_LR not supported for GCC compiler)
+    endif
+endif
 
 # Set the compiler's architecture feature modifiers
 ifneq ($(arch-features), none)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -76,15 +76,6 @@ func bl31_entrypoint
 	mov	x1, x21
 	mov	x2, x22
 	mov	x3, x23
-	bl	bl31_setup
-
-#if ENABLE_PAUTH
-	/* --------------------------------------------------------------------
-	 * Program APIAKey_EL1 and enable pointer authentication
-	 * --------------------------------------------------------------------
-	 */
-	bl	pauth_init_enable_el3
-#endif /* ENABLE_PAUTH */
 
 	/* --------------------------------------------------------------------
 	 * Jump to main function
@@ -113,6 +104,23 @@ func bl31_entrypoint
 	sub	x1, x1, x0
 	bl	clean_dcache_range
 
+	adrp	x0, __PER_CPU_START__
+	add	x0, x0, :lo12:__PER_CPU_START__
+	adrp	x1, __PER_CPU_END__
+	add	x1, x1, :lo12:__PER_CPU_END__
+	sub	x1, x1, x0
+	bl	clean_dcache_range
+
+#if (PLATFORM_NODE_COUNT > 1)
+	/*
+	 * dcache clean per-cpu sections defined by the platform.
+	 * Care must be taken to preserve and retain the clobbered
+	 * registers. A standard around the container for per-cpu nodes
+	 * is not yet defined.
+	 */
+
+	bl	plat_per_cpu_dcache_clean
+#endif /* (PLATFORM_NODE_COUNT > 1) */
 	b	el3_exit
 endfunc bl31_entrypoint
 
@@ -161,51 +169,7 @@ func bl31_warm_entrypoint
 		_exception_vectors=runtime_exceptions		\
 		_pie_fixup_size=0
 
-	/*
-	 * We're about to enable MMU and participate in PSCI state coordination.
-	 *
-	 * The PSCI implementation invokes platform routines that enable CPUs to
-	 * participate in coherency. On a system where CPUs are not
-	 * cache-coherent without appropriate platform specific programming,
-	 * having caches enabled until such time might lead to coherency issues
-	 * (resulting from stale data getting speculatively fetched, among
-	 * others). Therefore we keep data caches disabled even after enabling
-	 * the MMU for such platforms.
-	 *
-	 * On systems with hardware-assisted coherency, or on single cluster
-	 * platforms, such platform specific programming is not required to
-	 * enter coherency (as CPUs already are); and there's no reason to have
-	 * caches disabled either.
-	 */
-#if HW_ASSISTED_COHERENCY || WARMBOOT_ENABLE_DCACHE_EARLY
-	mov	x0, xzr
-#else
-	mov	x0, #DISABLE_DCACHE
-#endif
-	bl	bl31_plat_enable_mmu
-
-#if ENABLE_RME
-	/*
-	 * At warm boot GPT data structures have already been initialized in RAM
-	 * but the sysregs for this CPU need to be initialized. Note that the GPT
-	 * accesses are controlled attributes in GPCCR and do not depend on the
-	 * SCR_EL3.C bit.
-	 */
-	bl	gpt_enable
-	cbz	x0, 1f
-	no_ret plat_panic_handler
-1:
-#endif
-
-#if ENABLE_PAUTH
-	/* --------------------------------------------------------------------
-	 * Program APIAKey_EL1 and enable pointer authentication
-	 * --------------------------------------------------------------------
-	 */
-	bl	pauth_init_enable_el3
-#endif /* ENABLE_PAUTH */
-
-	bl	psci_warmboot_entrypoint
+	bl	bl31_warmboot
 
 #if ENABLE_RUNTIME_INSTRUMENTATION
 	pmf_calc_timestamp_addr rt_instr_svc, RT_INSTR_EXIT_PSCI

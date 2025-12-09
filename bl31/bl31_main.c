@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -17,12 +17,17 @@
 #include <common/debug.h>
 #include <common/feat_detect.h>
 #include <common/runtime_svc.h>
+#include <drivers/arm/dsu.h>
+#include <drivers/arm/gic.h>
 #include <drivers/console.h>
 #include <lib/bootmarker_capture.h>
 #include <lib/el3_runtime/context_debug.h>
 #include <lib/el3_runtime/context_mgmt.h>
+#include <lib/extensions/pauth.h>
+#include <lib/gpt_rme/gpt_rme.h>
 #include <lib/pmf/pmf.h>
 #include <lib/runtime_instr.h>
+#include <lib/xlat_tables/xlat_mmu_helpers.h>
 #include <plat/common/platform.h>
 #include <services/std_svc.h>
 
@@ -90,11 +95,18 @@ static void __init bl31_lib_init(void)
 }
 
 /*******************************************************************************
- * Setup function for BL31.
+ * BL31 is responsible for setting up the runtime services for the primary cpu
+ * before passing control to the bootloader or an Operating System. This
+ * function calls runtime_svc_init() which initializes all registered runtime
+ * services. The run time services would setup enough context for the core to
+ * switch to the next exception level. When this function returns, the core will
+ * switch to the programmed exception level via an ERET.
  ******************************************************************************/
-void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
+void __no_pauth bl31_main(u_register_t arg0, u_register_t arg1, u_register_t arg2,
 		u_register_t arg3)
 {
+	unsigned int core_pos = plat_my_core_pos();
+
 	/* Enable early console if EARLY_CONSOLE flag is enabled */
 	plat_setup_early_console();
 
@@ -104,41 +116,22 @@ void bl31_setup(u_register_t arg0, u_register_t arg1, u_register_t arg2,
 	/* Perform late platform-specific setup */
 	bl31_plat_arch_setup();
 
-#if CTX_INCLUDE_PAUTH_REGS
-	/*
-	 * Assert that the ARMv8.3-PAuth registers are present or an access
-	 * fault will be triggered when they are being saved or restored.
-	 */
-	assert(is_armv8_3_pauth_present());
-#endif /* CTX_INCLUDE_PAUTH_REGS */
+#if FEATURE_DETECTION
+	/* Detect if features enabled during compilation are supported by PE. */
+	detect_arch_features(core_pos);
+#endif /* FEATURE_DETECTION */
 
 	/* Prints context_memory allocated for all the security states */
 	report_ctx_memory_usage();
-}
 
-/*******************************************************************************
- * BL31 is responsible for setting up the runtime services for the primary cpu
- * before passing control to the bootloader or an Operating System. This
- * function calls runtime_svc_init() which initializes all registered runtime
- * services. The run time services would setup enough context for the core to
- * switch to the next exception level. When this function returns, the core will
- * switch to the programmed exception level via an ERET.
- ******************************************************************************/
-void bl31_main(void)
-{
-	/* Init registers that never change for the lifetime of TF-A */
-	cm_manage_extensions_el3();
+	/* Init registers that never change for the lifetime of the core. */
+	cm_manage_extensions_el3(core_pos);
 
-	/* Init per-world context registers for non-secure world */
-	manage_extensions_nonsecure_per_world();
+	/* Init per-world context registers */
+	cm_manage_extensions_per_world();
 
 	NOTICE("BL31: %s\n", build_version_string);
 	NOTICE("BL31: %s\n", build_message);
-
-#if FEATURE_DETECTION
-	/* Detect if features enabled during compilation are supported by PE. */
-	detect_arch_features();
-#endif /* FEATURE_DETECTION */
 
 #if ENABLE_RUNTIME_INSTRUMENTATION
 	PMF_CAPTURE_TIMESTAMP(bl_svc, BL31_ENTRY, PMF_CACHE_MAINT);
@@ -152,6 +145,20 @@ void bl31_main(void)
 
 	/* Perform platform setup in BL31 */
 	bl31_platform_setup();
+
+#if USE_DSU_DRIVER
+	dsu_driver_init(&plat_dsu_data);
+#endif
+
+#if USE_GIC_DRIVER
+	/*
+	 * Initialize the GIC driver as well as per-cpu and global interfaces.
+	 * Platform has had an opportunity to initialise specifics.
+	 */
+	gic_init(core_pos);
+	gic_pcpu_init(core_pos);
+	gic_cpuif_enable(core_pos);
+#endif /* USE_GIC_DRIVER */
 
 	/* Initialise helper libraries */
 	bl31_lib_init();
@@ -228,6 +235,60 @@ void bl31_main(void)
 
 	console_flush();
 	console_switch_state(CONSOLE_FLAG_RUNTIME);
+}
+
+void __no_pauth bl31_warmboot(void)
+{
+	unsigned int core_pos = plat_my_core_pos();
+
+#if FEATURE_DETECTION
+	/* Detect if features enabled during compilation are supported by PE. */
+	detect_arch_features(core_pos);
+#endif /* FEATURE_DETECTION */
+
+	/*
+	 * We're about to enable MMU and participate in PSCI state coordination.
+	 *
+	 * The PSCI implementation invokes platform routines that enable CPUs to
+	 * participate in coherency. On a system where CPUs are not
+	 * cache-coherent without appropriate platform specific programming,
+	 * having caches enabled until such time might lead to coherency issues
+	 * (resulting from stale data getting speculatively fetched, among
+	 * others). Therefore we keep data caches disabled even after enabling
+	 * the MMU for such platforms.
+	 *
+	 * On systems with hardware-assisted coherency, or on single cluster
+	 * platforms, such platform specific programming is not required to
+	 * enter coherency (as CPUs already are); and there's no reason to have
+	 * caches disabled either.
+	 */
+#if HW_ASSISTED_COHERENCY || WARMBOOT_ENABLE_DCACHE_EARLY
+	bl31_plat_enable_mmu(0);
+#else
+	bl31_plat_enable_mmu(DISABLE_DCACHE);
+#endif
+
+	/* Init registers that never change for the lifetime of the core. */
+	cm_manage_extensions_el3(core_pos);
+
+#if ENABLE_RME
+	/*
+	 * At warm boot GPT data structures have already been initialized in RAM
+	 * but the sysregs for this CPU need to be initialized. Note that the GPT
+	 * accesses are controlled attributes in GPCCR and do not depend on the
+	 * SCR_EL3.C bit.
+	 */
+	if (gpt_enable() != 0) {
+		panic();
+	}
+#endif
+
+/* Enable DSU driver for each booting core */
+#if USE_DSU_DRIVER
+	dsu_driver_init(&plat_dsu_data);
+#endif
+
+	psci_warmboot_entrypoint(core_pos);
 }
 
 /*******************************************************************************

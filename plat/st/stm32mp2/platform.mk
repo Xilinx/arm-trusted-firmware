@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, STMicroelectronics - All Rights Reserved
+# Copyright (c) 2023-2025, STMicroelectronics - All Rights Reserved
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -11,9 +11,12 @@ STM32_EXTRA_PARTS		:=	6
 include plat/st/common/common.mk
 
 CRASH_REPORTING			:=	1
-ENABLE_PIE			:=	1
+# Disable PIE by default. To re-enable it, uncomment next line.
+#ENABLE_PIE			:=	1
 PROGRAMMABLE_RESET_ADDRESS	:=	1
+ifeq ($(ENABLE_PIE),1)
 BL2_IN_XIP_MEM			:=	1
+endif
 
 STM32MP_BL33_EL1		?=	1
 ifeq ($(STM32MP_BL33_EL1),1)
@@ -27,11 +30,44 @@ ENABLE_SVE_FOR_NS		:=	0
 # Default Device tree
 DTB_FILE_NAME			?=	stm32mp257f-ev1.dtb
 
-STM32MP25			:=	1
+TF_CFLAGS			+=	-DSTM32MP2X
 
-# STM32 image header version v2.2
+STM32MP21			?=	0
+STM32MP23			?=	0
+STM32MP25			?=	0
+
+ifneq ($(findstring stm32mp21,$(DTB_FILE_NAME)),)
+STM32MP21			:=	1
+endif
+ifneq ($(findstring stm32mp23,$(DTB_FILE_NAME)),)
+STM32MP23			:=	1
+endif
+ifneq ($(findstring stm32mp25,$(DTB_FILE_NAME)),)
+STM32MP25			:=	1
+endif
+ifneq ($(filter 1,$(STM32MP21) $(STM32MP23) $(STM32MP25)), 1)
+$(warning STM32MP21=$(STM32MP21))
+$(warning STM32MP23=$(STM32MP23))
+$(warning STM32MP25=$(STM32MP25))
+$(warning DTB_FILE_NAME=$(DTB_FILE_NAME))
+$(error Cannot enable more than one STM32MP2x flag)
+endif
+
+# STM32 image header version v2.2 or v2.3 for STM32MP21
 STM32_HEADER_VERSION_MAJOR	:=	2
+ifeq ($(STM32MP21),1)
+STM32_HEADER_VERSION_MINOR	:=	3
+else
 STM32_HEADER_VERSION_MINOR	:=	2
+endif
+
+STM32_HASH_VER			:=	4
+STM32_RNG_VER			:=	4
+ifeq ($(STM32MP21),1)
+STM32_RNG_VER_MINOR		:=	4
+else
+STM32_RNG_VER_MINOR		:=	3
+endif
 
 # Set load address for serial boot devices
 DWL_BUFFER_BASE 		?=	0x87000000
@@ -86,6 +122,19 @@ ifeq (${STM32MP_DDR_FIP_IO_STORAGE},1)
 $(eval $(call TOOL_ADD_IMG,STM32MP_DDR_FW,--ddr-fw))
 endif
 
+# Ultratronik Specific Boards
+ifeq ($(findstring ultra-fly,$(DTB_FILE_NAME)),ultra-fly)
+ULTRA_FLY := 1
+$(eval $(call assert_booleans,\
+	$(sort \
+		ULTRA_FLY \
+	)))
+$(eval $(call add_defines,\
+	$(sort \
+		ULTRA_FLY \
+	)))
+endif
+
 # Enable flags for C files
 $(eval $(call assert_booleans,\
 	$(sort \
@@ -94,6 +143,8 @@ $(eval $(call assert_booleans,\
 		STM32MP_DDR3_TYPE \
 		STM32MP_DDR4_TYPE \
 		STM32MP_LPDDR4_TYPE \
+		STM32MP21 \
+		STM32MP23 \
 		STM32MP25 \
 		STM32MP_BL33_EL1 \
 )))
@@ -101,7 +152,10 @@ $(eval $(call assert_booleans,\
 $(eval $(call assert_numerics,\
 	$(sort \
 		PLAT_PARTITION_MAX_ENTRIES \
+		STM32_HASH_VER \
 		STM32_HEADER_VERSION_MAJOR \
+		STM32_RNG_VER \
+		STM32_RNG_VER_MINOR \
 		STM32_TF_A_COPIES \
 )))
 
@@ -111,12 +165,17 @@ $(eval $(call add_defines,\
 		PLAT_DEF_FIP_UUID \
 		PLAT_PARTITION_MAX_ENTRIES \
 		PLAT_TBBR_IMG_DEF \
+		STM32_HASH_VER \
+		STM32_RNG_VER \
+		STM32_RNG_VER_MINOR \
 		STM32_TF_A_COPIES \
 		STM32MP_DDR_DUAL_AXI_PORT \
 		STM32MP_DDR_FIP_IO_STORAGE \
 		STM32MP_DDR3_TYPE \
 		STM32MP_DDR4_TYPE \
 		STM32MP_LPDDR4_TYPE \
+		STM32MP21 \
+		STM32MP23 \
 		STM32MP25 \
 		STM32MP_BL33_EL1 \
 )))
@@ -146,19 +205,29 @@ PLAT_BL_COMMON_SOURCES		+=	drivers/st/bsec/bsec3.c					\
 					plat/st/stm32mp2/stm32mp2_syscfg.c
 
 PLAT_BL_COMMON_SOURCES		+=	drivers/st/clk/clk-stm32-core.c				\
-					drivers/st/clk/clk-stm32mp2.c
+					drivers/st/clk/clk-stm32mp2.c				\
+					drivers/st/crypto/stm32_rng.c
 
 BL2_SOURCES			+=	plat/st/stm32mp2/plat_bl2_mem_params_desc.c
 
 BL2_SOURCES			+=	plat/st/stm32mp2/bl2_plat_setup.c			\
 					plat/st/stm32mp2/plat_ddr.c
 
+BL2_SOURCES			+=	drivers/st/crypto/stm32_hash.c
+
+BL2_SOURCES			+=	drivers/st/rif/stm32_rifsc.c 				\
+					drivers/st/rif/stm32mp2_risaf.c
+
 ifneq ($(filter 1,${STM32MP_EMMC} ${STM32MP_SDMMC}),)
 BL2_SOURCES			+=	drivers/st/mmc/stm32_sdmmc2.c
 endif
 
 ifeq (${STM32MP_USB_PROGRAMMER},1)
-BL2_SOURCES			+=	plat/st/stm32mp2/stm32mp2_usb_dfu.c
+#The DFU stack uses only one end point, reduce the USB stack footprint
+$(eval $(call add_define_val,CONFIG_USBD_EP_NB,1U))
+$(eval $(call add_define,USB_CORE_AVOID_PACKET_SPLIT_MPS))
+BL2_SOURCES			+=	drivers/st/usb_dwc3/usb_dwc3.c				\
+					plat/st/stm32mp2/stm32mp2_usb_dfu.c
 endif
 
 BL2_SOURCES			+=	drivers/st/ddr/stm32mp2_ddr.c				\
@@ -202,10 +271,15 @@ BL31_SOURCES			+=	${GICV2_SOURCES}					\
 # Generic PSCI
 BL31_SOURCES			+=	plat/common/plat_psci_common.c
 
+BL31_SOURCES			+=	plat/st/common/stm32mp_svc_setup.c			\
+					plat/st/stm32mp2/services/stgen_svc.c			\
+					plat/st/stm32mp2/services/stm32mp2_svc_setup.c
+
+# Arm Archtecture services
+BL31_SOURCES			+=	services/arm_arch_svc/arm_arch_svc_setup.c
+
 # Compilation rules
 .PHONY: check_ddr_type
-.SUFFIXES:
-
 bl2: check_ddr_type
 
 check_ddr_type:
@@ -216,6 +290,29 @@ check_ddr_type:
 		echo "One and only one DDR type must be defined"; \
 		false; \
 	fi
+
+# Generate separate DDR FIP image
+ifeq (${STM32MP_DDR_FIP_IO_STORAGE},1)
+ifneq ($(filter 1,${STM32MP_UART_PROGRAMMER} ${STM32MP_USB_PROGRAMMER}),)
+
+STM32MP_DDR_FW_COPY		:=	${STM32MP_DDR_FW}
+DDR_FIP_NAME			?=	fip-ddr.bin
+
+$(eval $(call TOOL_ADD_IMG,STM32MP_DDR_FW_COPY,--ddr-fw,DDR_))
+
+${BUILD_PLAT}/${DDR_FIP_NAME}: ${DDR_FIP_DEPS} fiptool
+	${Q}${FIPTOOL} create ${DDR_FIP_ARGS} $@
+	${Q}${FIPTOOL} info $@
+	@${ECHO_BLANK_LINE}
+	@echo "Built $@ successfully"
+	@${ECHO_BLANK_LINE}
+
+fip-ddr: ${BUILD_PLAT}/${DDR_FIP_NAME}
+
+fip: fip-ddr
+
+endif
+endif
 
 # Create DTB file for BL31
 ${BUILD_PLAT}/fdts/%-bl31.dts: fdts/%.dts fdts/${BL31_DTSI} | $$(@D)/

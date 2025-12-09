@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -160,6 +160,11 @@
 #define SOCFPGA_ECC_QSPI_ECC_STARTACC					0x7C
 #define SOCFPGA_ECC_QSPI_ECC_WDCTRL					0x80
 
+/* IOSSM mailbox address */
+#define IOSSM_CMD_PARAM							0x18400438
+#define IOSSM_CMD_TRIG_OP						0x1840043C
+#define IOSSM_CMD_RESP_STATUS						0x1840045C
+
 #define DMA0_STREAM_CTRL_REG						0x10D1217C
 #define DMA1_STREAM_CTRL_REG						0x10D12180
 #define SDM_STREAM_CTRL_REG						0x10D12184
@@ -193,12 +198,12 @@
 #define A5D0_JTAG_ID							0xD000
 #define A5D4_JTAG_ID							0x4000D000
 #define A5F0_JTAG_ID							0xC000
-#define A5F4_JTAG_ID							0x4000F000
+#define A5F4_JTAG_ID							0x4000C000
 #define A510_JTAG_ID							0x1000
 #define A514_JTAG_ID							0x40001000
 #define A530_JTAG_ID							0x3000
 #define A534_JTAG_ID							0x40003000
-#define JTAG_ID_MASK							0xC000F000
+#define JTAG_ID_MASK							0xF000F000
 
 /* Field Masking */
 #define SYSMGR_SDMMC_DRVSEL(x)						(((x) & 0x7) << 0)
@@ -219,6 +224,9 @@
 #define RSTREAMIDEN_REG_CTRL						BIT(1)
 #define WMMUSECSID_REG_VAL						BIT(4)
 #define RMMUSECSID_REG_VAL						BIT(5)
+
+#define SYSMGR_USB3_MISC0_RST_PUL_OVRD					BIT(12)
+#define SYSMGR_USB3_MISC0_PORT_OVR_CURR_PIPE_PWR			BIT(14)
 
 /* Macros */
 #define SOCFPGA_ECC_QSPI(_reg)						(SOCFPGA_ECC_QSPI_REG_BASE \

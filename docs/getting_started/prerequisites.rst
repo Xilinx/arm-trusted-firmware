@@ -26,13 +26,13 @@ Requirements
 ======================== =====================
         Program          Min supported version
 ======================== =====================
-Arm Compiler             6.18
-Arm GNU Compiler         13.3
+Arm Compiler             6.23
+Arm GNU Compiler         14.3
 Clang/LLVM               18.1.8
 Device Tree Compiler     1.6.1
-GNU make                 3.81
-mbed TLS\ [#f1]_         3.6.1
-Node.js [#f2]_           16
+GNU Make                 4.3
+mbed TLS\ [#f1]_         3.6.5
+Node.js [#f2]_           20.11.1
 OpenSSL                  1.0.0
 Poetry                   1.3.2
 QCBOR\ [#f3]_            1.2
@@ -51,8 +51,8 @@ preceding table that target Armv7-A or Armv8-A. For AArch32 and
 AArch64 builds, the respective targets required are ``arm-none-eabi`` and
 ``aarch64-none-elf``.
 
-Testing has been performed with version 13.3.Rel1 (gcc 13.3) of the Arm
-GNU compiler, which can be installed from the `Arm Developer website`_.
+Testing has been performed with the version of the Arm GNU compiler listed in
+the table above. This can be installed from the `Arm Developer website`_.
 
 In addition, a native compiler is required to build supporting tools.
 
@@ -180,16 +180,52 @@ manually by running:
     chmod +x $(git rev-parse --git-dir)/hooks/commit-msg
 
 You can read more about Git hooks in the *githooks* page of the Git
-documentation, available `here <https://git-scm.com/docs/githooks>`_.
+documentation, available `here <https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks>`_.
+
+.. _git_submodules:
+
+Cloning Additional Git Submodules
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some dependencies in TF-A, such as Transfer List Library ``libtl``, are managed
+using Git submodules. Submodules allow external repositories to be included
+within the main project while maintaining their own commit history.
+
+Initial Clone with Submodules
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you're cloning the repository for the first time, run the following commands
+to initialize and fetch all submodules:
+
+.. code-block:: bash
+
+   git clone --recurse-submodules "https://git.trustedfirmware.org/TF-A/trusted-firmware-a"
+
+This ensures all submodules (including ``libtl``) are correctly checked out.
+
+Updating Submodules
+^^^^^^^^^^^^^^^^^^^
+
+If the project updates the reference to a submodule (e.g., points to a new
+commit of ``libtl``), you can update your local copy by running:
+
+.. code-block:: bash
+
+   git pull
+   git submodule update --init --recursive
+
+To fetch the latest commits from all submodules, you can use:
+
+.. code-block:: bash
+
+   git submodule update --remote
 
 --------------
 
-*Copyright (c) 2021-2024, Arm Limited. All rights reserved.*
+*Copyright (c) 2021-2025, Arm Limited. All rights reserved.*
 
 .. _Arm Developer website: https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/downloads
 .. _Gerrit Code Review: https://www.gerritcodereview.com/
-.. _Linaro Release Notes: https://community.arm.com/dev-platforms/w/docs/226/old-release-notes
-.. _Linaro instructions: https://community.arm.com/dev-platforms/w/docs/304/arm-reference-platforms-deliverables
 .. _Arm-DS: https://developer.arm.com/Tools%20and%20Software/Arm%20Development%20Studio
 .. _Linaro Release 20.01: http://releases.linaro.org/members/arm/platforms/20.01
 .. _TrustedFirmware.org: https://www.trustedfirmware.org/

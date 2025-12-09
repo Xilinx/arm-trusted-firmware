@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -16,6 +16,8 @@ USE_COHERENT_MEM	:=	0
 
 # Default Device tree
 DTB_FILE_NAME		?=	stm32mp157c-ev1.dtb
+
+TF_CFLAGS 		+=	-DSTM32MP1X
 
 STM32MP13		?=	0
 STM32MP15		?=	0
@@ -87,9 +89,11 @@ WORKAROUND_CVE_2022_23960:=	0
 ifeq ($(STM32MP13),1)
 STM32_HASH_VER		:=	4
 STM32_RNG_VER		:=	4
+STM32_RNG_VER_MINOR	:=	2
 else # Assuming STM32MP15
 STM32_HASH_VER		:=	2
 STM32_RNG_VER		:=	2
+STM32_RNG_VER_MINOR	:=	1
 endif
 
 # Download load address for serial boot devices
@@ -105,6 +109,11 @@ FDT_SOURCES		:=	$(addprefix ${BUILD_PLAT}/fdts/, $(patsubst %.dtb,%-bl2.dts,$(DT
 ifeq ($(AARCH32_SP),sp_min)
 BL32_DTSI		:=	stm32mp15-bl32.dtsi
 FDT_SOURCES		+=	$(addprefix ${BUILD_PLAT}/fdts/, $(patsubst %.dtb,%-bl32.dts,$(DTB_FILE_NAME)))
+ifneq (,$(wildcard $(patsubst %.dtb,fdts/%-sp_min.dts,$(DTB_FILE_NAME))))
+ifeq (,$(findstring -sp_min,$(DTB_FILE_NAME)))
+SP_EXT			:=	-sp_min
+endif
+endif
 endif
 endif
 
@@ -155,6 +164,7 @@ $(eval $(call assert_numerics,\
 		STM32_HASH_VER \
 		STM32_HEADER_VERSION_MAJOR \
 		STM32_RNG_VER \
+		STM32_RNG_VER_MINOR \
 		STM32_TF_A_COPIES \
 )))
 
@@ -168,6 +178,7 @@ $(eval $(call add_defines,\
 		STM32_HASH_VER \
 		STM32_HEADER_VERSION_MAJOR \
 		STM32_RNG_VER \
+		STM32_RNG_VER_MINOR \
 		STM32_TF_A_COPIES \
 		STM32MP_CRYPTO_ROM_LIB \
 		STM32MP_DDR_32BIT_INTERFACE \
@@ -216,6 +227,10 @@ BL2_SOURCES		+=	plat/st/stm32mp1/plat_bl2_mem_params_desc.c		\
 BL2_SOURCES		+=	drivers/st/crypto/stm32_hash.c				\
 				plat/st/stm32mp1/bl2_plat_setup.c
 
+ifeq ($(STM32MP13),1)
+BL2_SOURCES		+=	drivers/st/mce/stm32_mce.c
+endif
+
 ifeq (${TRUSTED_BOARD_BOOT},1)
 ifeq ($(STM32MP13),1)
 BL2_SOURCES		+=	drivers/st/crypto/stm32_pka.c
@@ -258,7 +273,7 @@ BL2_SOURCES		+=	plat/st/stm32mp1/plat_ddr.c
 ifeq ($(AARCH32_SP),sp_min)
 # Create DTB file for BL32
 ${BUILD_PLAT}/fdts/%-bl32.dts: fdts/%.dts fdts/${BL32_DTSI} | $$(@D)/
-	$(q)echo '#include "$(patsubst fdts/%,%,$<)"' > $@
+	$(q)echo '#include "$(patsubst %.dts,%$(SP_EXT).dts,$(patsubst fdts/%,%,$<))"' > $@
 	$(q)echo '#include "${BL32_DTSI}"' >> $@
 
 ${BUILD_PLAT}/fdts/%-bl32.dtb: ${BUILD_PLAT}/fdts/%-bl32.dts | $$(@D)/

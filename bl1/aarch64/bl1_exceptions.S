@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -224,15 +224,6 @@ smc_handler:
 	 */
 	bl	prepare_el3_entry
 
-#if ENABLE_PAUTH
-	/* -----------------------------------------------------
-	 * Load and program stored APIAKey firmware key.
-	 * Re-enable pointer authentication in EL3, as it was
-	 * disabled before jumping to the next boot image.
-	 * -----------------------------------------------------
-	 */
-	bl	pauth_load_bl1_apiakey_enable
-#endif
 	/* -----------------------------------------------------
 	 * Populate the parameters for the SMC handler. We
 	 * already have x0-x4 in place. x5 will point to a
@@ -261,17 +252,16 @@ smc_handler:
 	mov	sp, x12
 
 	/* -----------------------------------------------------
-	 * Save the SPSR_EL3, ELR_EL3, & SCR_EL3 in case there
+	 * Save the SPSR_EL3, ELR_EL3 in case there
 	 * is a world switch during SMC handling.
 	 * -----------------------------------------------------
 	 */
 	mrs	x16, spsr_el3
 	mrs	x17, elr_el3
-	mrs	x18, scr_el3
 	stp	x16, x17, [x6, #CTX_EL3STATE_OFFSET + CTX_SPSR_EL3]
-	str	x18, [x6, #CTX_EL3STATE_OFFSET + CTX_SCR_EL3]
 
 	/* Copy SCR_EL3.NS bit to the flag to indicate caller's security */
+	mrs	x18, scr_el3
 	bfi	x7, x18, #0, #1
 
 	/* -----------------------------------------------------

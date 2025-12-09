@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2020-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,26 +11,10 @@
 #include <cpu_macros.S>
 #include <plat_macros.S>
 
-	/* ---------------------------------------------
-	 * Disable L1 data cache and unified L2 cache
-	 * ---------------------------------------------
-	 */
-func generic_disable_dcache
-	mrs	x1, sctlr_el3
-	bic	x1, x1, #SCTLR_C_BIT
-	msr	sctlr_el3, x1
-	isb
-	ret
-endfunc generic_disable_dcache
+cpu_reset_prologue generic
 
 func generic_core_pwr_dwn
 	mov	x18, x30
-
-	/* ---------------------------------------------
-	 * Turn off caches.
-	 * ---------------------------------------------
-	 */
-	bl	generic_disable_dcache
 
 	/* ---------------------------------------------
 	 * Flush L1 caches.
@@ -44,12 +28,6 @@ endfunc generic_core_pwr_dwn
 
 func generic_cluster_pwr_dwn
 	mov	x18, x30
-
-	/* ---------------------------------------------
-	 * Turn off caches.
-	 * ---------------------------------------------
-	 */
-	bl	generic_disable_dcache
 
 	/* ---------------------------------------------
 	 * Flush L1 caches.
@@ -80,7 +58,9 @@ endfunc generic_cluster_pwr_dwn
  * ---------------------------------------------
  */
 .equ	generic_cpu_reg_dump,		0
-.equ	generic_reset_func,		0
+
+cpu_reset_func_start generic
+cpu_reset_func_end generic
 
 declare_cpu_ops generic, AARCH64_GENERIC_MIDR, \
 	generic_reset_func, \

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
 # Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -32,6 +32,10 @@ PROGRAMMABLE_RESET_ADDRESS	:=	1
 
 RESET_TO_BL31			:=	0
 
+# Enable the dynamic translation tables library
+PLAT_XLAT_TABLES_DYNAMIC	:=	1
+$(eval $(call add_define,PLAT_XLAT_TABLES_DYNAMIC))
+
 QTI_SDI_BUILD := 0
 $(eval $(call assert_boolean,QTI_SDI_BUILD))
 $(eval $(call add_define,QTI_SDI_BUILD))
@@ -63,9 +67,9 @@ QTI_BL31_SOURCES	:=	$(QTI_PLAT_PATH)/common/src/$(ARCH)/qti_helpers.S	\
 				$(QTI_PLAT_PATH)/common/src/qti_syscall.c		\
 				$(QTI_PLAT_PATH)/common/src/qti_topology.c		\
 				$(QTI_PLAT_PATH)/common/src/qti_pm.c			\
-				$(QTI_PLAT_PATH)/common/src/qti_rng.c			\
 				$(QTI_PLAT_PATH)/common/src/spmi_arb.c			\
 				$(QTI_PLAT_PATH)/qtiseclib/src/qtiseclib_cb_interface.c	\
+				drivers/qti/crypto/rng.c
 
 
 PLAT_INCLUDES		:=	-Iinclude/plat/common/					\
@@ -120,7 +124,6 @@ $(warning QTISECLIB_PATH is not provided while building, using stub implementati
 BL31_SOURCES	+=	plat/qti/qtiseclib/src/qtiseclib_interface_stub.c
 else
 # use library provided by QTISECLIB_PATH
-LDFLAGS += -L $(dir $(QTISECLIB_PATH))
-LDLIBS += -l$(patsubst lib%.a,%,$(notdir $(QTISECLIB_PATH)))
+LDLIBS += $(QTISECLIB_PATH)
 endif
 

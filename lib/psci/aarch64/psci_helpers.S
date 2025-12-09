@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,32 +12,24 @@
 
 	.globl	psci_do_pwrdown_cache_maintenance
 	.globl	psci_do_pwrup_cache_maintenance
-	.globl	psci_power_down_wfi
 
 /* -----------------------------------------------------------------------
- * void psci_do_pwrdown_cache_maintenance(unsigned int power level);
+ * void psci_do_pwrdown_cache_maintenance(void);
  *
- * This function performs cache maintenance for the specified power
- * level. The levels of cache affected are determined by the power
- * level which is passed as the argument i.e. level 0 results
- * in a flush of the L1 cache. Both the L1 and L2 caches are flushed
- * for a higher power level.
- *
- * Additionally, this function also ensures that stack memory is correctly
- * flushed out to avoid coherency issues due to a change in its memory
- * attributes after the data cache is disabled.
+ * This function turns off data caches and also ensures that stack memory
+ * is correctly flushed out to avoid coherency issues due to a change in
+ * its memory attributes.
  * -----------------------------------------------------------------------
  */
 func psci_do_pwrdown_cache_maintenance
 	stp     x29, x30, [sp,#-16]!
 	stp     x19, x20, [sp,#-16]!
 
-	/* ---------------------------------------------
-	 * Invoke CPU-specific power down operations for
-	 * the appropriate level
-	 * ---------------------------------------------
-	 */
-	bl	prepare_cpu_pwr_dwn
+	/* Disable L1 data cache and unified L2 cache */
+	mrs	x1, sctlr_el3
+	bic	x1, x1, #SCTLR_C_BIT
+	msr	sctlr_el3, x1
+	isb
 
 	/* ---------------------------------------------
 	 * Do stack maintenance by flushing the used
@@ -116,19 +108,3 @@ func psci_do_pwrup_cache_maintenance
 	ldp	x29, x30, [sp], #16
 	ret
 endfunc psci_do_pwrup_cache_maintenance
-
-/* -----------------------------------------------------------------------
- * void psci_power_down_wfi(void);
- * This function is called to indicate to the power controller that it
- * is safe to power down this cpu. It should not exit the wfi and will
- * be released from reset upon power up.
- * -----------------------------------------------------------------------
- */
-func psci_power_down_wfi
-	apply_erratum cortex_a510, ERRATUM(2684597), ERRATA_A510_2684597
-
-	dsb	sy		// ensure write buffer empty
-1:
-	wfi
-	b	1b
-endfunc psci_power_down_wfi

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -74,11 +74,6 @@ static int load_mbr_header(uintptr_t image_handle, mbr_entry_t *mbr_entry)
 	}
 
 	memcpy(&tmp, mbr_sector + MBR_PRIMARY_ENTRY_OFFSET, sizeof(tmp));
-
-	if (tmp.first_lba != 1) {
-		VERBOSE("MBR header may have an invalid first LBA\n");
-		return -EINVAL;
-	}
 
 	if ((tmp.sector_nums == 0) || (tmp.sector_nums == UINT32_MAX)) {
 		VERBOSE("MBR header entry has an invalid number of sectors\n");
@@ -393,13 +388,27 @@ static int load_primary_gpt(uintptr_t image_handle, unsigned int first_lba)
 	return load_partition_gpt(image_handle, header);
 }
 
+static void handle_gpt_corruption(void)
+{
+	uint8_t flags;
+
+	if ((plat_log_gpt_ptr == NULL) ||
+	    (plat_log_gpt_ptr->plat_set_gpt_corruption == NULL)) {
+		return;
+	}
+
+	flags = plat_log_gpt_ptr->gpt_corrupted_info | PRIMARY_GPT_CORRUPTED;
+	plat_log_gpt_ptr->plat_set_gpt_corruption((uintptr_t)&plat_log_gpt_ptr->gpt_corrupted_info,
+						  flags);
+}
+
 /*
  * Load the partition table info based on the image id provided.
  */
 int load_partition_table(unsigned int image_id)
 {
 	uintptr_t dev_handle, image_handle, image_spec = 0;
-	mbr_entry_t mbr_entry;
+	mbr_entry_t mbr_entry = {0};
 	int result;
 
 	result = plat_get_image_source(image_id, &dev_handle, &image_spec);
@@ -421,9 +430,15 @@ int load_partition_table(unsigned int image_id)
 		goto out;
 	}
 	if (mbr_entry.type == PARTITION_TYPE_GPT) {
+		if (mbr_entry.first_lba != 1U) {
+			VERBOSE("MBR header may have an invalid first LBA\n");
+			return -EINVAL;
+		}
+
 		result = load_primary_gpt(image_handle, mbr_entry.first_lba);
 		if (result != 0) {
 			io_close(image_handle);
+			handle_gpt_corruption();
 			return load_backup_gpt(BKUP_GPT_IMAGE_ID,
 					       mbr_entry.sector_nums);
 		}

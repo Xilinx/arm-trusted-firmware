@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2023-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,7 @@
 #include <common/bl_common.h>
 #include <cortex_a510.h>
 #include <cpu_macros.S>
+#include <dsu_macros.S>
 #include <plat_macros.S>
 
 /* Hardware handled coherency */
@@ -21,13 +22,31 @@
 #error "Cortex-A510 supports only AArch64. Compile with CTX_INCLUDE_AARCH32_REGS=0"
 #endif
 
-workaround_reset_start cortex_a510, ERRATUM(1922240), ERRATA_A510_1922240
-	/* Apply the workaround by setting IMP_CMPXACTLR_EL1[11:10] = 0b11. */
-	sysreg_bitfield_insert CORTEX_A510_CMPXACTLR_EL1, CORTEX_A510_CMPXACTLR_EL1_SNPPREFERUNIQUE_DISABLE, \
-	CORTEX_A510_CMPXACTLR_EL1_SNPPREFERUNIQUE_SHIFT, CORTEX_A510_CMPXACTLR_EL1_SNPPREFERUNIQUE_WIDTH
-workaround_reset_end cortex_a510, ERRATUM(1922240)
+cpu_reset_prologue cortex_a510
 
-check_erratum_ls cortex_a510, ERRATUM(1922240), CPU_REV(0, 0)
+workaround_runtime_start cortex_a510, ERRATUM(2008766), ERRATA_A510_2008766
+	/* Stash ERRSELR_EL1 in x2 */
+	mrs	x2, ERRSELR_EL1
+
+	/* Select error record 0 and clear ED bit */
+	msr	ERRSELR_EL1, xzr
+	sysreg_bit_clear ERXCTLR_EL1, ERXCTLR_ED_BIT
+
+	/* Select error record 1 and clear ED bit */
+	mov	x0, #1
+	msr	ERRSELR_EL1, x0
+	sysreg_bit_clear ERXCTLR_EL1, ERXCTLR_ED_BIT
+
+	/* Select error record 2 and clear ED bit */
+	mov	x0, #2
+	msr	ERRSELR_EL1, x0
+	sysreg_bit_clear ERXCTLR_EL1, ERXCTLR_ED_BIT
+
+	/* Restore ERRSELR_EL1 from x2 */
+	msr	ERRSELR_EL1, x2
+workaround_runtime_end cortex_a510, ERRATUM(2008766), NO_ISB
+
+check_erratum_ls cortex_a510, ERRATUM(2008766), CPU_REV(1, 3)
 
 workaround_reset_start cortex_a510, ERRATUM(2041909), ERRATA_A510_2041909
 	/* Apply workaround */
@@ -81,6 +100,13 @@ workaround_reset_end cortex_a510, ERRATUM(2080326)
 
 check_erratum_range cortex_a510, ERRATUM(2080326), CPU_REV(0, 2), CPU_REV(0, 2)
 
+workaround_reset_start cortex_a510, ERRATUM(2169012), ERRATA_A510_2169012
+	sysreg_bitfield_insert CORTEX_A510_CMPXACTLR_EL1, CORTEX_A510_CMPXACTLR_EL1_SNPPREFERUNIQUE_DISABLE, \
+	CORTEX_A510_CMPXACTLR_EL1_SNPPREFERUNIQUE_SHIFT, CORTEX_A510_CMPXACTLR_EL1_SNPPREFERUNIQUE_WIDTH
+workaround_reset_end cortex_a510, ERRATUM(2169012)
+
+check_erratum_ls cortex_a510, ERRATUM(2169012), CPU_REV(1, 0)
+
 workaround_reset_start cortex_a510, ERRATUM(2172148), ERRATA_A510_2172148
 	/*
 	 * Force L2 allocation of transient lines by setting
@@ -95,6 +121,12 @@ workaround_reset_end cortex_a510, ERRATUM(2172148)
 
 check_erratum_ls cortex_a510, ERRATUM(2172148), CPU_REV(1, 0)
 
+workaround_reset_start cortex_a510, ERRATUM(2218134), ERRATA_A510_2218134
+	sysreg_bit_set CORTEX_A510_CPUACTLR2_EL1, BIT(43)
+workaround_reset_end cortex_a510, ERRATUM(2218134)
+
+check_erratum_range cortex_a510, ERRATUM(2218134), CPU_REV(1, 0), CPU_REV(1, 0)
+
 workaround_reset_start cortex_a510, ERRATUM(2218950), ERRATA_A510_2218950
 	/* Set bit 18 in CPUACTLR_EL1 */
 	sysreg_bitfield_insert CORTEX_A510_CPUACTLR_EL1, CORTEX_A510_CPUACTLR_EL1_ALIAS_LOADSTORE_DISABLE, \
@@ -108,25 +140,11 @@ workaround_reset_end cortex_a510, ERRATUM(2218950)
 
 check_erratum_ls cortex_a510, ERRATUM(2218950), CPU_REV(1, 0)
 
-	/* --------------------------------------------------
-	 * This workaround is not a typical errata fix. MPMM
-	 * is disabled here, but this conflicts with the BL31
-	 * MPMM support. So in addition to simply disabling
-	 * the feature, a flag is set in the MPMM library
-	 * indicating that it should not be enabled even if
-	 * ENABLE_MPMM=1.
-	 * --------------------------------------------------
-	 */
 workaround_reset_start cortex_a510, ERRATUM(2250311), ERRATA_A510_2250311
 	/* Disable MPMM */
 	mrs	x0, CPUMPMMCR_EL3
 	bfm	x0, xzr, #0, #0 /* bfc instruction does not work in GCC */
 	msr	CPUMPMMCR_EL3, x0
-
-#if ENABLE_MPMM && IMAGE_BL31
-	/* If ENABLE_MPMM is set, tell the runtime lib to skip enabling it. */
-	bl mpmm_errata_disable
-#endif
 workaround_reset_end cortex_a510, ERRATUM(2250311)
 
 check_erratum_ls cortex_a510, ERRATUM(2250311), CPU_REV(1, 0)
@@ -138,6 +156,15 @@ workaround_reset_start cortex_a510, ERRATUM(2288014), ERRATA_A510_2288014
 workaround_reset_end cortex_a510, ERRATUM(2288014)
 
 check_erratum_ls cortex_a510, ERRATUM(2288014), CPU_REV(1, 0)
+
+workaround_reset_start cortex_a510, ERRATUM(2313941), ERRATA_DSU_2313941
+	errata_dsu_2313941_wa_impl
+workaround_reset_end cortex_a510, ERRATUM(2313941)
+
+check_erratum_custom_start cortex_a510, ERRATUM(2313941)
+	check_errata_dsu_2313941_impl
+	ret
+check_erratum_custom_end cortex_a510, ERRATUM(2313941)
 
 workaround_reset_start cortex_a510, ERRATUM(2347730), ERRATA_A510_2347730
 	/*
@@ -163,6 +190,12 @@ workaround_reset_end cortex_a510, ERRATUM(2371937)
 
 check_erratum_ls cortex_a510, ERRATUM(2371937), CPU_REV(1, 1)
 
+workaround_reset_start cortex_a510, ERRATUM(2420992), ERRATA_A510_2420992
+	sysreg_bit_set CORTEX_A510_CPUACTLR3_EL1, BIT(3)
+workaround_reset_end cortex_a510, ERRATUM(2420992)
+
+check_erratum_range cortex_a510, ERRATUM(2420992), CPU_REV(1, 0), CPU_REV(1, 1)
+
 workaround_reset_start cortex_a510, ERRATUM(2666669), ERRATA_A510_2666669
 	sysreg_bit_set CORTEX_A510_CPUACTLR_EL1, CORTEX_A510_CPUACTLR_EL1_BIT_38
 workaround_reset_end cortex_a510, ERRATUM(2666669)
@@ -180,21 +213,35 @@ workaround_runtime_end cortex_a510, ERRATUM(2684597)
 
 check_erratum_ls cortex_a510, ERRATUM(2684597), CPU_REV(1, 2)
 
-/*
- * ERRATA_DSU_2313941 :
- * The errata is defined in dsu_helpers.S but applies to cortex_a510
- * as well. Henceforth creating symbolic names to the already existing errata
- * workaround functions to get them registered under the Errata Framework.
- */
-.equ check_erratum_cortex_a510_2313941, check_errata_dsu_2313941
-.equ erratum_cortex_a510_2313941_wa, errata_dsu_2313941_wa
-add_erratum_entry cortex_a510, ERRATUM(2313941), ERRATA_DSU_2313941, APPLY_AT_RESET
+.global check_erratum_cortex_a510_2971420
+add_erratum_entry cortex_a510, ERRATUM(2971420), ERRATA_A510_2971420
+check_erratum_range cortex_a510, ERRATUM(2971420), CPU_REV(0, 1), CPU_REV(1, 3)
+
+workaround_reset_start cortex_a510, ERRATUM(3672349), ERRATA_A510_3672349
+	/*
+	 * Disable retention control for WFI and WFE by clearing both RET_CTRL
+	 * fields in CPUPWRCTLR_EL1.
+	 */
+	sysreg_bit_clear CORTEX_A510_CPUPWRCTLR_EL1, \
+			 (CORTEX_A510_CPUPWRCTLR_EL1_WFE_RET_CTRL_BITS | \
+			 CORTEX_A510_CPUPWRCTLR_EL1_WFI_RET_CTRL_BITS)
+workaround_reset_end cortex_a510, ERRATUM(3672349)
+
+check_erratum_ls cortex_a510, ERRATUM(3672349), CPU_REV(1, 3)
+
+workaround_reset_start cortex_a510, ERRATUM(3704847), ERRATA_A510_3704847
+	sysreg_bit_set CORTEX_A510_CPUACTLR_EL1, BIT(9)
+workaround_reset_end cortex_a510, ERRATUM(3704847)
+
+check_erratum_ls cortex_a510, ERRATUM(3704847), CPU_REV(1, 3)
 
 	/* ----------------------------------------------------
 	 * HW will do the cache maintenance while powering down
 	 * ----------------------------------------------------
 	 */
 func cortex_a510_core_pwr_dwn
+	apply_erratum cortex_a510, ERRATUM(2008766), ERRATA_A510_2008766
+	apply_erratum cortex_a510, ERRATUM(2684597), ERRATA_A510_2684597, NO_GET_CPU_REV
 	/* ---------------------------------------------------
 	 * Enable CPU power down bit in power control register
 	 * ---------------------------------------------------
@@ -207,6 +254,15 @@ endfunc cortex_a510_core_pwr_dwn
 cpu_reset_func_start cortex_a510
 	/* Disable speculative loads */
 	msr	SSBS, xzr
+	/* skip enabling MPMM if this erratum is present */
+#if ERRATA_A510_2250311
+	/* the cpu_rev_var is kept in x14 */
+	mov	x14, x0
+	bl	check_erratum_cortex_a510_2250311
+	cbz	x0, skip_mpmm
+#endif
+	enable_mpmm
+skip_mpmm:
 cpu_reset_func_end cortex_a510
 
 	/* ---------------------------------------------

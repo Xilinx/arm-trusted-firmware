@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,6 +24,9 @@
 #if DRTM_SUPPORT
 #include "plat_drtm.h"
 #endif /* DRTM_SUPPORT */
+#if LFA_SUPPORT
+#include "plat_lfa.h"
+#endif /* LFA_SUPPORT */
 
 /*******************************************************************************
  * Forward declarations
@@ -50,6 +53,18 @@ struct plat_try_images_ops {
 };
 
 extern const struct plat_try_images_ops *plat_try_img_ops;
+
+/*******************************************************************************
+ * Structure populated by platform specific code to log if the primary GPT
+ * is corrupted
+ ******************************************************************************/
+struct plat_log_gpt_corrupted {
+	uint8_t gpt_corrupted_info;
+	void (*plat_set_gpt_corruption)(uintptr_t gpt_corrupted_info_ptr, uint8_t flags);
+	void (*plat_log_gpt_corruption)(uintptr_t log_address, uint8_t gpt_corrupted_info);
+};
+
+extern const struct plat_log_gpt_corrupted *plat_log_gpt_ptr;
 
 /*******************************************************************************
  * plat_get_rotpk_info() flags
@@ -124,7 +139,7 @@ uint32_t plat_ic_acknowledge_interrupt(void);
 uint32_t plat_ic_get_interrupt_type(uint32_t id);
 void plat_ic_end_of_interrupt(uint32_t id);
 uint32_t plat_interrupt_type_to_line(uint32_t type,
-				     size_t security_state);
+				     uint32_t security_state);
 
 /*******************************************************************************
  * Optional interrupt management functions, depending on chosen EL3 components.
@@ -162,10 +177,10 @@ int plat_crash_console_putc(int c);
 void plat_crash_console_flush(void);
 void plat_error_handler(int err) __dead2;
 void plat_panic_handler(void) __dead2;
-void plat_system_reset(void) __dead2;
 const char *plat_log_get_prefix(unsigned int log_level);
 void bl2_plat_preload_setup(void);
 void plat_setup_try_img_ops(const struct plat_try_images_ops *plat_try_ops);
+void plat_setup_log_gpt_corrupted(const struct plat_log_gpt_corrupted *log_gpt);
 
 #if MEASURED_BOOT
 int plat_mboot_measure_image(unsigned int image_id, image_info_t *image_data);
@@ -266,6 +281,8 @@ int bl1_plat_handle_post_image_load(unsigned int image_id);
 void bl1_plat_calc_bl2_layout(const meminfo_t *bl1_mem_layout,
 			      meminfo_t *bl2_mem_layout);
 
+bool bl1_plat_is_shared_nv_ctr(void);
+
 #if MEASURED_BOOT
 void bl1_plat_mboot_init(void);
 void bl1_plat_mboot_finish(void);
@@ -299,6 +316,16 @@ int bl2_plat_handle_post_image_load(unsigned int image_id);
 #if (MEASURED_BOOT || DICE_PROTECTION_ENVIRONMENT)
 void bl2_plat_mboot_init(void);
 void bl2_plat_mboot_finish(void);
+#if TRANSFER_LIST
+int plat_handoff_mboot(const void *data, uint32_t data_size, void *tl_base);
+#else
+static inline int
+plat_handoff_mboot(__unused const void *data, __unused uint32_t data_size,
+	      __unused void *tl_base)
+{
+	return -1;
+}
+#endif
 #else
 static inline void bl2_plat_mboot_init(void)
 {
@@ -388,7 +415,27 @@ int plat_rmmd_el3_token_sign_push_req(
 int plat_rmmd_el3_token_sign_pull_resp(struct el3_token_sign_response *resp);
 size_t plat_rmmd_get_el3_rmm_shared_mem(uintptr_t *shared);
 int plat_rmmd_load_manifest(struct rmm_manifest *manifest);
-#endif
+int plat_rmmd_mecid_key_update(uint16_t mecid, unsigned int reason);
+uintptr_t plat_rmmd_reserve_memory(size_t size, unsigned long alignment);
+
+/* The following 4 functions are to be implemented if
+ * RMMD_ENABLE_IDE_KEY_PROG=1.
+ * The following functions are expected to return E_RMM_* error codes.
+ */
+int plat_rmmd_el3_ide_key_program(uint64_t ecam_address, uint64_t root_port_id,
+				  uint64_t ide_stream_info,
+				  rp_ide_key_info_t *ide_key_info_ptr,
+				  uint64_t request_id, uint64_t cookie);
+int plat_rmmd_el3_ide_key_set_go(uint64_t ecam_address, uint64_t root_port_id,
+				 uint64_t ide_stream_info, uint64_t request_id,
+				 uint64_t cookie);
+int plat_rmmd_el3_ide_key_set_stop(uint64_t ecam_address, uint64_t root_port_id,
+				   uint64_t ide_stream_info, uint64_t request_id,
+				   uint64_t cookie);
+int plat_rmmd_el3_ide_km_pull_response(uint64_t ecam_address, uint64_t root_port_id,
+				   uint64_t *req_resp, uint64_t *request_id,
+				   uint64_t *cookie);
+#endif /* ENABLE_RME */
 
 /*******************************************************************************
  * Optional BL31 functions (may be overridden)
@@ -454,13 +501,6 @@ struct bl_params *plat_get_next_bl_params(void);
 void plat_flush_next_bl_params(void);
 
 /*
- * The below function enable Trusted Firmware components like SPDs which
- * haven't migrated to the new platform API to compile on platforms which
- * have the compatibility layer disabled.
- */
-unsigned int platform_core_pos_helper(unsigned long mpidr);
-
-/*
  * Optional function to get SOC version
  */
 int32_t plat_get_soc_version(void);
@@ -471,9 +511,20 @@ int32_t plat_get_soc_version(void);
 int32_t plat_get_soc_revision(void);
 
 /*
+ * Optional function to get SoC name
+ */
+int32_t plat_get_soc_name(char *soc_name);
+
+/*
  * Optional function to check for SMCCC function availability for platform
  */
 int32_t plat_is_smccc_feature_available(u_register_t fid);
+
+/*
+ * Optional function to retrieve the base address of hardware DT from the
+ * platform.
+ */
+uintptr_t plat_get_hw_dt_base(void);
 
 /*******************************************************************************
  * FWU platform specific functions

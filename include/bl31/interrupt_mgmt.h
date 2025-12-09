@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2022, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2024, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,7 +16,8 @@
 #define INTR_TYPE_S_EL1			U(0)
 #define INTR_TYPE_EL3			U(1)
 #define INTR_TYPE_NS			U(2)
-#define MAX_INTR_TYPES			U(3)
+#define INTR_TYPE_RL			U(3)
+#define MAX_INTR_TYPES			U(4)
 #define INTR_TYPE_INVAL			MAX_INTR_TYPES
 
 /* Interrupt routing modes */
@@ -149,8 +150,8 @@ int32_t register_interrupt_type_handler(uint32_t type,
 					interrupt_type_handler_t handler,
 					uint32_t flags);
 interrupt_type_handler_t get_interrupt_type_handler(uint32_t type);
-int disable_intr_rm_local(uint32_t type, size_t security_state);
-int enable_intr_rm_local(uint32_t type, size_t security_state);
+int disable_intr_rm_local(uint32_t type, uint32_t security_state);
+int enable_intr_rm_local(uint32_t type, uint32_t security_state);
 
 #endif /*__ASSEMBLER__*/
 #endif /* INTERRUPT_MGMT_H */

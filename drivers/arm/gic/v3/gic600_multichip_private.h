@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, ARM Limited. All rights reserved.
+ * Copyright (c) 2019-2025, ARM Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,12 +15,14 @@
 #define GICD_CHIPSR			U(0xC000)
 #define GICD_DCHIPR			U(0xC004)
 #define GICD_CHIPR			U(0xC008)
+#define GICD_CFGID			U(0xF000)
 
 /* GIC600 GICD multichip related masks */
 #define GICD_CHIPRx_PUP_BIT		BIT_64(1)
 #define GICD_CHIPRx_SOCKET_STATE	BIT_64(0)
 #define GICD_DCHIPR_PUP_BIT		BIT_32(0)
 #define GICD_CHIPSR_RTS_MASK		(BIT_32(4) | BIT_32(5))
+#define GICD_CFGID_LCA_BIT		BIT_64(21)
 
 /* GIC600 GICD multichip related shifts */
 #define GICD_CHIPRx_ADDR_SHIFT		16
@@ -59,13 +61,13 @@
 			(((spi_id_min) - GIC700_ESPI_ID_MIN + 1) / \
 			GIC700_SPI_ID_MIN)
 #define GICD_CHIPR_VALUE_GIC_700(chip_addr, spi_block_min, spi_blocks) \
-			(((chip_addr) << GICD_CHIPRx_ADDR_SHIFT) | \
-			((spi_block_min) << GIC_700_SPI_BLOCK_MIN_SHIFT) | \
-			((spi_blocks) << GIC_700_SPI_BLOCKS_SHIFT))
+		(((uint64_t)(chip_addr) << GICD_CHIPRx_ADDR_SHIFT) | \
+		((uint64_t)(spi_block_min) << GIC_700_SPI_BLOCK_MIN_SHIFT) | \
+		((uint64_t)(spi_blocks) << GIC_700_SPI_BLOCKS_SHIFT))
 #define GICD_CHIPR_VALUE_GIC_600(chip_addr, spi_block_min, spi_blocks) \
-			(((chip_addr) << GICD_CHIPRx_ADDR_SHIFT) | \
-			((spi_block_min) << GIC_600_SPI_BLOCK_MIN_SHIFT) | \
-			((spi_blocks) << GIC_600_SPI_BLOCKS_SHIFT))
+		(((uint64_t)(chip_addr) << GICD_CHIPRx_ADDR_SHIFT) | \
+		((uint64_t)(spi_block_min) << GIC_600_SPI_BLOCK_MIN_SHIFT) | \
+		((uint64_t)(spi_blocks) << GIC_600_SPI_BLOCKS_SHIFT))
 
 /*
  * Multichip data assertion macros
@@ -96,6 +98,11 @@ static inline uint64_t read_gicd_chipr_n(uintptr_t base, uint8_t n)
 static inline uint32_t read_gicd_chipsr(uintptr_t base)
 {
 	return mmio_read_32(base + GICD_CHIPSR);
+}
+
+static inline uint64_t read_gicd_cfgid(uintptr_t base)
+{
+	return mmio_read_64(base + GICD_CFGID);
 }
 
 static inline void write_gicd_dchipr(uintptr_t base, uint32_t val)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2022, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,7 +12,7 @@
 #include <bl31/interrupt_mgmt.h>
 #include <common/debug.h>
 #include <drivers/arm/css/css_scp.h>
-#include <drivers/arm/css/dsu.h>
+#include <drivers/arm/dsu.h>
 #include <lib/cassert.h>
 #include <plat/arm/common/plat_arm.h>
 
@@ -87,7 +87,9 @@ static void css_pwr_domain_on_finisher_common(
 #if PRESERVE_DSU_PMU_REGS
 		cluster_on_dsu_pmu_context_restore();
 #endif
+#if !HW_ASSISTED_COHERENCY
 		plat_arm_interconnect_enter_coherency();
+#endif
 	}
 }
 
@@ -114,12 +116,6 @@ void css_pwr_domain_on_finish(const psci_power_state_t *target_state)
  ******************************************************************************/
 void css_pwr_domain_on_finish_late(const psci_power_state_t *target_state)
 {
-	/* Program the gic per-cpu distributor or re-distributor interface */
-	plat_arm_gic_pcpu_init();
-
-	/* Enable the gic cpu interface */
-	plat_arm_gic_cpuif_enable();
-
 	/* Setup the CPU power down request interrupt for secondary core(s) */
 	css_setup_cpu_pwr_down_intr();
 }
@@ -132,15 +128,14 @@ void css_pwr_domain_on_finish_late(const psci_power_state_t *target_state)
  ******************************************************************************/
 static void css_power_down_common(const psci_power_state_t *target_state)
 {
-	/* Prevent interrupts from spuriously waking up this cpu */
-	plat_arm_gic_cpuif_disable();
-
 	/* Cluster is to be turned off, so disable coherency */
 	if (CSS_CLUSTER_PWR_STATE(target_state) == ARM_LOCAL_STATE_OFF) {
 #if PRESERVE_DSU_PMU_REGS
 		cluster_off_dsu_pmu_context_save();
 #endif
+#if !HW_ASSISTED_COHERENCY
 		plat_arm_interconnect_exit_coherency();
+#endif
 	}
 }
 
@@ -177,7 +172,7 @@ void css_pwr_domain_suspend(const psci_power_state_t *target_state)
 		arm_system_pwr_domain_save();
 
 		/* Power off the Redistributor after having saved its context */
-		plat_arm_gic_redistif_off();
+		gic_pcpu_off(plat_my_core_pos());
 	}
 
 	css_scp_suspend(target_state);
@@ -207,20 +202,17 @@ void css_pwr_domain_suspend_finish(
 		arm_system_pwr_domain_resume();
 
 	css_pwr_domain_on_finisher_common(target_state);
-
-	/* Enable the gic cpu interface */
-	plat_arm_gic_cpuif_enable();
 }
 
 /*******************************************************************************
  * Handlers to shutdown/reboot the system
  ******************************************************************************/
-void __dead2 css_system_off(void)
+void css_system_off(void)
 {
 	css_scp_sys_shutdown();
 }
 
-void __dead2 css_system_reset(void)
+void css_system_reset(void)
 {
 	css_scp_sys_reboot();
 }
@@ -350,6 +342,8 @@ void css_setup_cpu_pwr_down_intr(void)
 int css_reboot_interrupt_handler(uint32_t intr_raw, uint32_t flags,
 		void *handle, void *cookie)
 {
+	unsigned int core_pos = plat_my_core_pos();
+
 	assert(intr_raw == CSS_CPU_PWR_DOWN_REQ_INTR);
 
 	/* Deactivate warm reboot SGI */
@@ -359,14 +353,12 @@ int css_reboot_interrupt_handler(uint32_t intr_raw, uint32_t flags,
 	 * Disable GIC CPU interface to prevent pending interrupt from waking
 	 * up the AP from WFI.
 	 */
-	plat_arm_gic_cpuif_disable();
-	plat_arm_gic_redistif_off();
+	gic_cpuif_disable(core_pos);
+	gic_pcpu_off(core_pos);
 
-	psci_pwrdown_cpu(PLAT_MAX_PWR_LVL);
+	psci_pwrdown_cpu_start(PLAT_MAX_PWR_LVL);
 
-	dmbsy();
-
-	wfi();
+	psci_pwrdown_cpu_end_terminal();
 	return 0;
 }
 

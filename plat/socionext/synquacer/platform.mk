@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2018-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -24,6 +24,14 @@ endif
 
 # Libraries
 include lib/xlat_tables_v2/xlat_tables.mk
+
+ifeq (${TRANSFER_LIST}, 1)
+include lib/transfer_list/transfer_list.mk
+endif
+
+ifeq (${HOB_LIST}, 1)
+include lib/hob/hob.mk
+endif
 
 PLAT_PATH		:=	plat/socionext/synquacer
 PLAT_INCLUDES		:=	-I$(PLAT_PATH)/include		\
@@ -55,9 +63,11 @@ BL2_SOURCES		+=	common/desc_image_load.c		\
 ifeq (${TRUSTED_BOARD_BOOT},1)
 include drivers/auth/mbedtls/mbedtls_crypto.mk
 include drivers/auth/mbedtls/mbedtls_x509.mk
-BL2_SOURCES		+=	drivers/auth/auth_mod.c			\
-				drivers/auth/crypto_mod.c		\
-				drivers/auth/img_parser_mod.c		\
+AUTH_MK := drivers/auth/auth.mk
+$(info Including ${AUTH_MK})
+include ${AUTH_MK}
+
+BL2_SOURCES		+=	${AUTH_SOURCES}				\
 				drivers/auth/tbbr/tbbr_cot_common.c	\
 				drivers/auth/tbbr/tbbr_cot_bl2.c	\
 				plat/common/tbbr/plat_tbbr.c		\
@@ -107,7 +117,7 @@ BL31_SOURCES		+=	$(PLAT_PATH)/drivers/scp/sq_scmi.c		\
 endif
 
 ifeq (${SPM_MM},1)
-$(eval $(call add_define,PLAT_EXTRA_LD_SCRIPT))
+PLAT_EXTRA_LD_SCRIPT	:=	1
 
 BL31_SOURCES		+=	$(PLAT_PATH)/sq_spm.c
 endif

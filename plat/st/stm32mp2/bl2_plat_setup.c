@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2023-2025, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,8 +14,11 @@
 #include <drivers/clk.h>
 #include <drivers/mmc.h>
 #include <drivers/st/regulator_fixed.h>
+#include <drivers/st/stm32_rifsc.h>
+#include <drivers/st/stm32_rng.h>
 #include <drivers/st/stm32mp2_ddr_helpers.h>
 #include <drivers/st/stm32mp2_ram.h>
+#include <drivers/st/stm32mp2_risaf.h>
 #include <drivers/st/stm32mp_pmic2.h>
 #include <drivers/st/stm32mp_risab_regs.h>
 #include <lib/fconf/fconf.h>
@@ -34,97 +37,46 @@
 static void print_reset_reason(void)
 {
 	uint32_t rstsr = mmio_read_32(stm32mp_rcc_base() + RCC_C1BOOTRSTSCLRR);
+	const char *reason_str = "Unidentified";
 
-	if (rstsr == 0U) {
-		WARN("Reset reason unknown\n");
-		return;
+#if !STM32MP21
+	if ((rstsr & RCC_C1BOOTRSTSCLRR_C1P1RSTF) != 0U) {
+		INFO("CA35 processor core 1 reset\n");
 	}
-
-	INFO("Reset reason (0x%x):\n", rstsr);
+#endif /* !STM32MP21 */
 
 	if ((rstsr & RCC_C1BOOTRSTSCLRR_PADRSTF) == 0U) {
 		if ((rstsr & RCC_C1BOOTRSTSCLRR_STBYC1RSTF) != 0U) {
-			INFO("System exits from Standby for CA35\n");
-			return;
+			reason_str = "System exits from Standby for CA35";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_D1STBYRSTF) != 0U) {
+			reason_str = "D1 domain exits from DStandby";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_VCPURSTF) != 0U) {
+			reason_str = "System reset from VCPU monitor";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_C1RSTF) != 0U) {
+			reason_str = "CA35 reset by CM33 (C1RST)";
+		} else {
+			reason_str = "Unidentified";
 		}
-
-		if ((rstsr & RCC_C1BOOTRSTSCLRR_D1STBYRSTF) != 0U) {
-			INFO("D1 domain exits from DStandby\n");
-			return;
+	} else {
+		if ((rstsr & RCC_C1BOOTRSTSCLRR_PORRSTF) != 0U) {
+			reason_str = "Power-on reset (por_rstn)";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_BORRSTF) != 0U) {
+			reason_str = "Brownout reset (bor_rstn)";
+		} else if ((rstsr & (RCC_C1BOOTRSTSSETR_SYSC2RSTF |
+				     RCC_C1BOOTRSTSSETR_SYSC1RSTF)) != 0U) {
+			reason_str = "System reset (SYSRST)";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_HCSSRSTF) != 0U) {
+			reason_str = "Clock failure on HSE";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_IWDGXSYSRSTF) != 0U) {
+			reason_str = "IWDG system reset (iwdgX_out_rst)";
+		} else if ((rstsr & RCC_C1BOOTRSTSCLRR_PADRSTF) != 0U) {
+			reason_str = "Pin reset from NRST";
+		} else {
+			reason_str = "Unidentified";
 		}
 	}
 
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_PORRSTF) != 0U) {
-		INFO("  Power-on Reset (rst_por)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_BORRSTF) != 0U) {
-		INFO("  Brownout Reset (rst_bor)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSSETR_SYSC2RSTF) != 0U) {
-		INFO("  System reset (SYSRST) by M33\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSSETR_SYSC1RSTF) != 0U) {
-		INFO("  System reset (SYSRST) by A35\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_HCSSRSTF) != 0U) {
-		INFO("  Clock failure on HSE\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_IWDG1SYSRSTF) != 0U) {
-		INFO("  IWDG1 system reset (rst_iwdg1)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_IWDG2SYSRSTF) != 0U) {
-		INFO("  IWDG2 system reset (rst_iwdg2)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_IWDG3SYSRSTF) != 0U) {
-		INFO("  IWDG3 system reset (rst_iwdg3)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_IWDG4SYSRSTF) != 0U) {
-		INFO("  IWDG4 system reset (rst_iwdg4)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_IWDG5SYSRSTF) != 0U) {
-		INFO("  IWDG5 system reset (rst_iwdg5)\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_C1P1RSTF) != 0U) {
-		INFO("  A35 processor core 1 reset\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_PADRSTF) != 0U) {
-		INFO("  Pad Reset from NRST\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_VCORERSTF) != 0U) {
-		INFO("  Reset due to a failure of VDD_CORE\n");
-		return;
-	}
-
-	if ((rstsr & RCC_C1BOOTRSTSCLRR_C1RSTF) != 0U) {
-		INFO("  A35 processor reset\n");
-		return;
-	}
-
-	ERROR("  Unidentified reset reason\n");
+	INFO("Reset reason: %s (0x%x)\n", reason_str, rstsr);
 }
 
 void bl2_el3_early_platform_setup(u_register_t arg0 __unused,
@@ -142,6 +94,10 @@ void bl2_platform_setup(void)
 	ret = stm32mp2_ddr_probe();
 	if (ret != 0) {
 		ERROR("DDR probe: error %d\n", ret);
+		panic();
+	}
+
+	if (stm32mp2_risaf_init() < 0) {
 		panic();
 	}
 
@@ -164,11 +120,19 @@ static void reset_backup_domain(void)
 	 * The protection is enable at each reset by hardware
 	 * and must be disabled by software.
 	 */
+#if STM32MP21
+	mmio_setbits_32(pwr_base + PWR_BDCR, PWR_BDCR_DBP);
+
+	while ((mmio_read_32(pwr_base + PWR_BDCR) & PWR_BDCR_DBP) == 0U) {
+		;
+	}
+#else /* STM32MP21 */
 	mmio_setbits_32(pwr_base + PWR_BDCR1, PWR_BDCR1_DBD3P);
 
 	while ((mmio_read_32(pwr_base + PWR_BDCR1) & PWR_BDCR1_DBD3P) == 0U) {
 		;
 	}
+#endif /* STM32MP21 */
 
 	/* Reset backup domain on cold boot cases */
 	if ((mmio_read_32(rcc_base + RCC_BDCR) & RCC_BDCR_RTCCKEN) == 0U) {
@@ -244,6 +208,10 @@ void bl2_el3_plat_arch_setup(void)
 	print_reset_reason();
 
 skip_console_init:
+	if (stm32_rng_init() != 0) {
+		panic();
+	}
+
 	if (fixed_regulator_register() != 0) {
 		panic();
 	}
@@ -253,6 +221,11 @@ skip_console_init:
 	}
 
 	fconf_populate("TB_FW", STM32MP_DTB_BASE);
+
+#if STM32MP_USB_PROGRAMMER
+	stm32_rifsc_ip_configure(STM32MP2_RIMU_USB3DR, STM32MP25_RIFSC_USB3DR_ID,
+				 RIFSC_USB_BOOT_USB3DR_RIMC_CONF);
+#endif /* STM32MP_USB_PROGRAMMER */
 
 	/*
 	 * RISAB5 setup (dedicated for RETRAM)
@@ -265,6 +238,20 @@ skip_console_init:
 	mmio_write_32(RISAB5_BASE + RISAB_CR, RISAB_CR_SRWIAD);
 
 	stm32mp_io_setup();
+}
+
+static void prepare_encryption(void)
+{
+	uint8_t mkey[RISAF_KEY_SIZE_IN_BYTES];
+
+	/* Generate RISAF encryption key from RNG */
+	if (stm32_rng_read(mkey, RISAF_KEY_SIZE_IN_BYTES) != 0) {
+		panic();
+	}
+
+	if (stm32mp2_risaf_write_encryption_key(RISAF4_INST, mkey) != 0) {
+		panic();
+	}
 }
 
 /*******************************************************************************
@@ -303,6 +290,11 @@ int bl2_plat_handle_post_image_load(unsigned int image_id)
 
 	switch (image_id) {
 	case FW_CONFIG_ID:
+		if ((stm32mp_check_closed_device() == STM32MP_CHIP_SEC_CLOSED) ||
+		    stm32mp_is_auth_supported()) {
+			prepare_encryption();
+		}
+
 		/* Set global DTB info for fixed fw_config information */
 		set_config_info(STM32MP_FW_CONFIG_BASE, ~0UL, STM32MP_FW_CONFIG_MAX_SIZE,
 				FW_CONFIG_ID);
@@ -385,6 +377,11 @@ int bl2_plat_handle_post_image_load(unsigned int image_id)
 		break;
 
 	case BL33_IMAGE_ID:
+#if PSA_FWU_SUPPORT
+		stm32_fwu_set_boot_idx();
+#endif /* PSA_FWU_SUPPORT */
+		break;
+
 	default:
 		/* Do nothing in default case */
 		break;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -33,6 +33,9 @@ const mmap_region_t plat_arm_mmap[] = {
 	TC_MAP_NS_DRAM1,
 	TC_FLASH0_RO,
 	TC_MAP_DEVICE,
+#if TRANSFER_LIST
+	TC_MAP_EL3_FW_HANDOFF,
+#endif
 	{0}
 };
 #endif
@@ -40,6 +43,7 @@ const mmap_region_t plat_arm_mmap[] = {
 const mmap_region_t plat_arm_mmap[] = {
 	ARM_MAP_SHARED_RAM,
 	TC_FLASH0_RO,
+	ARM_V2M_MAP_MEM_PROTECT,
 	TC_MAP_DEVICE,
 	TC_MAP_NS_DRAM1,
 #if defined(SPD_spmd)
@@ -58,6 +62,9 @@ const mmap_region_t plat_arm_mmap[] = {
 	ARM_MAP_OPTEE_CORE_MEM,
 	ARM_OPTEE_PAGEABLE_LOAD_MEM,
 #endif
+#if TRANSFER_LIST
+	TC_MAP_EL3_FW_HANDOFF,
+#endif
 	{0}
 };
 #endif
@@ -65,10 +72,15 @@ const mmap_region_t plat_arm_mmap[] = {
 const mmap_region_t plat_arm_mmap[] = {
 	ARM_MAP_SHARED_RAM,
 	V2M_MAP_IOFPGA,
+	ARM_V2M_MAP_MEM_PROTECT,
 	TC_MAP_DEVICE,
 	PLAT_DTB_DRAM_NS,
 #if SPM_MM
 	ARM_SPM_BUF_EL3_MMAP,
+#endif
+#if TRANSFER_LIST
+	TC_MAP_FW_NS_HANDOFF,
+	TC_MAP_EL3_FW_HANDOFF,
 #endif
 	{0}
 };

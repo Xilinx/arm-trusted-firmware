@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2022, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2022-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -342,7 +342,6 @@
 /* MMC Peripheral Definition */
 #define SOCFPGA_MMC_BLOCK_MASK			(SOCFPGA_MMC_BLOCK_SIZE - U(1))
 #define SOCFPGA_MMC_BOOT_CLK_RATE		(400 * 1000)
-#define MMC_RESPONSE_NONE			0
 #define SDHC_CDNS_SRS03_VALUE			0x01020013
 
 /* Value randomly chosen for eMMC RCA, it should be > 1 */
@@ -445,7 +444,12 @@
 #define CDMMC_DMA_MAX_BUFFER_SIZE		64*1024
 #define CDNSMMC_ADDRESS_MASK			U(0x0f)
 #define CONFIG_CDNS_DESC_COUNT			8
-#define SD_HOST_CLK				200000000
+
+/*
+ * To accommodate SDMCLK set to 200MHz
+ * TODO: To support various clock range
+ */
+#define SDEMMC_SDCLK				50000000U
 
 enum sd_opcode {
 	SD_GO_IDLE_STATE = 0,
@@ -540,6 +544,7 @@ struct cdns_sdmmc_params {
 	uintptr_t	desc_base;
 	size_t		desc_size;
 	int		clk_rate;
+	uint32_t	sdmclk;
 	int		bus_width;
 	unsigned int	flags;
 	enum sdmmc_device_mode	cdn_sdmmc_dev_mode;

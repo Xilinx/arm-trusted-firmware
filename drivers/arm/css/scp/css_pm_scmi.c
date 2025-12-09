@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -54,6 +54,18 @@
 		(((_power_state) >> (SCMI_PWR_STATE_LVL_WIDTH * (_level))) &	\
 				SCMI_PWR_STATE_LVL_MASK)
 
+#if CSS_SCP_SUSPEND_GRACEFUL
+#define	CSS_SCP_SUSPEND_REQ_FLAG	SCMI_SYS_PWR_GRACEFUL_REQ
+#else
+#define	CSS_SCP_SUSPEND_REQ_FLAG	SCMI_SYS_PWR_FORCEFUL_REQ
+#endif
+
+#if CSS_SCP_SYSTEM_OFF_GRACEFUL
+#define	CSS_SCP_SYSTEM_OFF_REQ_FLAG	SCMI_SYS_PWR_GRACEFUL_REQ
+#else
+#define	CSS_SCP_SYSTEM_OFF_REQ_FLAG	SCMI_SYS_PWR_FORCEFUL_REQ
+#endif
+
 /*
  * The SCMI power state enumeration for a power domain level
  */
@@ -102,6 +114,13 @@ static void css_scp_core_pos_to_scmi_channel(unsigned int core_pos,
 	*scmi_domain_id = GET_SCMI_DOMAIN_ID(composite_id);
 }
 
+static inline void css_scp_set_state_pwr_lvl(uint32_t *pwr_state, unsigned int lvl)
+{
+    unsigned int max_lvl = (lvl == 0U) ? 0U : (lvl - 1U);
+
+    SCMI_SET_PWR_STATE_MAX_PWR_LVL(*pwr_state, max_lvl);
+}
+
 /*
  * Helper function to suspend a CPU power domain and its parent power domains
  * if applicable.
@@ -119,7 +138,7 @@ void css_scp_suspend(const struct psci_power_state *target_state)
 		/* Issue SCMI command for SYSTEM_SUSPEND on all SCMI channels */
 		ret = scmi_sys_pwr_state_set(
 				scmi_handles[default_scmi_channel_id],
-				SCMI_SYS_PWR_FORCEFUL_REQ, SCMI_SYS_PWR_SUSPEND);
+				CSS_SCP_SUSPEND_REQ_FLAG, SCMI_SYS_PWR_SUSPEND);
 		if (ret != SCMI_E_SUCCESS) {
 			ERROR("SCMI system power domain suspend return 0x%x unexpected\n",
 					ret);
@@ -154,7 +173,7 @@ void css_scp_suspend(const struct psci_power_state *target_state)
 						scmi_power_state_off);
 	}
 
-	SCMI_SET_PWR_STATE_MAX_PWR_LVL(scmi_pwr_state, lvl - 1);
+	css_scp_set_state_pwr_lvl(&scmi_pwr_state, lvl);
 
 	css_scp_core_pos_to_scmi_channel(plat_my_core_pos(),
 			&domain_id, &channel_id);
@@ -196,7 +215,7 @@ void css_scp_off(const struct psci_power_state *target_state)
 				scmi_power_state_off);
 	}
 
-	SCMI_SET_PWR_STATE_MAX_PWR_LVL(scmi_pwr_state, lvl - 1);
+	css_scp_set_state_pwr_lvl(&scmi_pwr_state, lvl);
 
 	css_scp_core_pos_to_scmi_channel(plat_my_core_pos(),
 			&domain_id, &channel_id);
@@ -223,7 +242,7 @@ void css_scp_on(u_register_t mpidr)
 		SCMI_SET_PWR_STATE_LVL(scmi_pwr_state, lvl,
 				scmi_power_state_on);
 
-	SCMI_SET_PWR_STATE_MAX_PWR_LVL(scmi_pwr_state, lvl - 1);
+	css_scp_set_state_pwr_lvl(&scmi_pwr_state, lvl);
 
 	core_pos = (unsigned int)plat_core_pos_by_mpidr(mpidr);
 	assert(core_pos < PLATFORM_CORE_COUNT);
@@ -298,7 +317,7 @@ static void css_raise_pwr_down_interrupt(u_register_t mpidr)
 #endif
 }
 
-void __dead2 css_scp_system_off(int state)
+void css_scp_system_off(int state)
 {
 	int ret;
 
@@ -309,10 +328,11 @@ void __dead2 css_scp_system_off(int state)
 	 */
 	mmio_write_64(PLAT_ARM_TRUSTED_MAILBOX_BASE, 0U);
 
+	unsigned int core_pos = plat_my_core_pos();
 	/*
 	 * Send powerdown request to online secondary core(s)
 	 */
-	ret = psci_stop_other_cores(0, css_raise_pwr_down_interrupt);
+	ret = psci_stop_other_cores(core_pos, 0, css_raise_pwr_down_interrupt);
 	if (ret != PSCI_E_SUCCESS) {
 		ERROR("Failed to powerdown secondary core(s)\n");
 	}
@@ -321,17 +341,15 @@ void __dead2 css_scp_system_off(int state)
 	 * Disable GIC CPU interface to prevent pending interrupt from waking
 	 * up the AP from WFI.
 	 */
-	plat_arm_gic_cpuif_disable();
-	plat_arm_gic_redistif_off();
+	gic_cpuif_disable(core_pos);
+	gic_pcpu_off(core_pos);
 
 	/*
-	 * Issue SCMI command. First issue a graceful
-	 * request and if that fails force the request.
+	 * Issue SCMI command.
 	 */
 	ret = scmi_sys_pwr_state_set(scmi_handles[default_scmi_channel_id],
-			SCMI_SYS_PWR_FORCEFUL_REQ,
+			CSS_SCP_SYSTEM_OFF_REQ_FLAG,
 			state);
-
 	if (ret != SCMI_E_SUCCESS) {
 		ERROR("SCMI system power state set 0x%x returns unexpected 0x%x\n",
 			state, ret);
@@ -339,16 +357,13 @@ void __dead2 css_scp_system_off(int state)
 	}
 
 	/* Powerdown of primary core */
-	psci_pwrdown_cpu(PLAT_MAX_PWR_LVL);
-	wfi();
-	ERROR("CSS set power state: operation not handled.\n");
-	panic();
+	psci_pwrdown_cpu_start(PLAT_MAX_PWR_LVL);
 }
 
 /*
  * Helper function to shutdown the system via SCMI.
  */
-void __dead2 css_scp_sys_shutdown(void)
+void css_scp_sys_shutdown(void)
 {
 	css_scp_system_off(SCMI_SYS_PWR_SHUTDOWN);
 }
@@ -356,7 +371,7 @@ void __dead2 css_scp_sys_shutdown(void)
 /*
  * Helper function to reset the system via SCMI.
  */
-void __dead2 css_scp_sys_reboot(void)
+void css_scp_sys_reboot(void)
 {
 	css_scp_system_off(SCMI_SYS_PWR_COLD_RESET);
 }
@@ -472,12 +487,8 @@ int css_system_reset2(int is_vendor, int reset_type, u_register_t cookie)
 		return PSCI_E_INVALID_PARAMS;
 
 	css_scp_system_off(SCMI_SYS_PWR_WARM_RESET);
-	/*
-	 * css_scp_system_off cannot return (it is a __dead function),
-	 * but css_system_reset2 has to return some value, even in
-	 * this case.
-	 */
-	return 0;
+	/* return SUCCESS to finish the powerdown */
+	return PSCI_E_SUCCESS;
 }
 
 #if PROGRAMMABLE_RESET_ADDRESS

@@ -1,13 +1,11 @@
 #
-# Copyright (c) 2018-2023, Arm Limited. All rights reserved.
+# Copyright (c) 2018-2025, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 
 N1SDP_BASE		:=	plat/arm/board/n1sdp
-
-INTERCONNECT_SOURCES	:=	${N1SDP_BASE}/n1sdp_interconnect.c
 
 PLAT_INCLUDES		:=	-I${N1SDP_BASE}/include
 
@@ -19,21 +17,14 @@ ARM_ARCH_MAJOR := 8
 ARM_ARCH_MINOR := 2
 
 # GIC-600 configuration
+USE_GIC_DRIVER			:=	3
 GICV3_SUPPORT_GIC600		:=	1
 GICV3_IMPL_GIC600_MULTICHIP	:=	1
-
-# Include GICv3 driver files
-include drivers/arm/gic/v3/gicv3.mk
-
-N1SDP_GIC_SOURCES	:=	${GICV3_SOURCES}			\
-				plat/common/plat_gicv3.c		\
-				plat/arm/common/arm_gicv3.c		\
 
 PLAT_BL_COMMON_SOURCES	:=	${N1SDP_BASE}/n1sdp_plat.c	        \
 				${N1SDP_BASE}/aarch64/n1sdp_helper.S
 
 BL1_SOURCES		:=	${N1SDP_CPU_SOURCES}                \
-				${INTERCONNECT_SOURCES}             \
 				${N1SDP_BASE}/n1sdp_err.c           \
 				${N1SDP_BASE}/n1sdp_trusted_boot.c  \
 				${N1SDP_BASE}/n1sdp_bl1_setup.c     \
@@ -48,8 +39,6 @@ BL2_SOURCES		:=	${N1SDP_BASE}/n1sdp_security.c      \
 				drivers/arm/css/sds/sds.c
 
 BL31_SOURCES		:=	${N1SDP_CPU_SOURCES}			\
-				${INTERCONNECT_SOURCES}			\
-				${N1SDP_GIC_SOURCES}			\
 				${N1SDP_BASE}/n1sdp_bl31_setup.c	\
 				${N1SDP_BASE}/n1sdp_pm.c		\
 				${N1SDP_BASE}/n1sdp_topology.c	        \

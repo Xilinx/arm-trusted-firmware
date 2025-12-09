@@ -1,13 +1,15 @@
 #
-# Copyright (c) 2021-2023, MediaTek Inc. All rights reserved.
+# Copyright (c) 2021-2025, MediaTek Inc. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 MTK_PLAT     := plat/mediatek
 MTK_PLAT_SOC := ${MTK_PLAT}/${PLAT}
+MTK_SOC      := ${PLAT}
 
 PLAT_INCLUDES := -I${MTK_PLAT}/common/                            \
+                 -I${MTK_PLAT}/common/include                     \
                  -I${MTK_PLAT}/drivers/cirq/                      \
                  -I${MTK_PLAT}/drivers/dp/                        \
                  -I${MTK_PLAT}/drivers/gic600/                    \
@@ -15,6 +17,7 @@ PLAT_INCLUDES := -I${MTK_PLAT}/common/                            \
                  -I${MTK_PLAT}/drivers/pmic/                      \
                  -I${MTK_PLAT}/drivers/pmic_wrap/                 \
                  -I${MTK_PLAT}/drivers/ptp3/                      \
+                 -I${MTK_PLAT}/drivers/ptp3/$(MTK_SOC)            \
                  -I${MTK_PLAT}/drivers/rtc/                       \
                  -I${MTK_PLAT}/drivers/timer/                     \
                  -I${MTK_PLAT}/drivers/uart/                      \
@@ -28,7 +31,6 @@ PLAT_INCLUDES := -I${MTK_PLAT}/common/                            \
                  -I${MTK_PLAT_SOC}/drivers/mcdi/                  \
                  -I${MTK_PLAT_SOC}/drivers/pmic/                  \
                  -I${MTK_PLAT_SOC}/drivers/spmc/                  \
-                 -I${MTK_PLAT_SOC}/drivers/ptp3/                  \
                  -I${MTK_PLAT_SOC}/include/
 
 GICV3_SUPPORT_GIC600        :=      1
@@ -99,7 +101,6 @@ ERRATA_A78_1688305 := 1
 ERRATA_A78_1941498 := 1
 ERRATA_A78_1951500 := 1
 ERRATA_A78_1821534 := 1
-ERRATA_A78_2132060 := 1
 ERRATA_A78_2242635 := 1
 
 # indicate the reset vector address can be programmed

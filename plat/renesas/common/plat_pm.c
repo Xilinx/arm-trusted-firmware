@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, Renesas Electronics Corporation. All rights reserved.
+ * Copyright (c) 2015-2025, Renesas Electronics Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -19,8 +19,11 @@
 #include "iic_dvfs.h"
 #include "platform_def.h"
 #include "pwrc.h"
+#include "timer.h"
+
 #include "rcar_def.h"
 #include "rcar_private.h"
+
 #if RCAR_GEN3_ULCB
 #include "ulcb_cpld.h"
 #endif /* RCAR_GEN3_ULCB */
@@ -302,7 +305,7 @@ static const plat_psci_ops_t rcar_plat_psci_ops = {
 	.system_off			= rcar_system_off,
 	.system_reset			= rcar_system_reset,
 	.validate_power_state		= rcar_validate_power_state,
-	.pwr_domain_pwr_down_wfi	= rcar_pwr_domain_pwr_down_wfi,
+	.pwr_domain_pwr_down		= rcar_pwr_domain_pwr_down_wfi,
 #if RCAR_SYSTEM_SUSPEND
 	.get_sys_suspend_power_state	= rcar_get_sys_suspend_power_state,
 #endif

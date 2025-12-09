@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -18,8 +18,7 @@ BL1_SOURCES		+=	bl1/${ARCH}/bl1_arch_setup.c		\
 				${MBEDTLS_SOURCES}
 
 ifeq (${ARCH},aarch64)
-BL1_SOURCES		+=	lib/cpus/aarch64/dsu_helpers.S		\
-				lib/el3_runtime/aarch64/context.S	\
+BL1_SOURCES		+=	lib/el3_runtime/aarch64/context.S	\
 				lib/cpus/errata_common.c
 endif
 
@@ -31,10 +30,21 @@ ifeq (${ENABLE_PMF},1)
 BL1_SOURCES		+=	lib/pmf/pmf_main.c
 endif
 
-ifeq ($($(ARCH)-ld-id),gnu-gcc)
-        BL1_LDFLAGS	+=	-Wl,--sort-section=alignment
-else ifneq ($(filter llvm-lld gnu-ld,$($(ARCH)-ld-id)),)
-        BL1_LDFLAGS	+=	--sort-section=alignment
-endif
-
 BL1_DEFAULT_LINKER_SCRIPT_SOURCE := bl1/bl1.ld.S
+
+# CRYPTO_SUPPORT
+NEED_AUTH := $(if $(filter 1,$(TRUSTED_BOARD_BOOT)),1,)
+NEED_HASH := $(if $(filter 1,$(MEASURED_BOOT) $(DRTM_SUPPORT)),1,)
+$(eval $(call set_crypto_support,NEED_AUTH,NEED_HASH))
+
+# BL1_CPPFLAGS
+$(eval BL1_CPPFLAGS += $(call make_defines, \
+    $(sort \
+        CRYPTO_SUPPORT \
+)))
+
+# Numeric_Flags
+$(eval $(call assert_numerics,\
+    $(sort \
+	CRYPTO_SUPPORT \
+)))

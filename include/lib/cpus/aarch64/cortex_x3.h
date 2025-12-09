@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2021-2025, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -49,18 +49,13 @@
 #define CORTEX_X3_CPUACTLR6_EL1			S3_0_C15_C8_1
 
 /*******************************************************************************
- * CPU Extended Control register 2 specific definitions.
- ******************************************************************************/
-#define CORTEX_X3_CPUECTLR2_EL1			S3_0_C15_C1_5
-
-#define CORTEX_X3_CPUECTLR2_EL1_PF_MODE_LSB	U(11)
-#define CORTEX_X3_CPUECTLR2_EL1_PF_MODE_WIDTH	U(4)
-#define CORTEX_X3_CPUECTLR2_EL1_PF_MODE_CNSRV	ULL(0x9)
-
-/*******************************************************************************
  * CPU Auxiliary Control register 3 specific definitions.
  ******************************************************************************/
 #define CORTEX_X3_CPUACTLR3_EL1			S3_0_C15_C1_2
 #define CORTEX_X3_CPUACTLR3_EL1_BIT_47		(ULL(1) << 47)
+
+#ifndef __ASSEMBLER__
+long check_erratum_cortex_x3_3701769(long cpu_rev);
+#endif /* __ASSEMBLER__ */
 
 #endif /* CORTEX_X3_H */

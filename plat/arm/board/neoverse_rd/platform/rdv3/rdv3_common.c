@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2024-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <common/debug.h>
 #include <drivers/arm/gic600_multichip.h>
+#include <drivers/arm/mhu.h>
 #include <drivers/arm/rse_comms.h>
 #include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
@@ -44,10 +45,27 @@ size_t plat_rmmd_get_el3_rmm_shared_mem(uintptr_t *shared)
 	return (size_t)RMM_SHARED_SIZE;
 }
 
+/*
+ * Calculate checksum of 64-bit words @buffer with @size length
+ */
+static uint64_t checksum_calc(uint64_t *buffer, size_t size)
+{
+	uint64_t sum = 0UL;
+
+	assert(((uintptr_t)buffer & (sizeof(uint64_t) - 1UL)) == 0UL);
+	assert((size & (sizeof(uint64_t) - 1UL)) == 0UL);
+
+	for (unsigned long i = 0UL; i < (size / sizeof(uint64_t)); i++) {
+		sum += buffer[i];
+	}
+
+	return sum;
+}
+
 int plat_rmmd_load_manifest(struct rmm_manifest *manifest)
 {
 	uint64_t checksum, num_banks, num_consoles;
-	struct ns_dram_bank *bank_ptr;
+	struct memory_bank *bank_ptr;
 	struct console_info *console_ptr;
 
 	assert(manifest != NULL);
@@ -112,7 +130,7 @@ int plat_rmmd_load_manifest(struct rmm_manifest *manifest)
 	 * +--------+----------------+--------------+
 	 */
 
-	bank_ptr = (struct ns_dram_bank *)
+	bank_ptr = (struct memory_bank *)
 			(((uintptr_t)manifest) + sizeof(*manifest));
 	console_ptr = (struct console_info *)
 			((uintptr_t)bank_ptr + (num_banks * sizeof(*bank_ptr)));
@@ -124,7 +142,7 @@ int plat_rmmd_load_manifest(struct rmm_manifest *manifest)
 	assert((sizeof(struct rmm_manifest) +
 		(sizeof(struct console_info) *
 		manifest->plat_console.num_consoles) +
-		(sizeof(struct ns_dram_bank) * manifest->plat_dram.num_banks))
+		(sizeof(struct memory_bank) * manifest->plat_dram.num_banks))
 		<= ARM_EL3_RMM_SHARED_SIZE);
 
 	/* Calculate checksum of plat_dram structure */
@@ -138,8 +156,8 @@ int plat_rmmd_load_manifest(struct rmm_manifest *manifest)
 	bank_ptr[1].size = ARM_DRAM2_SIZE;
 
 	/* Update checksum */
-	checksum += bank_ptr[0].base + bank_ptr[0].size + bank_ptr[1].base +
-		bank_ptr[1].size;
+	checksum += checksum_calc((uint64_t *)bank_ptr,
+		sizeof(struct memory_bank) * num_banks);
 
 	/* Checksum must be 0 */
 	manifest->plat_dram.checksum = ~checksum + 1UL;
@@ -148,20 +166,20 @@ int plat_rmmd_load_manifest(struct rmm_manifest *manifest)
 	checksum = num_consoles + (uint64_t)console_ptr;
 
 	/* Zero out the console info struct */
-	memset((void *)console_ptr, '\0',
+	(void)memset((void *)console_ptr, '\0',
 		sizeof(struct console_info) * num_consoles);
 
-	console_ptr[0].map_pages = 1;
+	console_ptr[0].map_pages = 1UL;
 	console_ptr[0].base = NRD_CSS_RMM_CONSOLE_BASE;
 	console_ptr[0].clk_in_hz = NRD_CSS_RMM_CONSOLE_CLK_IN_HZ;
 	console_ptr[0].baud_rate = NRD_CSS_RMM_CONSOLE_BAUD;
 
-	strlcpy(console_ptr[0].name, NRD_CSS_RMM_CONSOLE_NAME,
+	(void)strlcpy(console_ptr[0].name, NRD_CSS_RMM_CONSOLE_NAME,
 		sizeof(console_ptr[0].name));
 
 	/* Update checksum */
-	checksum += console_ptr[0].base + console_ptr[0].map_pages +
-		console_ptr[0].clk_in_hz + console_ptr[0].baud_rate;
+	checksum += checksum_calc((uint64_t *)console_ptr,
+		sizeof(struct console_info) * num_consoles);
 
 	/* Checksum must be 0 */
 	manifest->plat_console.checksum = ~checksum + 1UL;
@@ -169,15 +187,37 @@ int plat_rmmd_load_manifest(struct rmm_manifest *manifest)
 	return 0;
 }
 
+/*
+ * Update encryption key associated with @mecid.
+ */
+int plat_rmmd_mecid_key_update(uint16_t mecid, unsigned int reason)
+{
+	/*
+	 * RDV3 does not support FEAT_MEC.
+	 * This empty hook is for compilation to succeed.
+	 */
+	return 0;
+}
+
 int plat_rse_comms_init(void)
 {
-	uintptr_t snd_base, rcv_base;
+	struct mhu_addr mhu_addresses;
 
 	/* Get sender and receiver frames for AP-RSE communication */
-	mhu_v3_get_secure_device_base(&snd_base, true);
-	mhu_v3_get_secure_device_base(&rcv_base, false);
+	mhu_v3_get_secure_device_base(&mhu_addresses.sender_base, true);
+	mhu_v3_get_secure_device_base(&mhu_addresses.receiver_base, false);
 
 	VERBOSE("Initializing the rse_comms now\n");
 	/* Initialize the communication channel between AP and RSE */
-	return rse_comms_init(snd_base, rcv_base);
+	return rse_mbx_init(&mhu_addresses);
+}
+
+int plat_spmd_handle_group0_interrupt(uint32_t intid)
+{
+	/*
+	 * As of now, there are no sources of Group0 secure interrupt enabled
+	 * for FVP.
+	 */
+	(void)intid;
+	return -1;
 }

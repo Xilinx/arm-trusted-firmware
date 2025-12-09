@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -20,6 +20,8 @@
 #include <drivers/console.h>
 #include <lib/bootmarker_capture.h>
 #include <lib/cpus/errata.h>
+#include <lib/el3_runtime/context_mgmt.h>
+#include <lib/extensions/pauth.h>
 #include <lib/pmf/pmf.h>
 #include <lib/utils.h>
 #include <plat/common/platform.h>
@@ -41,9 +43,14 @@ uint64_t bl1_apiakey[2];
 
 /*******************************************************************************
  * Setup function for BL1.
+ * Also perform late architectural and platform specific initialization.
+ * It also queries the platform to load and run next BL image. Only called
+ * by the primary cpu after a cold boot.
  ******************************************************************************/
-void bl1_setup(void)
+void __no_pauth bl1_main(void)
 {
+	unsigned int image_id;
+
 	/* Enable early console if EARLY_CONSOLE flag is enabled */
 	plat_setup_early_console();
 
@@ -53,23 +60,14 @@ void bl1_setup(void)
 	/* Perform late platform-specific setup */
 	bl1_plat_arch_setup();
 
-#if CTX_INCLUDE_PAUTH_REGS
-	/*
-	 * Assert that the ARMv8.3-PAuth registers are present or an access
-	 * fault will be triggered when they are being saved or restored.
-	 */
-	assert(is_armv8_3_pauth_present());
-#endif /* CTX_INCLUDE_PAUTH_REGS */
-}
+	/* Init registers that don't get contexted */
+	cm_manage_extensions_el3(plat_my_core_pos());
 
-/*******************************************************************************
- * Function to perform late architectural and platform specific initialization.
- * It also queries the platform to load and run next BL image. Only called
- * by the primary cpu after a cold boot.
- ******************************************************************************/
-void bl1_main(void)
-{
-	unsigned int image_id;
+	/* When BL2 runs in Secure world, it needs a coherent context. */
+#if !BL2_RUNS_AT_EL3
+	/* Init per-world context registers. */
+	cm_manage_extensions_per_world();
+#endif
 
 #if ENABLE_RUNTIME_INSTRUMENTATION
 	PMF_CAPTURE_TIMESTAMP(bl_svc, BL1_ENTRY, PMF_CACHE_MAINT);
@@ -127,12 +125,6 @@ void bl1_main(void)
 	/* Perform platform setup in BL1. */
 	bl1_platform_setup();
 
-#if ENABLE_PAUTH
-	/* Store APIAKey_EL1 key */
-	bl1_apiakey[0] = read_apiakeylo_el1();
-	bl1_apiakey[1] = read_apiakeyhi_el1();
-#endif /* ENABLE_PAUTH */
-
 	/* Get the image id of next image to load and run. */
 	image_id = bl1_plat_get_next_image_id();
 
@@ -148,6 +140,8 @@ void bl1_main(void)
 	/* Teardown the measured boot driver */
 	bl1_plat_mboot_finish();
 
+	crypto_mod_finish();
+
 	bl1_prepare_next_image(image_id);
 
 #if ENABLE_RUNTIME_INSTRUMENTATION
@@ -155,6 +149,11 @@ void bl1_main(void)
 #endif
 
 	console_flush();
+
+	/* Disable pointer authentication before jumping to next boot image. */
+	if (is_feat_pauth_supported()) {
+		pauth_disable_el3();
+	}
 }
 
 /*******************************************************************************

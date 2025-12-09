@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -101,7 +101,7 @@ void *cm_get_context_by_index(unsigned int cpu_idx,
  * specified security state for the CPU identified by CPU index.
  ******************************************************************************/
 void cm_set_context_by_index(unsigned int cpu_idx, void *context,
-				size_t security_state)
+				unsigned int security_state)
 {
 	assert(security_state == NON_SECURE);
 	sp_min_cpu_ctx_ptr[cpu_idx] = context;
@@ -113,6 +113,7 @@ static void copy_cpu_ctx_to_smc_stx(const regs_t *cpu_reg_ctx,
 	next_smc_ctx->r0 = read_ctx_reg(cpu_reg_ctx, CTX_GPREG_R0);
 	next_smc_ctx->r1 = read_ctx_reg(cpu_reg_ctx, CTX_GPREG_R1);
 	next_smc_ctx->r2 = read_ctx_reg(cpu_reg_ctx, CTX_GPREG_R2);
+	next_smc_ctx->r3 = read_ctx_reg(cpu_reg_ctx, CTX_GPREG_R3);
 	next_smc_ctx->lr_mon = read_ctx_reg(cpu_reg_ctx, CTX_LR);
 	next_smc_ctx->spsr_mon = read_ctx_reg(cpu_reg_ctx, CTX_SPSR);
 	next_smc_ctx->scr = read_ctx_reg(cpu_reg_ctx, CTX_SCR);
@@ -126,7 +127,7 @@ static void copy_cpu_ctx_to_smc_stx(const regs_t *cpu_reg_ctx,
 static void sp_min_prepare_next_image_entry(void)
 {
 	entry_point_info_t *next_image_info;
-	cpu_context_t *ctx = cm_get_context(NON_SECURE);
+	regs_t *gpregs = get_regs_ctx(cm_get_context(NON_SECURE));
 	u_register_t ns_sctlr;
 
 	/* Program system registers to proceed to non-secure */
@@ -141,13 +142,13 @@ static void sp_min_prepare_next_image_entry(void)
 	smc_set_next_ctx(NON_SECURE);
 
 	/* Copy r0, lr and spsr from cpu context to SMC context */
-	copy_cpu_ctx_to_smc_stx(get_regs_ctx(cm_get_context(NON_SECURE)),
+	copy_cpu_ctx_to_smc_stx(gpregs,
 			smc_get_next_ctx());
 
 	/* Temporarily set the NS bit to access NS SCTLR */
 	write_scr(read_scr() | SCR_NS_BIT);
 	isb();
-	ns_sctlr = read_ctx_reg(get_regs_ctx(ctx), CTX_NS_SCTLR);
+	ns_sctlr = read_ctx_reg(gpregs, CTX_NS_SCTLR);
 	write_sctlr(ns_sctlr);
 	isb();
 
@@ -213,6 +214,7 @@ void sp_min_main(void)
 	sp_min_plat_runtime_setup();
 
 	console_flush();
+	console_switch_state(CONSOLE_FLAG_RUNTIME);
 }
 
 /******************************************************************************
@@ -224,23 +226,23 @@ void sp_min_main(void)
 void sp_min_warm_boot(void)
 {
 	smc_ctx_t *next_smc_ctx;
-	cpu_context_t *ctx = cm_get_context(NON_SECURE);
+	regs_t *gpregs = get_regs_ctx(cm_get_context(NON_SECURE));
 	u_register_t ns_sctlr;
 
-	psci_warmboot_entrypoint();
+	psci_warmboot_entrypoint(plat_my_core_pos());
 
 	smc_set_next_ctx(NON_SECURE);
 
 	next_smc_ctx = smc_get_next_ctx();
 	zeromem(next_smc_ctx, sizeof(smc_ctx_t));
 
-	copy_cpu_ctx_to_smc_stx(get_regs_ctx(cm_get_context(NON_SECURE)),
+	copy_cpu_ctx_to_smc_stx(gpregs,
 			next_smc_ctx);
 
 	/* Temporarily set the NS bit to access NS SCTLR */
 	write_scr(read_scr() | SCR_NS_BIT);
 	isb();
-	ns_sctlr = read_ctx_reg(get_regs_ctx(ctx), CTX_NS_SCTLR);
+	ns_sctlr = read_ctx_reg(gpregs, CTX_NS_SCTLR);
 	write_sctlr(ns_sctlr);
 	isb();
 

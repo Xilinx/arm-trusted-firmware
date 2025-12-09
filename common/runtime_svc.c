@@ -60,27 +60,24 @@ uintptr_t handle_runtime_svc(uint32_t smc_fid,
  ******************************************************************************/
 static int32_t validate_rt_svc_desc(const rt_svc_desc_t *desc)
 {
-	int32_t ret = 0;
-
-	if ((desc == NULL) || ((desc->start_oen > desc->end_oen)
-				|| (desc->end_oen >= OEN_LIMIT))) {
-		ret = -EINVAL;
-		goto exit_fun;
+	if (desc == NULL) {
+		return -EINVAL;
+	}
+	if (desc->start_oen > desc->end_oen) {
+		return -EINVAL;
+	}
+	if (desc->end_oen >= OEN_LIMIT) {
+		return -EINVAL;
 	}
 	if ((desc->call_type != SMC_TYPE_FAST) &&
-
 	    (desc->call_type != SMC_TYPE_YIELD)) {
-		ret = -EINVAL;
-		goto exit_fun;
+		return -EINVAL;
 	}
 	/* A runtime service having no init or handle function doesn't make sense */
 	if ((desc->init == NULL) && (desc->handle == NULL)) {
-		ret = -EINVAL;
-		goto exit_fun;
+		return -EINVAL;
 	}
-
-exit_fun:
-	return ret;
+	return 0;
 }
 
 /*******************************************************************************

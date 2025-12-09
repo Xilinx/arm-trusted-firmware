@@ -1,12 +1,11 @@
 #
-# Copyright (c) 2023-2024, STMicroelectronics - All Rights Reserved
+# Copyright (c) 2023-2025, STMicroelectronics - All Rights Reserved
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 # Compilation rules
 .PHONY: check_dtc_version stm32image clean_stm32image check_boot_device
-.SUFFIXES:
 
 all: check_dtc_version stm32image ${STM32_TF_STM32}
 
@@ -28,11 +27,11 @@ check_boot_device:
 
 stm32image: ${STM32IMAGE}
 
-${STM32IMAGE}: ${STM32IMAGE_SRC}
-	$(q)${MAKE} CPPFLAGS="" --no-print-directory -C ${STM32IMAGEPATH}
+${STM32IMAGE}: ${STM32IMAGE_SRC} | $$(@D)/
+	$(q)${MAKE} CPPFLAGS="" BUILD_PLAT=$(abspath ${BUILD_PLAT}) --no-print-directory -C ${STM32IMAGEPATH}
 
 clean_stm32image:
-	$(q)${MAKE} --no-print-directory -C ${STM32IMAGEPATH} clean
+	$(q)${MAKE} BUILD_PLAT=$(abspath ${BUILD_PLAT}) --no-print-directory -C ${STM32IMAGEPATH} clean
 
 check_dtc_version:
 	$(q)if [ ${DTC_VERSION} -lt 10407 ]; then \
@@ -42,7 +41,7 @@ check_dtc_version:
 
 # Create DTB file for BL2
 ${BUILD_PLAT}/fdts/%-bl2.dts: fdts/%.dts fdts/${BL2_DTSI} | $$(@D)/
-	$(q)echo '#include "$(patsubst fdts/%,%,$<)"' > $@
+	$(q)echo '#include "$(patsubst %.dts,%$(SP_EXT).dts,$(patsubst fdts/%,%,$<))"' > $@
 	$(q)echo '#include "${BL2_DTSI}"' >> $@
 
 ${BUILD_PLAT}/fdts/%-bl2.dtb: ${BUILD_PLAT}/fdts/%-bl2.dts
@@ -72,8 +71,13 @@ tf-a-%.bin: tf-a-%.elf
 tf-a-%.stm32: tf-a-%.bin ${STM32_DEPS}
 	$(s)echo
 	$(s)echo "Generate $@"
+ifeq ($($(ARCH)-ld-id),llvm-lld)
+	$(eval LOADADDR = 0x$(shell cat $(@:.stm32=.map) | grep '\.data$$' | awk '{print $$1}'))
+	$(eval ENTRY = 0x$(shell cat $(@:.stm32=.map) | grep "__BL2_IMAGE_START" | awk '{print $$1}'))
+else
 	$(eval LOADADDR = $(shell cat $(@:.stm32=.map) | grep '^RAM' | awk '{print $$2}'))
 	$(eval ENTRY = $(shell cat $(@:.stm32=.map) | grep "__BL2_IMAGE_START" | awk '{print $$1}'))
+endif
 	$(q)${STM32IMAGE} -s $< -d $@ \
 		-l $(LOADADDR) -e ${ENTRY} \
 		-v ${STM32_TF_VERSION} \

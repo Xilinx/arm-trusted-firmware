@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,6 +12,12 @@
 
 #include <nrd_plat.h>
 #include <rdn2_ras.h>
+
+#define RT_OWNER 0
+#define A4SID_CHIP_0	0x0
+#define A4SID_CHIP_1	0x1
+#define A4SID_CHIP_2	0x2
+#define A4SID_CHIP_3	0x3
 
 #if defined(IMAGE_BL31)
 #if (NRD_PLATFORM_VARIANT == 2)
@@ -33,19 +39,50 @@ static const mmap_region_t rdn2mc_dynamic_mmap[] = {
 
 #if (NRD_PLATFORM_VARIANT == 2)
 static struct gic600_multichip_data rdn2mc_multichip_data __init = {
-	.rt_owner_base = PLAT_ARM_GICD_BASE,
-	.rt_owner = 0,
-	.chip_count = NRD_CHIP_COUNT,
-	.chip_addrs = {
-		PLAT_ARM_GICD_BASE >> 16,
+	.base_addrs = {
+		PLAT_ARM_GICD_BASE,
 #if NRD_CHIP_COUNT > 1
-		(PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(1)) >> 16,
+		PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(1),
 #endif
 #if NRD_CHIP_COUNT > 2
-		(PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(2)) >> 16,
+		PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(2),
 #endif
 #if NRD_CHIP_COUNT > 3
-		(PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(3)) >> 16,
+		PLAT_ARM_GICD_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(3),
+#endif
+	},
+	.rt_owner = RT_OWNER,
+	.chip_count = NRD_CHIP_COUNT,
+	.chip_addrs = {
+		{
+			A4SID_CHIP_0,
+			A4SID_CHIP_1,
+			A4SID_CHIP_2,
+			A4SID_CHIP_3
+		},
+#if NRD_CHIP_COUNT > 1
+		{
+			A4SID_CHIP_0,
+			A4SID_CHIP_1,
+			A4SID_CHIP_2,
+			A4SID_CHIP_3
+		},
+#endif
+#if NRD_CHIP_COUNT > 2
+		{
+			A4SID_CHIP_0,
+			A4SID_CHIP_1,
+			A4SID_CHIP_2,
+			A4SID_CHIP_3
+		},
+#endif
+#if NRD_CHIP_COUNT > 3
+		{
+			A4SID_CHIP_0,
+			A4SID_CHIP_1,
+			A4SID_CHIP_2,
+			A4SID_CHIP_3
+		}
 #endif
 	},
 	.spi_ids = {
@@ -71,10 +108,10 @@ static struct gic600_multichip_data rdn2mc_multichip_data __init = {
 };
 #endif
 
-#if (NRD_PLATFORM_VARIANT == 2)
 static uintptr_t rdn2mc_multichip_gicr_frames[] = {
 	/* Chip 0's GICR Base */
 	PLAT_ARM_GICR_BASE,
+#if (NRD_PLATFORM_VARIANT == 2)
 #if NRD_CHIP_COUNT > 1
 	/* Chip 1's GICR BASE */
 	PLAT_ARM_GICR_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(1),
@@ -87,9 +124,9 @@ static uintptr_t rdn2mc_multichip_gicr_frames[] = {
 	/* Chip 3's GICR BASE */
 	PLAT_ARM_GICR_BASE + NRD_REMOTE_CHIP_MEM_OFFSET(3),
 #endif
+#endif
 	UL(0)	/* Zero Termination */
 };
-#endif
 #endif /* IMAGE_BL31 */
 
 unsigned int plat_arm_nrd_get_platform_id(void)
@@ -137,13 +174,14 @@ void bl31_platform_setup(void)
 			}
 		}
 
-		plat_arm_override_gicr_frames(
-			rdn2mc_multichip_gicr_frames);
 		gic600_multichip_init(&rdn2mc_multichip_data);
 	}
 #endif
 
 	nrd_bl31_common_platform_setup();
+
+	gic_set_gicr_frames(
+		rdn2mc_multichip_gicr_frames);
 
 #if ENABLE_FEAT_RAS && FFH_SUPPORT
 	nrd_ras_platform_setup(&ras_config);

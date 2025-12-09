@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2019-2022, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2023, Intel Corporation. All rights reserved.
- * Copyright (c) 2024, Altera Corporation. All rights reserved.
+ * Copyright (c) 2024-2025, Altera Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -37,12 +37,6 @@
 
 /* sysmgr.boot_scratch_cold4 & 5 used for CPU release address for SPL */
 #define PLAT_CPU_RELEASE_ADDR			0xffd12210
-
-/* Magic word to indicate L2 reset is completed */
-#define L2_RESET_DONE_STATUS			0x1228E5E7
-
-/* Magic word to differentiate for SMP secondary core boot request */
-#define SMP_SEC_CORE_BOOT_REQ			0x1228E5E8
 
 /* Define next boot image name and offset */
 /* Get non-secure image entrypoint for BL33. Zephyr and Linux */
@@ -212,6 +206,9 @@
 #define MAX_IO_HANDLES				4
 #define MAX_IO_DEVICES				4
 #define MAX_IO_BLOCK_DEVICES			2
+
+/* Define this, to support the SiPSVC V3 implementation. */
+#define SIP_SVC_V3				1
 
 #ifndef __ASSEMBLER__
 struct socfpga_bl31_params {

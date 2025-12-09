@@ -127,8 +127,9 @@ message.
 Additionally the following libraries are marked experimental when included
 in a platform:
 
--  MPU translation library ``lib/xlat_mpu``
 -  RSE comms driver ``drivers/arm/rse``
+-  GICv5 driver ``drivers/arm/gicv5`` via ``USE_GIC_DRIVER=5``
+-  FEAT_IDTE3 ``lib/extensions/idte/`` via ``ENABLE_FEAT_IDTE3``
 
 Still to come
 -------------
@@ -145,10 +146,10 @@ Still to come
 
 .. _SMC Calling Convention: https://developer.arm.com/docs/den0028/latest
 .. _OP-TEE Secure OS: https://github.com/OP-TEE/optee_os
-.. _NVIDIA Trusted Little Kernel: http://nv-tegra.nvidia.com/gitweb/?p=3rdparty/ote_partner/tlk.git;a=summary
+.. _NVIDIA Trusted Little Kernel: https://nv-tegra.nvidia.com/r/plugins/gitiles/3rdparty/ote_partner/tlk
 .. _Trusty Secure OS: https://source.android.com/security/trusty
 .. _ProvenCore Secure OS: https://provenrun.com/products/provencore/
 
 --------------
 
-*Copyright (c) 2019-2023, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2025, Arm Limited. All rights reserved.*

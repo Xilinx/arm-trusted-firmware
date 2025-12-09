@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -146,6 +146,12 @@ IMPORT_SYM(uintptr_t, __BL2_RAM_START__,	BL2_RAM_BASE);
 IMPORT_SYM(uintptr_t, __BL2_RAM_END__,		BL2_RAM_END);
 #endif /* BL2_IN_XIP_MEM */
 
+#if defined (IMAGE_BL31) || defined(IMAGE_BL32)
+IMPORT_SYM(uintptr_t, __PER_CPU_START__,	PER_CPU_START);
+IMPORT_SYM(uintptr_t, __PER_CPU_END__,		PER_CPU_END);
+IMPORT_SYM(uintptr_t, __PER_CPU_UNIT_END__,	PER_CPU_UNIT_END)
+#endif /* IMAGE_BL31 && IMAGE_BL2*/
+
 /*
  * The next 2 constants identify the extents of the coherent memory region.
  * These addresses are used by the MMU setup code and therefore they must be
@@ -166,6 +172,15 @@ typedef struct meminfo {
 	uintptr_t total_base;
 	size_t total_size;
 } meminfo_t;
+
+/*******************************************************************************
+ * Structure used for conveying the location and size of the heap allocated for
+ * use by the cryptography library.
+ * *****************************************************************************/
+struct crypto_heap_info {
+	void *addr;
+	size_t size;
+};
 
 /*******************************************************************************
  * Function & variable prototypes
@@ -189,8 +204,6 @@ struct mmap_region;
 
 void setup_page_tables(const struct mmap_region *bl_regions,
 			   const struct mmap_region *plat_regions);
-
-void bl_handle_pauth(void);
 
 #endif /*__ASSEMBLER__*/
 

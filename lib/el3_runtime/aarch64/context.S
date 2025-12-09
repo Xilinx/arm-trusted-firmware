@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,8 @@
 #include <assert_macros.S>
 #include <context.h>
 #include <el3_common_macros.S>
+#include <lib/el3_runtime/cpu_data.h>
+#include <lib/per_cpu/per_cpu_macros.S>
 #include <platform_def.h>
 
 #if CTX_INCLUDE_FPREGS
@@ -75,6 +77,12 @@
  */
 #if CTX_INCLUDE_FPREGS
 func fpregs_context_save
+.arch_extension fp
+	/* Temporarily enable floating point */
+
+	/* Save x0 and pass its original value to fpregs_state_save */
+	mov	x1, x0
+
 	stp	q0, q1, [x0], #32
 	stp	q2, q3, [x0], #32
 	stp	q4, q5, [x0], #32
@@ -92,8 +100,9 @@ func fpregs_context_save
 	stp	q28, q29, [x0], #32
 	stp	q30, q31, [x0], #32
 
-	fpregs_state_save x0, x9
+	fpregs_state_save x1, x9
 
+.arch_extension nofp
 	ret
 endfunc fpregs_context_save
 
@@ -112,6 +121,12 @@ endfunc fpregs_context_save
  * ------------------------------------------------------------------
  */
 func fpregs_context_restore
+.arch_extension fp
+	/* Temporarily enable floating point */
+
+	/* Save x0 and pass its original value to fpregs_state_restore */
+	mov	x1, x0
+
 	ldp	q0, q1, [x0], #32
 	ldp	q2, q3, [x0], #32
 	ldp	q4, q5, [x0], #32
@@ -129,8 +144,9 @@ func fpregs_context_restore
 	ldp	q28, q29, [x0], #32
 	ldp	q30, q31, [x0], #32
 
-	fpregs_state_restore x0, x9
+	fpregs_state_restore x1, x9
 
+.arch_extension nofp
 	ret
 endfunc fpregs_context_restore
 #endif /* CTX_INCLUDE_FPREGS */
@@ -203,19 +219,6 @@ endfunc fpregs_context_restore
  */
 func sve_context_save
 .arch_extension sve
-	/* Temporarily enable SVE */
-	mrs	x10, cptr_el3
-	orr	x11, x10, #CPTR_EZ_BIT
-	bic	x11, x11, #TFP_BIT
-	msr	cptr_el3, x11
-	isb
-
-	/* zcr_el3 */
-	mrs	x12, S3_6_C1_C2_0
-	mov	x13, #((SVE_VECTOR_LEN >> 7) - 1)
-	msr	S3_6_C1_C2_0, x13
-	isb
-
 	/* Predicate registers */
 	mov x13, #CTX_SIMD_PREDICATES
 	add	x9, x0, x13
@@ -231,11 +234,6 @@ func sve_context_save
 	mov x13, #CTX_SIMD_VECTORS
 	add	x9, x0, x13
 	sve_vectors_op  str, x9
-
-	/* Restore SVE enablement */
-	msr	S3_6_C1_C2_0, x12 /* zcr_el3 */
-	msr	cptr_el3, x10
-	isb
 .arch_extension nosve
 
 	/* Save FPSR, FPCR and FPEXC32 */
@@ -254,19 +252,6 @@ endfunc sve_context_save
  */
 func sve_context_restore
 .arch_extension sve
-	/* Temporarily enable SVE for EL3 */
-	mrs	x10, cptr_el3
-	orr	x11, x10, #CPTR_EZ_BIT
-	bic	x11, x11, #TFP_BIT
-	msr	cptr_el3, x11
-	isb
-
-	/* zcr_el3 */
-	mrs	x12, S3_6_C1_C2_0
-	mov	x13, #((SVE_VECTOR_LEN >> 7) - 1)
-	msr	S3_6_C1_C2_0, x13
-	isb
-
 	/* Restore FFR register before predicates */
 	mov x13, #CTX_SIMD_FFR
 	add	x9, x0, x13
@@ -282,11 +267,6 @@ func sve_context_restore
 	mov x13, #CTX_SIMD_VECTORS
 	add	x9, x0, x13
 	sve_vectors_op	ldr, x9
-
-	/* Restore SVE enablement */
-	msr	S3_6_C1_C2_0, x12 /* zcr_el3 */
-	msr	cptr_el3, x10
-	isb
 .arch_extension nosve
 
 	/* Restore FPSR, FPCR and FPEXC32 */
@@ -294,15 +274,6 @@ func sve_context_restore
 	ret
 endfunc sve_context_restore
 #endif /* CTX_INCLUDE_SVE_REGS */
-
-	/*
-	 * Set SCR_EL3.EA bit to enable SErrors at EL3
-	 */
-	.macro enable_serror_at_el3
-	mrs	x8, scr_el3
-	orr	x8, x8, #SCR_EA_BIT
-	msr	scr_el3, x8
-	.endm
 
 	/*
 	 * Set the PSTATE bits not set when the exception was taken as
@@ -365,11 +336,11 @@ no_mpam:
 	.endm /* restore_mpam3_el3 */
 
 /* ------------------------------------------------------------------
- * The following macro is used to save and restore all the general
- * purpose and ARMv8.3-PAuth (if enabled) registers.
- * It also checks if the Secure Cycle Counter (PMCCNTR_EL0)
- * is disabled in EL3/Secure (ARMv8.5-PMU), wherein PMCCNTR_EL0
- * needs not to be saved/restored during world switch.
+ * The following macro is used to save all the general purpose
+ * registers and swap the FEAT_PAUTH keys with BL31's keys in
+ * cpu_data. It also checks if the Secure Cycle Counter (PMCCNTR_EL0)
+ * is disabled in EL3/Secure (ARMv8.5-PMU), wherein PMCCNTR_EL0 needs
+ * not to be saved/restored during world switch.
  *
  * Ideally we would only save and restore the callee saved registers
  * when a world switch occurs but that type of implementation is more
@@ -400,8 +371,12 @@ no_mpam:
 	/* PMUv3 is presumed to be always present */
 	mrs	x9, pmcr_el0
 	str	x9, [sp, #CTX_EL3STATE_OFFSET + CTX_PMCR_EL0]
-	isb
 #if CTX_INCLUDE_PAUTH_REGS
+#if CTX_INCLUDE_PAUTH_REGS == 2
+	/* Skip if not present in hardware */
+	is_feat_pauth_present_asm x9, x10
+	beq	no_pauth_\@
+#endif
 	/* ----------------------------------------------------------
  	 * Save the ARMv8.3-PAuth keys as they are not banked
  	 * by exception level
@@ -425,6 +400,25 @@ no_mpam:
 	stp	x24, x25, [x19, #CTX_PACDAKEY_LO]
 	stp	x26, x27, [x19, #CTX_PACDBKEY_LO]
 	stp	x28, x29, [x19, #CTX_PACGAKEY_LO]
+#if ENABLE_PAUTH
+#if IMAGE_BL31
+	/* tpidr_el3 contains the address of the cpu_data structure */
+	per_cpu_cur	percpu_data, x9, x10
+	/* Load APIAKey from cpu_data */
+	ldp	x10, x11, [x9, #CPU_DATA_APIAKEY]
+#endif /* IMAGE_BL31 */
+
+#if IMAGE_BL1
+	/* BL1 does not use cpu_data and has dedicated storage */
+	adr_l	x9, bl1_apiakey
+	ldp	x10, x11, [x9]
+#endif /* IMAGE_BL1 */
+
+	/* Program instruction key A */
+	msr	APIAKeyLo_EL1, x10
+	msr	APIAKeyHi_EL1, x11
+no_pauth_\@:
+#endif /* ENABLE_PAUTH */
 #endif /* CTX_INCLUDE_PAUTH_REGS */
 	.endm /* save_gp_pmcr_pauth_regs */
 
@@ -440,6 +434,18 @@ no_mpam:
  * -----------------------------------------------------------------
  */
 func prepare_el3_entry
+	/*
+	 * context is about to mutate, so make sure we don't affect any still
+	 * in-flight profiling operations. We don't care that they actually
+	 * finish, that can still be later. NOP if not present
+	 */
+#if ENABLE_SPE_FOR_NS
+	psb_csync
+#endif
+#if ENABLE_TRBE_FOR_NS
+	tsb_csync
+#endif
+	isb
 	save_gp_pmcr_pauth_regs
 	setup_el3_execution_context
 	ret
@@ -453,6 +459,11 @@ endfunc prepare_el3_entry
  */
 func restore_gp_pmcr_pauth_regs
 #if CTX_INCLUDE_PAUTH_REGS
+#if CTX_INCLUDE_PAUTH_REGS == 2
+	/* Skip if not present in hardware */
+	is_feat_pauth_present_asm x0, x1
+	beq	no_pauth
+#endif
  	/* Restore the ARMv8.3 PAuth keys */
 	add	x10, sp, #CTX_PAUTH_REGS_OFFSET
 
@@ -472,6 +483,7 @@ func restore_gp_pmcr_pauth_regs
 	msr	APDBKeyHi_EL1, x7
 	msr	APGAKeyLo_EL1, x8
 	msr	APGAKeyHi_EL1, x9
+no_pauth:
 #endif /* CTX_INCLUDE_PAUTH_REGS */
 
 	/* PMUv3 is presumed to be always present */
@@ -587,10 +599,7 @@ func el3_exit
 
 	/* ----------------------------------------------------------
 	 * Restore CPTR_EL3.
-	 * ZCR is only restored if SVE is supported and enabled.
-	 * Synchronization is required before zcr_el3 is addressed.
-	 * ----------------------------------------------------------
-	 */
+	 * ---------------------------------------------------------- */
 
 	/* The address of the per_world context is stored in x9 */
 	get_per_world_context x9
@@ -599,13 +608,6 @@ func el3_exit
 	msr	cptr_el3, x19
 
 #if IMAGE_BL31
-	ands	x19, x19, #CPTR_EZ_BIT
-	beq	sve_not_enabled
-
-	isb
-	msr	S3_6_C1_C2_0, x20 /* zcr_el3 */
-sve_not_enabled:
-
 	restore_mpam3_el3
 
 #endif /* IMAGE_BL31 */

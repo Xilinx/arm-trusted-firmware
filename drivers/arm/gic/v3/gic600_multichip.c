@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2025, Arm Limited. All rights reserved.
  * Copyright (c) 2022-2023, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -112,13 +112,17 @@ static void set_gicd_chipr_n(uintptr_t base,
 	}
 
 	/*
-	 * spi_id_min and spi_id_max of value 0 is used to intidicate that the
+	 * spi_id_min and spi_id_max of value 0 is used to indicate that the
 	 * chip doesn't own any SPI block. Re-assign min and max values as SPI
 	 * id starts from 32.
 	 */
-	if (spi_id_min == 0 && spi_id_max == 0) {
+	if (spi_id_min == 0U && spi_id_max == 0U) {
 		spi_id_min = GIC600_SPI_ID_MIN;
 		spi_id_max = GIC600_SPI_ID_MIN;
+	} else if (spi_id_min < GIC600_SPI_ID_MIN || spi_id_max < spi_id_min ||
+		   spi_id_max > GIC600_SPI_ID_MAX) {
+		ERROR("Invalid SPI ID range: min=%u max=%u\n", spi_id_min, spi_id_max);
+		panic();
 	}
 
 	switch ((gicd_iidr_val & IIDR_MODEL_MASK)) {
@@ -322,12 +326,40 @@ static void gic700_multichip_validate_data(
 }
 
 /*******************************************************************************
+ * Initialize GIC-600 and GIC-700 Multichip operation in LCA mode by setting up
+ * the routing table first.
+ ******************************************************************************/
+static void gic600_multichip_lca_init(
+		struct gic600_multichip_data *multichip_data)
+{
+	unsigned int i, j;
+	unsigned int rt_owner = multichip_data->rt_owner;
+
+	for (i = 0; i < multichip_data->chip_count; i++) {
+		for (j = 0; j < multichip_data->chip_count; j++) {
+			INFO("RT(LCA): CHIP%u -> CHIP%u 0x%lx\n", i, j,
+					multichip_data->chip_addrs[i][j]);
+			set_gicd_chipr_n(multichip_data->base_addrs[i], j,
+				multichip_data->chip_addrs[i][j],
+				multichip_data->spi_ids[j].spi_id_min,
+				multichip_data->spi_ids[j].spi_id_max);
+		}
+	}
+
+	/* Initialize the GICD which is marked as routing table owner last */
+	set_gicd_dchipr_rt_owner(multichip_data->base_addrs[rt_owner],
+			rt_owner);
+}
+
+/*******************************************************************************
  * Initialize GIC-600 and GIC-700 Multichip operation.
  ******************************************************************************/
 void gic600_multichip_init(struct gic600_multichip_data *multichip_data)
 {
 	unsigned int i;
-	uint32_t gicd_iidr_val = gicd_read_iidr(multichip_data->rt_owner_base);
+	unsigned int rt_owner = multichip_data->rt_owner;
+	uint32_t gicd_iidr_val =
+			gicd_read_iidr(multichip_data->base_addrs[rt_owner]);
 
 	if ((gicd_iidr_val & IIDR_MODEL_MASK) == IIDR_MODEL_ARM_GIC_600) {
 		gic600_multichip_validate_data(multichip_data);
@@ -341,16 +373,16 @@ void gic600_multichip_init(struct gic600_multichip_data *multichip_data)
 	 * Ensure that G0/G1S/G1NS interrupts are disabled. This also ensures
 	 * that GIC-600 Multichip configuration is done first.
 	 */
-	if ((gicd_read_ctlr(multichip_data->rt_owner_base) &
-			(CTLR_ENABLE_G0_BIT | CTLR_ENABLE_G1S_BIT |
-			 CTLR_ENABLE_G1NS_BIT | GICD_CTLR_RWP_BIT)) != 0) {
+	if ((gicd_read_ctlr(multichip_data->base_addrs[rt_owner]) &
+		 (CTLR_ENABLE_G0_BIT | CTLR_ENABLE_G1S_BIT |
+		  CTLR_ENABLE_G1NS_BIT | GICD_CTLR_RWP_BIT)) != 0) {
 		ERROR("GICD_CTLR group interrupts are either enabled or have "
 				"pending writes.\n");
 		panic();
 	}
 
 	/* Ensure that the routing table owner is in disconnected state */
-	if (((read_gicd_chipsr(multichip_data->rt_owner_base) &
+	if (((read_gicd_chipsr(multichip_data->base_addrs[rt_owner]) &
 		GICD_CHIPSR_RTS_MASK) >> GICD_CHIPSR_RTS_SHIFT) !=
 			GICD_CHIPSR_RTS_STATE_DISCONNECTED) {
 		ERROR("GIC-600 routing table owner is not in disconnected "
@@ -358,25 +390,34 @@ void gic600_multichip_init(struct gic600_multichip_data *multichip_data)
 		panic();
 	}
 
-	/* Initialize the GICD which is marked as routing table owner first */
-	set_gicd_dchipr_rt_owner(multichip_data->rt_owner_base,
-			multichip_data->rt_owner);
+	/* If LCA is not enabled */
+	if ((read_gicd_cfgid(multichip_data->base_addrs[rt_owner]) &
+			GICD_CFGID_LCA_BIT) == 0) {
+		/*
+		 * Initialize the GICD which is marked as routing table
+		 * owner first.
+		 */
+		set_gicd_dchipr_rt_owner(multichip_data->base_addrs[rt_owner],
+			rt_owner);
 
-	set_gicd_chipr_n(multichip_data->rt_owner_base, multichip_data->rt_owner,
-			multichip_data->chip_addrs[multichip_data->rt_owner],
-			multichip_data->
-			spi_ids[multichip_data->rt_owner].spi_id_min,
-			multichip_data->
-			spi_ids[multichip_data->rt_owner].spi_id_max);
+		set_gicd_chipr_n(multichip_data->base_addrs[rt_owner], rt_owner,
+			multichip_data->chip_addrs[rt_owner][rt_owner],
+			multichip_data->spi_ids[rt_owner].spi_id_min,
+			multichip_data->spi_ids[rt_owner].spi_id_max);
 
-	for (i = 0; i < multichip_data->chip_count; i++) {
-		if (i == multichip_data->rt_owner)
-			continue;
-
-		set_gicd_chipr_n(multichip_data->rt_owner_base, i,
-				multichip_data->chip_addrs[i],
+		for (i = 0; i < multichip_data->chip_count; i++) {
+			if (i == rt_owner)
+				continue;
+			set_gicd_chipr_n(
+				multichip_data->base_addrs[rt_owner], i,
+				multichip_data->chip_addrs[rt_owner][i],
 				multichip_data->spi_ids[i].spi_id_min,
 				multichip_data->spi_ids[i].spi_id_max);
+		}
+	} else {
+		/* If LCA is enabled */
+		INFO("GIC Local chip addressing is enabled\n");
+		gic600_multichip_lca_init(multichip_data);
 	}
 
 	plat_gic_multichip_data = multichip_data;

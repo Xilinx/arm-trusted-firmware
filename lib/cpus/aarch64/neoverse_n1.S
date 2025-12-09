@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2024, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2025, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,6 +8,7 @@
 #include <asm_macros.S>
 #include <cpuamu.h>
 #include <cpu_macros.S>
+#include <dsu_macros.S>
 #include <neoverse_n1.h>
 #include "wa_cve_2022_23960_bhb_vector.S"
 
@@ -27,15 +28,18 @@
 	wa_cve_2022_23960_bhb_vector_table NEOVERSE_N1_BHB_LOOP_COUNT, neoverse_n1
 #endif /* WORKAROUND_CVE_2022_23960 */
 
-/*
- * ERRATA_DSU_936184:
- * The errata is defined in dsu_helpers.S and applies to Neoverse N1.
- * Henceforth creating symbolic names to the already existing errata
- * workaround functions to get them registered under the Errata Framework.
- */
-.equ check_erratum_neoverse_n1_936184, check_errata_dsu_936184
-.equ erratum_neoverse_n1_936184_wa, errata_dsu_936184_wa
-add_erratum_entry neoverse_n1, ERRATUM(936184), ERRATA_DSU_936184, APPLY_AT_RESET
+cpu_reset_prologue neoverse_n1
+
+workaround_reset_start neoverse_n1, ERRATUM(936184), ERRATA_DSU_936184
+	errata_dsu_936184_wa_impl
+workaround_reset_end neoverse_n1, ERRATUM(936184)
+
+check_erratum_custom_start neoverse_n1, ERRATUM(936184)
+	branch_if_scu_not_present 2f /* label 1 is used in the macro */
+	check_errata_dsu_936184_impl
+	2:
+	ret
+check_erratum_custom_end neoverse_n1, ERRATUM(936184)
 
 workaround_reset_start neoverse_n1, ERRATUM(1043202), ERRATA_N1_1043202
 	/* Apply instruction patching sequence */
@@ -112,7 +116,7 @@ workaround_reset_end neoverse_n1, ERRATUM(1315703)
 
 check_erratum_ls neoverse_n1, ERRATUM(1315703), CPU_REV(3, 0)
 
-workaround_reset_start neoverse_n1, ERRATUM(1542419), ERRATA_N1_1542419
+workaround_reset_start neoverse_n1, ERRATUM(1542419), ERRATA_N1_1542419, SPLIT_WA
 	/* Apply instruction patching sequence */
 	ldr	x0, =0x0
 	msr	CPUPSELR_EL3, x0
@@ -236,7 +240,7 @@ func neoverse_n1_core_pwr_dwn
 	 */
 	sysreg_bit_set NEOVERSE_N1_CPUPWRCTLR_EL1, NEOVERSE_N1_CORE_PWRDN_EN_MASK
 
-	apply_erratum neoverse_n1, ERRATUM(2743102), ERRATA_N1_2743102, NO_GET_CPU_REV
+	apply_erratum neoverse_n1, ERRATUM(2743102), ERRATA_N1_2743102
 
 	isb
 	ret
@@ -264,13 +268,6 @@ func neoverse_n1_errata_ic_trap_handler
 	ldp	x4, x5, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_X4]
 	ldr	x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_LR]
 
-	/*
-	 * Issue Error Synchronization Barrier to synchronize SErrors before
-	 * exiting EL3. We're running with EAs unmasked, so any synchronized
-	 * errors would be taken immediately; therefore no need to inspect
-	 * DISR_EL1 register.
-	 */
-	esb
 	exception_return
 1:
 	ret

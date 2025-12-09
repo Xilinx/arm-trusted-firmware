@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2019-2024, Arm Limited. All rights reserved.
+# Copyright (c) 2019-2025, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -14,8 +14,8 @@
 
 project = "Trusted Firmware-A"
 author = "Trusted Firmware-A contributors"
-version = "2.12.0"
-release = "2.12.0"
+version = "2.14.0"
+release = "2.14.0"
 
 # -- General configuration ---------------------------------------------------
 
@@ -50,6 +50,9 @@ language = "en"
 # This pattern also affects html_static_path and html_extra_path .
 # Don't try to build the venv in case it's placed with the sources
 exclude_patterns = [".env", "env", ".venv", "venv"]
+
+linkcheck_anchors = False
+linkcheck_ignore = ["change-log.md"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
