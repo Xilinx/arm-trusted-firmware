@@ -48,6 +48,7 @@ void board_detection(void)
 {
 	uint32_t plat_info[2];
 
+#if (TFA_NO_PM == 0)
 	if (pm_get_chipid(plat_info) != PM_RET_SUCCESS) {
 		/* If the call is failed we cannot proceed with further
 		 * setup. TF-A to panic in this situation.
@@ -55,6 +56,9 @@ void board_detection(void)
 		NOTICE("Failed to read the chip information");
 		panic();
 	}
+#else
+	plat_info[1] = mmio_read_32(PMC_TAP_VERSION);
+#endif
 
 	platform_id = FIELD_GET(PLATFORM_MASK, plat_info[1]);
 	platform_version = FIELD_GET(PLATFORM_VERSION_MASK, plat_info[1]);

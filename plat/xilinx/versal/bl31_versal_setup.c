@@ -74,10 +74,12 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	(void)arg1;
 	(void)arg2;
 	(void)arg3;
+#if (TFA_NO_PM == 0)
 	uint64_t tfa_handoff_addr;
 	uint32_t payload[PAYLOAD_ARG_CNT], max_size = (uint32_t)HANDOFF_PARAMS_MAX_SIZE;
 	enum pm_ret_status ret_status;
 	const uint64_t addr[HANDOFF_PARAMS_MAX_SIZE];
+#endif
 
 	/*
 	 * Do initial security configuration to allow DRAM/device access. On
@@ -118,6 +120,7 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	SET_PARAM_HEAD(&bl33_image_ep_info, PARAM_EP, VERSION_1, 0);
 	SET_SECURITY_STATE(bl33_image_ep_info.h.attr, NON_SECURE);
 
+#if (TFA_NO_PM == 0)
 	PM_PACK_PAYLOAD4(payload, LOADER_MODULE_ID, 1U, PM_LOAD_GET_HANDOFF_PARAMS,
 			(uintptr_t)addr >> 32U, (uintptr_t)addr, max_size);
 	ret_status = pm_ipi_send_sync(primary_proc, payload, NULL, 0);
@@ -141,6 +144,9 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	} else {
 		INFO("BL31: PLM to TF-A handover success %u\n", ret);
 	}
+#else
+	bl31_set_default_config();
+#endif
 
 	NOTICE("BL31: Secure code at 0x%lx\n", bl32_image_ep_info.pc);
 	NOTICE("BL31: Non secure code at 0x%lx\n", bl33_image_ep_info.pc);
