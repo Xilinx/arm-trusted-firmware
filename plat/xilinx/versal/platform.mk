@@ -18,6 +18,12 @@ $(eval $(call add_define_val,CPU_PWR_DOWN_REQ_INTR,ARM_IRQ_SEC_SGI_${CPU_PWRDWN_
 ERRATA_A72_859971 := 1
 ERRATA_A72_1319367 := 1
 
+TFA_NO_PM := 0
+
+ifdef TFA_NO_PM
+   $(eval $(call add_define,TFA_NO_PM))
+endif
+
 ifdef VERSAL_ATF_MEM_BASE
     $(eval $(call add_define,VERSAL_ATF_MEM_BASE))
 
@@ -110,6 +116,15 @@ $(error "Please define CONSOLE_RUNTIME")
 endif
 endif
 
+ifeq ($(TFA_NO_PM), 0)
+BL31_SOURCES		+=	plat/xilinx/common/pm_service/pm_api_sys.c	\
+				plat/xilinx/common/pm_service/pm_ipi.c		\
+				plat/xilinx/common/pm_service/pm_svc_main.c	\
+				plat/xilinx/versal/pm_service/pm_client.c	\
+				plat/xilinx/versal/plat_psci.c
+else
+BL31_SOURCES		+=	plat/xilinx/versal/plat_psci_nopm.c
+endif
 BL31_SOURCES		+=	drivers/arm/cci/cci.c				\
 				lib/cpus/aarch64/cortex_a72.S			\
 				common/fdt_wrappers.c                           \
@@ -120,18 +135,13 @@ BL31_SOURCES		+=	drivers/arm/cci/cci.c				\
 				plat/xilinx/common/plat_clkfunc.c               \
 				plat/xilinx/common/plat_startup.c		\
 				plat/xilinx/common/ipi_mailbox_service/ipi_mailbox_svc.c \
-				plat/xilinx/common/pm_service/pm_ipi.c		\
-				plat/xilinx/common/pm_service/pm_api_sys.c	\
-				plat/xilinx/common/pm_service/pm_svc_main.c	\
 				plat/xilinx/common/versal.c			\
 				plat/xilinx/versal/bl31_versal_setup.c		\
-				plat/xilinx/versal/plat_psci.c			\
 				plat/xilinx/versal/plat_versal.c		\
 				plat/xilinx/versal/plat_topology.c		\
 				plat/xilinx/versal/sip_svc_setup.c		\
 				plat/xilinx/versal/versal_gicv3.c		\
 				plat/xilinx/versal/versal_ipi.c			\
-				plat/xilinx/versal/pm_service/pm_client.c	\
 				common/fdt_fixup.c				\
 				${LIBFDT_SRCS}
 

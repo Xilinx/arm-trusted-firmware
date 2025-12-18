@@ -43,6 +43,8 @@
 #define VERSAL_QEMU                3U
 #define VERSAL_COSIM               7U
 
+#define PMC_TAP_VERSION		U(0xF11A0004)
+
 /* Firmware Image Package */
 #define VERSAL_PRIMARY_CPU	0
 

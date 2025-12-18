@@ -48,7 +48,9 @@ DEFINE_SVC_UUID2(versal_sip_uuid,
 static int32_t sip_svc_setup(void)
 {
 	/* PM implementation as SiP Service */
+#if (TFA_NO_PM == 0)
 	(void)pm_setup();
+#endif
 
 	return 0;
 }
@@ -86,11 +88,13 @@ static uintptr_t sip_svc_smc_handler(uint32_t smc_fid,
 		SMC_RET1(handle, SMC_UNK);
 	}
 
+#if (TFA_NO_PM == 0)
 	/* Let PM SMC handler deal with PM-related requests */
 	if (is_pm_fid(smc_fid)) {
 		return pm_smc_handler(smc_fid, x1, x2, x3, x4, cookie, handle,
 				      flags);
 	}
+#endif
 
 	/* Let IPI SMC handler deal with IPI-related requests */
 	if (is_ipi_fid(smc_fid)) {
