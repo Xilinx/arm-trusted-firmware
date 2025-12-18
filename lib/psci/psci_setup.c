@@ -31,7 +31,6 @@ CASSERT(PLATFORM_CORE_COUNT <= (PSCI_MAX_CPUS_INDEX + 1U), assert_psci_cores_ove
  * of relying on platform defined constants.
  ******************************************************************************/
 static PER_CPU_DEFINE(cpu_context_t, psci_ns_context);
-static entry_point_info_t warmboot_ep_info[PLATFORM_CORE_COUNT];
 
 /******************************************************************************
  * Define the psci capability variable.
@@ -113,13 +112,6 @@ static void __init psci_update_pwrlvl_limits(void)
 			}
 			psci_non_cpu_pd_nodes[nodes_idx[j]].ncpus++;
 		}
-	}
-}
-
-static void __init populate_cpu_data(void)
-{
-	for (unsigned int idx = 0; idx < psci_plat_core_count; idx++) {
-		set_cpu_data_by_index(idx, warmboot_ep_info, &warmboot_ep_info[idx]);
 	}
 }
 
@@ -227,9 +219,6 @@ int __init psci_setup(const psci_lib_args_t *lib_args)
 
 	/* Update the CPU limits for each node in psci_non_cpu_pd_nodes */
 	psci_update_pwrlvl_limits();
-
-	/* Initialise the warmboot entrypoints */
-	populate_cpu_data();
 
 	/* Populate the mpidr field of cpu node for this CPU */
 	PER_CPU_BY_INDEX(psci_cpu_pd_nodes, cpu_idx)->mpidr =

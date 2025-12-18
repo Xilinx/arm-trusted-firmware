@@ -51,6 +51,8 @@
 /* Invalid parent */
 #define PSCI_PARENT_NODE_INVALID	0xFFFFFFFFU
 
+PER_CPU_DECLARE(entry_point_info_t, warmboot_ep_info);
+
 /*
  * Helper functions to get/set the fields of PSCI per-cpu data.
  */
