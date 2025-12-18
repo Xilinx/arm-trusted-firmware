@@ -69,6 +69,7 @@ __section(".tzfw_coherent_mem")
 DEFINE_PSCI_LOCK(psci_locks[PSCI_NUM_NON_CPU_PWR_DOMAINS]);
 
 PER_CPU_DEFINE(cpu_pd_node_t, psci_cpu_pd_nodes);
+PER_CPU_DEFINE(entry_point_info_t, warmboot_ep_info);
 
 /*******************************************************************************
  * Pointer to functions exported by the platform to complete power mgmt. ops
@@ -1068,7 +1069,7 @@ void psci_warmboot_entrypoint(unsigned int cpu_idx)
 	 * Caches and (importantly) coherency are on so we can rely on seeing
 	 * whatever the primary gave us without explicit cache maintenance
 	 */
-	entry_point_info_t *ep = get_cpu_data(warmboot_ep_info);
+	entry_point_info_t *ep = PER_CPU_CUR(warmboot_ep_info);
 	cm_init_my_context(ep);
 
 	/*

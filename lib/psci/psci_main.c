@@ -36,7 +36,7 @@ int psci_cpu_on(u_register_t target_cpu,
 		return PSCI_E_INVALID_PARAMS;
 	}
 
-	ep = get_cpu_data_by_index(target_idx, warmboot_ep_info);
+	ep = PER_CPU_BY_INDEX(warmboot_ep_info, target_idx);
 	/* Validate the lower EL entry point and put it in the entry_point_info */
 	rc = psci_validate_entry_point(ep, entrypoint, context_id);
 	if (rc != PSCI_E_SUCCESS) {
@@ -149,7 +149,7 @@ int psci_cpu_suspend(unsigned int power_state,
 	 * point and program entry information.
 	 */
 	if (is_power_down_state != 0U) {
-		entry_point_info_t *ep = get_cpu_data_by_index(cpu_idx, warmboot_ep_info);
+		entry_point_info_t *ep = PER_CPU_CUR(warmboot_ep_info);
 
 		rc = psci_validate_entry_point(ep, entrypoint, context_id);
 		if (rc != PSCI_E_SUCCESS) {
@@ -177,7 +177,7 @@ int psci_system_suspend(uintptr_t entrypoint, u_register_t context_id)
 	int rc;
 	psci_power_state_t state_info;
 	unsigned int cpu_idx = plat_my_core_pos();
-	entry_point_info_t *ep = get_cpu_data_by_index(cpu_idx, warmboot_ep_info);
+	entry_point_info_t *ep = PER_CPU_CUR(warmboot_ep_info);
 
 	/* Check if the current CPU is the last ON CPU in the system */
 	if (!psci_is_last_on_cpu(cpu_idx)) {
