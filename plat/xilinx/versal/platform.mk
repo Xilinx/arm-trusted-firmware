@@ -149,6 +149,15 @@ ifeq ($(HARDEN_SLS_ALL), 1)
 TF_CFLAGS_aarch64      +=      -mharden-sls=all
 endif
 
+# PLAT_IPI_ID_APU
+ifdef PLAT_IPI_ID_APU
+ifeq (${PLAT_IPI_ID_APU}, $(filter ${PLAT_IPI_ID_APU},2 3 4 5 6 7))
+$(eval $(call add_define,PLAT_IPI_ID_APU))
+else
+$(error "Please define proper PLAT_IPI_ID_APU")
+endif
+endif
+
 ifeq (${ERRATA_ABI_SUPPORT}, 1)
 # enable the cpu macros for errata abi interface
 CORTEX_A72_H_INC	:= 1
