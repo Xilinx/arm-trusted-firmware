@@ -72,6 +72,19 @@ the makefile as follows:
 
     $(eval $(call add_define,PLATFORM_STACK_SIZE))
 
+Configurable APU IPI ID
+-----------------------
+
+The APU IPI ID in TF-A for the Versal platform is configurable as per the design.
+
+To build PLAT_IPI_ID_APU:
+
+.. code-block:: shell
+
+    make CROSS_COMPILE=aarch64-none-elf- PLAT=versal RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
+
+    $(eval $(call add_define,PLAT_IPI_ID_APU))
+
 CUSTOM SIP Service Support
 --------------------------
 
