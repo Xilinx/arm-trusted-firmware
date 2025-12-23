@@ -1,0 +1,10 @@
+set(PROJECT_API_SRC_DIR ${PROJECT_SOURCE_DIR}/src/${PROJECT_API})
+set(PROJECT_API_INC_DIR ${PROJECT_SOURCE_DIR}/include/${PROJECT_API})
+
+if(EXISTS "${PROJECT_API_SRC_DIR}")
+    file(GLOB PROJECT_SOURCES "${PROJECT_API_SRC_DIR}/*.c")
+    target_sources(tl PRIVATE ${PROJECT_SOURCES})
+    target_include_directories(tl PUBLIC ${PROJECT_API_INC_DIR})
+else()
+    message(FATAL_ERROR "Project-specific API '${PROJECT_API}' not found")
+endif()

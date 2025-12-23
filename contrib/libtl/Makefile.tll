@@ -1,0 +1,22 @@
+#
+# Copyright The Transfer List Library Contributors.
+#
+# SPDX-License-Identifier: MIT OR GPL-2.0-or-later
+#
+
+#
+# This is not a complete Makefile of itself.  Instead, it is designed to
+# be easily embeddable into other systems of Makefiles.
+#
+
+LIBTL_soname = libtl.$(SHAREDLIB_EXT).1
+LIBTL_INCLUDES = debug.h  transfer_list.h  utils_def_exp.h  utils_def.h
+LIBTL_VERSION = version.lds
+LIBTL_SRCS = src/transfer_list.c
+LIBTL_OBJS = $(TLL_SRCS:src/%.c=%.o)
+LIBTL_LIB = libtll-$(DTC_VERSION).$(SHAREDLIB_EXT)
+
+libtl_clean:
+	@$(VECHO) CLEAN "(libfdt)"
+	rm -f $(STD_CLEANFILES:%=$(LIBTL_dir)/%)
+	rm -f $(LIBTL_dir)/$(TLL_soname)
