@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -81,7 +81,7 @@ void pm_client_set_wakeup_sources(uint32_t node_id, uint32_t flag)
 			node_idx = irq_to_pm_node_idx(irq);
 			reg &= ~lowest_set;
 
-			if (node_idx > XPM_NODEIDX_DEV_MIN) {
+			if ((node_idx > XPM_NODEIDX_DEV_MIN) && (node_idx < XPM_NODEIDX_DEV_MAX)) {
 				if (pm_wakeup_nodes_set[node_idx] == 0U) {
 					/* Get device ID from node index */
 					device_id = PERIPH_DEVID((uint32_t)node_idx);
