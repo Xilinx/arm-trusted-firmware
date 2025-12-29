@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2013-2020, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -39,7 +39,7 @@ static inline void pm_ipi_lock_release(void)
 	bakery_lock_release(&pm_secure_lock);
 }
 #else
-spinlock_t pm_secure_lock;
+static spinlock_t pm_secure_lock;
 static inline void pm_ipi_lock_get(void)
 {
 	spin_lock(&pm_secure_lock);
