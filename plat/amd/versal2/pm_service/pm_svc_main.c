@@ -78,7 +78,7 @@ bool pm_pwrdwn_req_status(void)
 
 static void notify_os(void)
 {
-	plat_ic_raise_ns_sgi((int)sgi, read_mpidr_el1());
+	plat_ic_raise_ns_sgi((int32_t)sgi, read_mpidr_el1());
 }
 
 static uint64_t cpu_pwrdwn_req_handler(uint32_t id, uint32_t flags,
@@ -103,18 +103,18 @@ static uint64_t cpu_pwrdwn_req_handler(uint32_t id, uint32_t flags,
  */
 static void raise_pwr_down_interrupt(u_register_t mpidr)
 {
-	plat_ic_raise_el3_sgi((int)CPU_PWR_DOWN_REQ_INTR, mpidr);
+	plat_ic_raise_el3_sgi((int32_t)CPU_PWR_DOWN_REQ_INTR, mpidr);
 }
 
 void request_cpu_pwrdwn(void)
 {
-	int ret;
+	int32_t ret;
 
 	VERBOSE("CPU power down request received\n");
 
 	/* Send powerdown request to online secondary core(s) */
-	ret = psci_stop_other_cores(plat_my_core_pos(), (unsigned int)PWRDWN_WAIT_TIMEOUT, raise_pwr_down_interrupt);
-	if (ret != (int)PSCI_E_SUCCESS) {
+	ret = psci_stop_other_cores(plat_my_core_pos(), (uint32_t)PWRDWN_WAIT_TIMEOUT, raise_pwr_down_interrupt);
+	if (ret != (int32_t)PSCI_E_SUCCESS) {
 		ERROR("Failed to powerdown secondary core(s)\n");
 	}
 
@@ -143,7 +143,7 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 
 		/* If any agent other than PMC has generated IPI FIQ then send SGI to mbox driver */
 		if ((ipi_status & (uint32_t)IPI_MB_STATUS_RECV_PENDING) > (uint32_t) 0) {
-			plat_ic_raise_ns_sgi((int)MBOX_SGI_SHARED_IPI, read_mpidr_el1());
+			plat_ic_raise_ns_sgi((int32_t)MBOX_SGI_SHARED_IPI, read_mpidr_el1());
 			break;
 		}
 	}

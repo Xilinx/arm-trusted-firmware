@@ -325,7 +325,7 @@ uint32_t calculate_crc(uint32_t payload[PAYLOAD_ARG_CNT], uint32_t buffersize)
 	crchighbit = ((uint32_t)1U << (order - 1U));
 
 	for (i = 0U; i < buffersize; i++) {
-		datain = mmio_read_8((unsigned long)payload + i);
+		datain = mmio_read_8((uint64_t)payload + i);
 		c = datain;
 		j = 0x80U;
 		while (j != 0U) {
