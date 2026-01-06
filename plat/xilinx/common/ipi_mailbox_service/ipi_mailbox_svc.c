@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2019, Arm Limited and Contributors. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -129,7 +129,7 @@ uint64_t ipi_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2,
 
 		enable_interrupt = ((x3 & IPI_SMC_ACK_EIRQ_MASK) != 0U);
 		ipi_mb_ack(ipi_local_id, ipi_remote_id);
-		if (enable_interrupt != 0) {
+		if (enable_interrupt) {
 			ipi_mb_enable_irq(ipi_local_id, ipi_remote_id);
 		}
 		SMC_RET1(handle, 0);
