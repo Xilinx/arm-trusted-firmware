@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -124,5 +124,5 @@ static const struct ipi_config ipi_table[IPI_ID_MAX] = {
  */
 void soc_ipi_config_table_init(void)
 {
-	ipi_config_table_init(ipi_table, ARRAY_SIZE(ipi_table));
+	ipi_config_table_init(ipi_table, (uint32_t)ARRAY_SIZE(ipi_table));
 }

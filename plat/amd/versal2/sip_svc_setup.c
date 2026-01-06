@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2019, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2018-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -119,6 +119,6 @@ DECLARE_RT_SVC(
 		sip_svc,
 		OEN_SIP_START,
 		OEN_SIP_END,
-		SMC_TYPE_FAST,
+		(uint8_t)SMC_TYPE_FAST,
 		sip_svc_setup,
 		sip_svc_smc_handler);

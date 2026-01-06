@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -89,7 +89,7 @@ static void versal2_pwr_domain_off(const psci_power_state_t *target_state)
 	 * be set.
 	 */
 	pm_ret = pm_self_suspend(proc->node_id, MAX_LATENCY, PM_STATE_CPU_OFF, 0,
-				 NON_SECURE);
+				 (uint32_t)NON_SECURE);
 
 	if (pm_ret != PM_RET_SUCCESS) {
 		ERROR("Failed to power down CPU %d\n", cpu_id);
@@ -107,7 +107,7 @@ static void __dead2 versal2_system_reset(void)
 {
 	uint32_t timeout = 10000U;
 	enum pm_ret_status pm_ret;
-	int32_t ret;
+	uint32_t ret;
 
 	request_cpu_pwrdwn();
 
@@ -122,7 +122,7 @@ static void __dead2 versal2_system_reset(void)
 		 * including the implementation of SYSTEM_RESET2.
 		 */
 		pm_ret = pm_system_shutdown(XPM_SHUTDOWN_TYPE_RESET,
-					 pm_get_shutdown_scope(), NON_SECURE);
+					    pm_get_shutdown_scope(), (uint32_t)NON_SECURE);
 
 		if (pm_ret != PM_RET_SUCCESS) {
 			WARN("System shutdown failed\n");
@@ -137,7 +137,7 @@ static void __dead2 versal2_system_reset(void)
 						    primary_proc->ipi->remote_ipi_id);
 			udelay(100);
 			timeout--;
-		} while ((ret != (int32_t)IPI_MB_STATUS_RECV_PENDING) && (timeout > 0U));
+		} while ((ret != IPI_MB_STATUS_RECV_PENDING) && (timeout > 0U));
 	}
 
 	(void)psci_cpu_off();
@@ -181,7 +181,7 @@ static void versal2_pwr_domain_suspend(const psci_power_state_t *target_state)
 
 	/* Send request to PMC to suspend this core */
 	ret = pm_self_suspend(proc->node_id, MAX_LATENCY, state, sec_entry,
-			      NON_SECURE);
+			      (uint32_t)NON_SECURE);
 
 	if (ret != PM_RET_SUCCESS) {
 		ERROR("Failed to power down CPU %d\n", cpu_id);
@@ -272,6 +272,7 @@ err:
  */
 static void __dead2 versal2_system_off(void)
 {
+	uint32_t uret;
 	uint64_t timeout;
 	enum pm_ret_status ret;
 
@@ -279,7 +280,7 @@ static void __dead2 versal2_system_off(void)
 
 	/* Send the power down request to the PMC */
 	ret = pm_system_shutdown(XPM_SHUTDOWN_TYPE_SHUTDOWN,
-				 pm_get_shutdown_scope(), NON_SECURE);
+				 pm_get_shutdown_scope(), (uint32_t)NON_SECURE);
 
 	if (ret != PM_RET_SUCCESS) {
 		ERROR("System shutdown failed\n");
@@ -291,10 +292,10 @@ static void __dead2 versal2_system_off(void)
 	 */
 	timeout = timeout_init_us(IDLE_CB_WAIT_TIMEOUT);
 	do {
-		ret = ipi_mb_enquire_status(primary_proc->ipi->local_ipi_id,
-					    primary_proc->ipi->remote_ipi_id);
+		uret = ipi_mb_enquire_status(primary_proc->ipi->local_ipi_id,
+					     primary_proc->ipi->remote_ipi_id);
 		udelay(100);
-	} while ((ret != (int32_t)IPI_MB_STATUS_RECV_PENDING) && !timeout_elapsed(timeout));
+	} while ((uret != IPI_MB_STATUS_RECV_PENDING) && !timeout_elapsed(timeout));
 
 	(void)psci_cpu_off();
 
