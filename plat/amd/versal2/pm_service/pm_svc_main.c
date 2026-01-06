@@ -329,9 +329,9 @@ static uintptr_t eemi_psci_debugfs_handler(uint32_t api_id, uint32_t *pm_arg,
 					   void *handle, uint32_t security_flag)
 {
 	enum pm_ret_status ret;
-	uint32_t pm_api_id = api_id & API_ID_MASK;
+	uint32_t api_val = api_id & API_ID_MASK;
 
-	switch (pm_api_id) {
+	switch (api_val) {
 
 	case (uint32_t)PM_SELF_SUSPEND:
 		ret = pm_self_suspend(pm_arg[0], pm_arg[1], pm_arg[2],
