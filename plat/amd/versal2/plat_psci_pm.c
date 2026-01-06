@@ -312,7 +312,7 @@ static void __dead2 versal2_system_off(void)
  *
  * Return: Returns status, either PSCI_E_SUCCESS or reason.
  */
-static int32_t versal2_validate_power_state(unsigned int power_state,
+static int32_t versal2_validate_power_state(uint32_t power_state,
 					       psci_power_state_t *req_state)
 {
 	uint32_t pstate = psci_get_pstate_type(power_state);
