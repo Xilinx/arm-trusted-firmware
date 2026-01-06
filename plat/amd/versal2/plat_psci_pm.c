@@ -201,7 +201,7 @@ static int32_t versal2_validate_ns_entrypoint(uint64_t ns_entrypoint)
 
 	VERBOSE("Validate ns_entry point %lx\n", ns_entrypoint);
 
-	if (counter != 0) {
+	if (counter != 0U) {
 		while (index < counter) {
 			if ((ns_entrypoint >= rmr[index].base) &&
 				       (ns_entrypoint <= rmr[index].size)) {
