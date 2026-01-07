@@ -12,7 +12,7 @@
 #include <plat_ipi.h>
 
 /* Versal Gen 2 ipi configuration table */
-static const struct ipi_config ipi_table[IPI_ID_MAX] = {
+static const struct ipi_config versal2_ipi_table[IPI_ID_MAX] = {
 	/* A78 IPI */
 	[IPI_ID_APU] = {
 		.ipi_bit_mask = IPI0_TRIG_BIT,
@@ -124,5 +124,6 @@ static const struct ipi_config ipi_table[IPI_ID_MAX] = {
  */
 void soc_ipi_config_table_init(void)
 {
-	ipi_config_table_init(ipi_table, (uint32_t)ARRAY_SIZE(ipi_table));
+	ipi_config_table_init(versal2_ipi_table,
+			      (uint32_t)ARRAY_SIZE(versal2_ipi_table));
 }
