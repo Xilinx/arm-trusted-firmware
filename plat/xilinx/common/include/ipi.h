@@ -20,12 +20,6 @@
 #define IPI_MB_STATUS_RECV_PENDING	(2U)
 
 /*********************************************************************
- * IPI mailbox call is secure or not macros
- ********************************************************************/
-#define IPI_MB_CALL_NOTSECURE	(0U)
-#define IPI_MB_CALL_SECURE	(1U)
-
-/*********************************************************************
  * IPI secure check
  ********************************************************************/
 #define IPI_SECURE_MASK  (0x1U)
