@@ -86,6 +86,16 @@ static uint64_t cpu_pwrdwn_req_handler(uint32_t id, uint32_t flags,
 {
 	uint32_t cpu_id = plat_my_core_pos();
 
+	/*
+	 * Typecasting to void to intentionally retain the variable and
+	 * avoid MISRA violation for unused parameters. These parameters
+	 * are required by the interrupt handler function signature.
+	 */
+	(void)id;
+	(void)flags;
+	(void)handle;
+	(void)cookie;
+
 	VERBOSE("Powering down CPU %d\n", cpu_id);
 
 	/* Deactivate CPU power down SGI */
@@ -131,6 +141,15 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 	uint32_t payload[4] = {0};
 	enum pm_ret_status ret;
 	uint32_t ipi_status, i;
+
+	/*
+	 * Typecasting to void to intentionally retain the variable and
+	 * avoid MISRA violation for unused parameters. These parameters
+	 * are required by the interrupt handler function signature.
+	 */
+	(void)flags;
+	(void)handle;
+	(void)cookie;
 
 	VERBOSE("Received IPI FIQ from firmware\n");
 
@@ -484,6 +503,13 @@ uint64_t pm_smc_handler(uint32_t smc_fid, uint64_t x1, uint64_t x2, uint64_t x3,
 	uint32_t api_id;
 	bool status = false, status_tmp = false;
 	uint64_t x[4] = {x1, x2, x3, x4};
+
+	/*
+	 * The cookie parameter is propagated to platform SMC handler
+	 * for future use and hence typecasting the same to avoid the
+	 * MISRA violation.
+	 */
+	(void)cookie;
 
 	/* Handle case where PM wasn't initialized properly */
 	if (pm_up == false) {
