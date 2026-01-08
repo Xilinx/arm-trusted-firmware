@@ -64,7 +64,6 @@
 
 /* 1 sec of wait timeout for secondary core down */
 #define PWRDWN_WAIT_TIMEOUT	(1000U)
-DEFINE_RENAME_SYSREG_RW_FUNCS(icc_asgi1r_el1, S3_0_C12_C11_6)
 
 /* pm_up = true - UP, pm_up = false - DOWN */
 static bool pm_up;
