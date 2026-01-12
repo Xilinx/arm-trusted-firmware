@@ -47,7 +47,7 @@ int psci_cpu_on(u_register_t target_cpu,
 	 * To turn this cpu on, specify which power
 	 * levels need to be turned on
 	 */
-	return psci_cpu_on_start(target_cpu, ep);
+	return psci_cpu_on_start(target_cpu);
 }
 
 unsigned int psci_version(void)
