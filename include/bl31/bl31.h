@@ -18,6 +18,7 @@ void bl31_prepare_next_image_entry(void);
 void bl31_register_bl32_init(int32_t (*func)(void));
 void bl31_register_rmm_init(int32_t (*func)(void));
 void bl31_warm_entrypoint(void);
+void bl31_warmboot(void);
 void bl31_main(u_register_t arg0, u_register_t arg1, u_register_t arg2,
 		u_register_t arg3);
 
