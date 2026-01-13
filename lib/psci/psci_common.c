@@ -268,8 +268,8 @@ static unsigned int psci_num_cpus_running(void)
 
 	for (cpu_idx = 0U; cpu_idx < psci_plat_core_count; cpu_idx++) {
 		aff_state = psci_get_aff_info_state_by_idx(cpu_idx);
-		if (aff_state == AFF_STATE_ON ||
-		    aff_state == AFF_STATE_ON_PENDING) {
+		if ((aff_state == AFF_STATE_ON) ||
+		    (aff_state == AFF_STATE_ON_PENDING)) {
 			no_of_cpus++;
 		}
 	}
@@ -1210,7 +1210,7 @@ static u_register_t call_cpu_pwr_dwn(unsigned int power_level)
 	struct cpu_ops *ops = get_cpu_data(cpu_ops_ptr);
 
 	/* Call the last available power down handler */
-	if (power_level > CPU_MAX_PWR_DWN_OPS - 1) {
+	if (power_level > (CPU_MAX_PWR_DWN_OPS - 1)) {
 		power_level = CPU_MAX_PWR_DWN_OPS - 1;
 	}
 
