@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef LIMITS__H
+#define LIMITS__H
+
 #define SCHAR_MAX  0x7F
 #define SCHAR_MIN  (-SCHAR_MAX - 1)
 #define CHAR_MAX   0x7F
@@ -24,3 +27,5 @@
 
 #define __LONG_BIT 64
 #define __WORD_BIT 32
+
+#endif /* LIMITS__H */

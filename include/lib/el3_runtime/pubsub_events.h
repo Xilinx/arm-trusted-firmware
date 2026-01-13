@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef PUBSUB_EVENTS_H
+#define PUBSUB_EVENTS_H
+
 #include <lib/el3_runtime/pubsub.h>
 
 /*
@@ -41,3 +44,5 @@ REGISTER_PUBSUB_EVENT(cm_exited_secure_world);
 REGISTER_PUBSUB_EVENT(cm_entering_normal_world);
 REGISTER_PUBSUB_EVENT(cm_exited_normal_world);
 #endif /* __aarch64__ */
+
+#endif /* PUBSUB_EVENTS_H */
