@@ -896,7 +896,6 @@ static inline void tlbipaallos(void)
 #define TLBI_SZ_64G		8UL
 #define TLBI_SZ_512G		9UL
 
-#define	TLBI_ADDR_SHIFT		U(12)
 #define	TLBI_SIZE_SHIFT		U(44)
 
 #define TLBIRPALOS(_addr, _size)				\
