@@ -1312,8 +1312,9 @@ void __dead2 psci_pwrdown_cpu_end_terminal(void)
 	 * be denied. Hopefully this is transient, retrying a few times should
 	 * power down.
 	 */
-	for (int i = 0; i < 32; i++)
+	for (int i = 0; i < 32; i++) {
 		wfi();
+	}
 
 	/* Wake up wasn't transient. System is probably in a bad state. */
 	ERROR("Could not power off CPU.\n");

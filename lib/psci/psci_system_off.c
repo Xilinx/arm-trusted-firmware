@@ -98,8 +98,9 @@ u_register_t psci_system_reset2(uint32_t reset_type, u_register_t cookie)
 #endif /* USE_GIC_DRIVER */
 
 	ret = psci_plat_pm_ops->system_reset2((int) is_vendor, reset_type, cookie);
-	if (ret != PSCI_E_SUCCESS)
+	if (ret != PSCI_E_SUCCESS) {
 		return (u_register_t) ret;
+	}
 
 	psci_pwrdown_cpu_end_terminal();
 }
