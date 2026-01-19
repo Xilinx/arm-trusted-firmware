@@ -66,8 +66,13 @@
 #define MASK(regfield)							\
 	((~0ULL >> (64ULL - (regfield##_WIDTH))) << (regfield##_SHIFT))
 
+#if defined(__LINKER__) || defined(__ASSEMBLER__)
 #define HI(addr)			(addr >> 32)
 #define LO(addr)			(addr & 0xffffffff)
+#else
+#define HI(addr)                        (addr >> 32)
+#define LO(addr)                        (uint32_t)((addr) & (0xffffffffU))
+#endif
 
 #define HI_64(addr)			(addr >> 64)
 #define LO_64(addr)			(addr & 0xffffffffffffffff)
