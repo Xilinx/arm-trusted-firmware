@@ -153,7 +153,7 @@ const void *fdt_offset_ptr(const void *fdt, int offset, unsigned int len)
 
 	if (can_assume(LATEST) || fdt_version(fdt) >= 0x11)
 		if (((uoffset + len) < uoffset)
-		    || ((offset + len) > fdt_size_dt_struct(fdt)))
+		    || ((uoffset + len) > fdt_size_dt_struct(fdt)))
 			return NULL;
 
 	return fdt_offset_ptr_(fdt, offset);
@@ -216,7 +216,7 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 	if (!fdt_offset_ptr(fdt, startoffset, offset - startoffset))
 		return FDT_END; /* premature end */
 
-	*nextoffset = FDT_TAGALIGN(offset);
+	*nextoffset = FDT_TAGALIGN((unsigned int)offset);
 	return tag;
 }
 
