@@ -546,7 +546,7 @@ const char *fdt_get_alias_namelen(const void *fdt,
 	alias = fdt_path_getprop_namelen(fdt, "/aliases", name, namelen, &len);
 
 	if (!can_assume(VALID_DTB) &&
-	    !(alias && len > 0 && alias[len - 1] == '\0' && *alias == '/'))
+	    !((alias != NULL) && (len > 0) && (alias[len - 1] == '\0') && (*alias == '/')))
 		return NULL;
 
 	return alias;
