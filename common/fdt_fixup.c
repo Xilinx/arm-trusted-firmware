@@ -26,6 +26,7 @@
 #include <common/fdt_wrappers.h>
 #include <drivers/console.h>
 #include <lib/psci/psci.h>
+#include <lib/utils_def.h>
 #include <plat/common/platform.h>
 
 
@@ -249,13 +250,13 @@ int fdt_add_reserved_memory(void *dtb, const char *node_name,
 		addresses[idx] = cpu_to_fdt32(HIGH_BITS_U32(base));
 		idx++;
 	}
-	addresses[idx] = cpu_to_fdt32(base & 0xffffffff);
+	addresses[idx] = cpu_to_fdt32(LO(base));
 	idx++;
 	if (sc > 1) {
 		addresses[idx] = cpu_to_fdt32(HIGH_BITS_U32(size));
 		idx++;
 	}
-	addresses[idx] = cpu_to_fdt32(size & 0xffffffff);
+	addresses[idx] = cpu_to_fdt32(LO(size));
 	idx++;
 	offs = fdt_add_subnode(dtb, offs, node_name);
 	fdt_setprop(dtb, offs, "no-map", NULL, 0);
