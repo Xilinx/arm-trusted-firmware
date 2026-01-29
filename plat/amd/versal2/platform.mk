@@ -28,13 +28,14 @@ PL011_GENERIC_UART := 1
 IPI_CRC_CHECK := 0
 GIC_ENABLE_V4_EXTN :=  0
 GICV3_SUPPORT_GIC600 := 1
-TFA_NO_PM := 0
 
 ifdef CUSTOM_PKG_PATH
 include plat/amd/common/custom_pkg.mk
 else
 BL31_SOURCES += plat/amd/common/custom_svc_stub.c
 endif
+
+TFA_NO_PM ?= 0
 
 CPU_PWRDWN_SGI ?= 6
 $(eval $(call add_define_val,CPU_PWR_DOWN_REQ_INTR,ARM_IRQ_SEC_SGI_${CPU_PWRDWN_SGI}))
