@@ -13,8 +13,6 @@
 
 #include <common/debug.h>
 #include <common/runtime_svc.h>
-#include <drivers/scmi-msg.h>
-#include <scmi.h>
 #include <tools_share/uuid.h>
 
 #include <custom_svc.h>
@@ -95,15 +93,6 @@ static uintptr_t sip_svc_smc_handler(uint32_t smc_fid,
 	case SIP_SVC_VERSION:
 		SMC_RET2(handle, SIP_SVC_VERSION_MAJOR, SIP_SVC_VERSION_MINOR);
 
-#if (TFA_NO_PM == 1)
-	case SIP_SCMI:
-		if (platform_id != EMU) {
-			scmi_smt_fastcall_smc_entry(0);
-			SMC_RET1(handle, 0);
-		}
-		WARN("SCMI is not working on EMU\n");
-		SMC_RET1(handle, SMC_UNK);
-#endif
 	case SOC_SIP_SVC_CUSTOM:
 	case SOC_SIP_SVC64_CUSTOM:
 		return custom_smc_handler(smc_fid, x1, x2, x3, x4,

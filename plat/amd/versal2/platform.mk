@@ -160,14 +160,7 @@ BL31_SOURCES		+=	plat/xilinx/common/pm_service/pm_api_sys.c	\
 				${PLAT_PATH}/pm_service/pm_svc_main.c	\
 				${PLAT_PATH}/pm_service/pm_client.c
 else
-BL31_SOURCES		+=	${PLAT_PATH}/plat_psci.c			\
-				drivers/scmi-msg/base.c				\
-				drivers/scmi-msg/entry.c			\
-				drivers/scmi-msg/smt.c				\
-				drivers/scmi-msg/clock.c			\
-				drivers/scmi-msg/power_domain.c			\
-				drivers/scmi-msg/reset_domain.c			\
-				${PLAT_PATH}/scmi.c
+BL31_SOURCES		+=	${PLAT_PATH}/plat_psci.c
 endif
 
 BL31_SOURCES		+=	common/fdt_wrappers.c                           \
