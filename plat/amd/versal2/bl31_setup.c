@@ -21,7 +21,6 @@
 #include <plat/common/platform.h>
 #include <plat_arm.h>
 #include <plat_console.h>
-#include <scmi.h>
 
 #include <custom_svc.h>
 #include <def.h>
@@ -360,10 +359,6 @@ void bl31_plat_arch_setup(void)
 				MT_CODE | MT_SECURE),
 		MAP_REGION_FLAT(BL_RO_DATA_BASE, BL_RO_DATA_END - BL_RO_DATA_BASE,
 				MT_RO_DATA | MT_SECURE),
-#if (TFA_NO_PM == 1)
-		MAP_REGION_FLAT(SMT_BUFFER_BASE, 0x1000,
-			MT_DEVICE | MT_RW | MT_NON_CACHEABLE | MT_EXECUTE_NEVER | MT_NS),
-#endif
 		{0}
 	};
 
