@@ -76,6 +76,19 @@ CUSTOM SIP Service Support
   named ``custom_smc_handler``. Once the custom package is included in the
   TF-A build, its definition of ``custom_smc_handler`` is enabled.
 
+Configurable APU IPI ID
+-----------------------
+
+The APU IPI ID in TF-A for the Versal Gen 2 platform is configurable as per the design.
+
+To build PLAT_IPI_ID_APU:
+
+.. code-block:: shell
+
+  make CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
+
+  $(eval $(call add_define,PLAT_IPI_ID_APU))
+
 Custom Package Makefile Fragment Inclusion in TF-A Build
 --------------------------------------------------------
 
