@@ -196,6 +196,15 @@ ifeq ($(DEBUG),1)
 BL31_SOURCES            +=      ${PLAT_PATH}/plat_ocm_coherency.c
 endif
 
+# PLAT_IPI_ID_APU
+ifdef PLAT_IPI_ID_APU
+ifeq (${PLAT_IPI_ID_APU}, $(filter ${PLAT_IPI_ID_APU},2 3 4 5 6 7))
+$(eval $(call add_define,PLAT_IPI_ID_APU))
+else
+$(error "Please define proper PLAT_IPI_ID_APU")
+endif
+endif
+
 ifeq (${ERRATA_ABI_SUPPORT}, 1)
 # enable the cpu macros for errata abi interface
 CORTEX_A78_AE_H_INC     := 1

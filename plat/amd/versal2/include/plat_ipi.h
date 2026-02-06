@@ -18,10 +18,16 @@
 /*********************************************************************
  * IPI agent IDs macros
  ********************************************************************/
+#ifndef PLAT_IPI_ID_APU
+#define IPI_ID_APU	IPI_ID_0
+#else
+#define IPI_ID_APU	PLAT_IPI_ID_APU
+#endif
+
 #define IPI_ID_PMC	1U
-#define IPI_ID_APU	2U
-#define IPI_ID_RPU0	3U
-#define IPI_ID_RPU1	4U
+#define IPI_ID_0	2U
+#define IPI_ID_1	3U
+#define IPI_ID_2	4U
 #define IPI_ID_3	5U
 #define IPI_ID_4	6U
 #define IPI_ID_5	7U
