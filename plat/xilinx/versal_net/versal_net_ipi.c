@@ -15,8 +15,8 @@
 
 /* versal_net ipi configuration table */
 static const struct ipi_config versal_net_ipi_table[IPI_ID_MAX] = {
-	/* A72 IPI */
-	[IPI_ID_APU] = {
+	/* IPI0 IPI */
+	[IPI_ID_0] = {
 		.ipi_bit_mask = IPI0_TRIG_BIT,
 		.ipi_reg_base = IPI0_REG_BASE,
 		.secure_only = 0,
@@ -29,15 +29,15 @@ static const struct ipi_config versal_net_ipi_table[IPI_ID_MAX] = {
 		.secure_only = IPI_SECURE_MASK,
 	},
 
-	/* RPU0 IPI */
-	[IPI_ID_RPU0] = {
+	/* IPI1 IPI */
+	[IPI_ID_1] = {
 		.ipi_bit_mask = IPI1_TRIG_BIT,
 		.ipi_reg_base = IPI1_REG_BASE,
 		.secure_only = 0,
 	},
 
-	/* RPU1 IPI */
-	[IPI_ID_RPU1] = {
+	/* IPI2 IPI */
+	[IPI_ID_2] = {
 		.ipi_bit_mask = IPI2_TRIG_BIT,
 		.ipi_reg_base = IPI2_REG_BASE,
 		.secure_only = 0,

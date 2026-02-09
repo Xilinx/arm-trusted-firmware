@@ -90,6 +90,15 @@ $(error "Please define CONSOLE_RUNTIME")
 endif
 endif
 
+# PLAT_IPI_ID_APU
+ifdef PLAT_IPI_ID_APU
+ifeq (${PLAT_IPI_ID_APU}, $(filter ${PLAT_IPI_ID_APU},2 3 4 5 6 7))
+$(eval $(call add_define,PLAT_IPI_ID_APU))
+else
+$(error "Please define proper PLAT_IPI_ID_APU")
+endif
+endif
+
 # enable assert() for release/debug builds
 ENABLE_ASSERTIONS := 1
 
