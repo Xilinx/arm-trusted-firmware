@@ -26,7 +26,7 @@
  * are RES0 and its bottom bits will be written to power down. Pick the opposite
  * with something that looks like "abandon" in the middle.
  */
-#define PABANDON_ACK			0xffaba4d4aba4d400
+#define PABANDON_ACK			0xffaba4d4aba4d400ULL
 
 /*
  * Define the sizes of the fields in the cpu_ops structure. Word size is set per

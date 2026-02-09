@@ -75,7 +75,7 @@
 #endif
 
 #define HI_64(addr)			(addr >> 64)
-#define LO_64(addr)			(addr & 0xffffffffffffffff)
+#define LO_64(addr)			(addr & 0xffffffffffffffffULL)
 
 /**
  * EXTRACT_FIELD - Extracts a specific bit field from a value.
