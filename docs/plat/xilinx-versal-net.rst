@@ -59,6 +59,19 @@ Xilinx Versal NET platform specific build options
     -   `6`   : SGI 6 (Default)
     -   `7`   : SGI 7
 
+Configurable APU IPI ID
+-----------------------
+
+The APU IPI ID in TF-A for the Versal NET platform is configurable as per the design.
+
+To build PLAT_IPI_ID_APU:
+
+.. code-block:: shell
+
+  make CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
+
+  $(eval $(call add_define,PLAT_IPI_ID_APU))
+
 Reference DEN0028E SMC calling convention
 ------------------------------------------
 

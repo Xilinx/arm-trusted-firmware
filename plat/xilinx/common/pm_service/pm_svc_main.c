@@ -145,7 +145,7 @@ static uint64_t ipi_fiq_handler(uint32_t id, uint32_t flags, void *handle,
 	(void)plat_ic_acknowledge_interrupt();
 
 	/* Check status register for each IPI except PMC */
-	for (i = IPI_ID_PMC + 1; i <= IPI_ID_5; i++) {
+	for (i = IPI_ID_0; i <= IPI_ID_5; i++) {
 		ipi_status = ipi_mb_enquire_status(IPI_ID_APU, i);
 
 		/* If any agent other than PMC has generated IPI FIQ then send SGI to mbox driver */
