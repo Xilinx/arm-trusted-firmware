@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2018-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,6 +14,10 @@
 
 /* Global definition of primary core variable */
 uint32_t plat_primary_cpu_core = PLAT_INVALID_CPU_CORE;
+
+/* Global definition of core and cluster variables defaulting to fixed configuration */
+uint32_t plat_cluster_count = PLATFORM_CLUSTER_COUNT;
+uint32_t plat_cores_per_cluster = PLATFORM_CORE_COUNT_PER_CLUSTER;
 
 static const uint8_t plat_power_domain_tree_desc[] = {
 	/* Number of root nodes */
