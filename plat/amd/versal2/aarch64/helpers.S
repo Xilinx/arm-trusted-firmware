@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2021, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2018-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -18,6 +18,10 @@
 	.globl	plat_my_core_pos
 	.globl	plat_core_pos_by_mpidr
 	.extern plat_primary_cpu_core
+
+	/* Runtime topology variables */
+	.extern plat_cluster_count
+	.extern plat_cores_per_cluster
 
 	/* -----------------------------------------------------
 	 * void plat_secondary_cold_boot_setup (void);
@@ -89,16 +93,19 @@ func plat_core_pos_by_mpidr
 	ubfx	x2, x0, #MPIDR_AFF1_SHIFT, #MPIDR_AFFINITY_BITS
 
 	/* check if cpu_id valid */
-	cmp     x2, #PLATFORM_CORE_COUNT_PER_CLUSTER
+	ldr	x3, =plat_cores_per_cluster
+	ldr	w0, [x3]
+	cmp	x2, x0
 	b.hi    error_invalid_core
 
 	/* check if cluster valid */
-	cmp	x1, #PLATFORM_CLUSTER_COUNT
+	ldr	x3, =plat_cluster_count
+	ldr	w3, [x3]
+	cmp	x1, x3
 	b.hi    error_invalid_cluster
 
 	/* Compute linear position */
-	mov	x3, #PLATFORM_CORE_COUNT_PER_CLUSTER
-	madd	x0, x1, x3, x2
+	madd	x0, x1, x0, x2
 	ret
 error_invalid_cluster:
 	mov     x0, #E_INVALID_CLUSTER_COUNT
