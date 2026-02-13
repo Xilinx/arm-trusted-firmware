@@ -97,6 +97,22 @@ static int check_fdt_reserved_memory(void *dtb, const char *node_name)
 }
 #endif
 
+/*
+ * Prepare and modify the device tree blob (DTB) for platform usage.
+ *
+ * This function performs DTB preparation by mapping the device tree into
+ * memory, validating it, adding PSCI support, and reserving memory regions
+ * used by TF-A. The modifications ensure proper system power management
+ * and prevent conflicts with protected firmware regions.
+ *
+ * The function executes only when TF-A is not running from OCM and performs:
+ * - Dynamic memory mapping of the DTB region
+ * - DTB validation and FIT image detection
+ * - PSCI node and CPU enable method additions
+ * - TF-A memory region reservation
+ * - DTB finalization and cache flush operations
+ * - Cleanup of dynamic memory mappings
+ */
 void prepare_dtb(void)
 {
 #if defined(XILINX_OF_BOARD_DTB_ADDR)
@@ -104,10 +120,13 @@ void prepare_dtb(void)
 	int map_ret = 0;
 	int ret = 0;
 
+	/* Retrieve the platform-specific device tree address */
 	dtb = (void *)plat_retrieve_dt_addr();
 
+	/* Only process DTB when TF-A is not running from on-chip memory */
 	if (!IS_TFA_IN_OCM(BL31_BASE)) {
 
+		/* Map DTB region into virtual address space for access */
 		map_ret = add_mmap_dynamic_region((unsigned long long)dtb,
 						  (uintptr_t)dtb,
 						  XILINX_OF_BOARD_DTB_MAX_SIZE,
@@ -115,10 +134,12 @@ void prepare_dtb(void)
 		if (map_ret == 0) {
 			/* Return if no device tree is detected */
 			if (is_valid_dtb(dtb) == 0) {
+				/* Add PSCI node for power management support */
 				if (dt_add_psci_node(dtb)) {
 					WARN("Failed to add PSCI Device Tree node\n");
 				}
 
+				/* Add CPU enable methods for secondary CPU bringup */
 				if (dt_add_psci_cpu_enable_methods(dtb)) {
 					WARN("Failed to add PSCI cpu enable methods in DT\n");
 				}
@@ -138,15 +159,18 @@ void prepare_dtb(void)
 					WARN("Reserved memory pre-exists in DT.\n");
 				}
 
+				/* Compact the device tree to minimize size */
 				ret = fdt_pack(dtb);
 				if (ret < 0) {
 					WARN("Failed to pack dtb at %p: error %d\n", dtb, ret);
 				}
+				/* Ensure DTB modifications are written to memory */
 				flush_dcache_range((uintptr_t)dtb, fdt_blob_size(dtb));
 
 				INFO("Changed device tree to advertise PSCI and reserved memories.\n");
 			}
 
+			/* Unmap the DTB region after modifications are complete */
 			ret = remove_mmap_dynamic_region((uintptr_t)dtb,
 							 XILINX_OF_BOARD_DTB_MAX_SIZE);
 			if (ret != 0) {
