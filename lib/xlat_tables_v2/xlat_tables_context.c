@@ -71,11 +71,26 @@ void mmap_add_alloc_va(mmap_region_t *mm)
 
 #if PLAT_XLAT_TABLES_DYNAMIC
 
+/*
+ * Add a memory region with specified attributes to the translation tables
+ * dynamically at runtime.
+ *
+ * This function allows adding new memory mappings after the MMU has been
+ * enabled, which is useful for dynamic memory management scenarios.
+ *
+ * @param base_pa: Physical address of the region to map
+ * @param base_va: Virtual address where the region should be mapped
+ * @param size: Size of the region in bytes
+ * @param attr: Memory attributes (cacheability, access permissions, etc.)
+ * @return: 0 on success, negative error code on failure
+ */
 int mmap_add_dynamic_region(unsigned long long base_pa, uintptr_t base_va,
 			    size_t size, unsigned int attr)
 {
+	/* Create memory region structure with provided parameters */
 	mmap_region_t mm = MAP_REGION(base_pa, base_va, size, attr);
 
+	/* Add the region to the default translation context */
 	return mmap_add_dynamic_region_ctx(&tf_xlat_ctx, &mm);
 }
 
@@ -92,9 +107,19 @@ int mmap_add_dynamic_region_alloc_va(unsigned long long base_pa,
 	return rc;
 }
 
-
+/*
+ * Remove a dynamically mapped memory region from the translation tables.
+ *
+ * unmaps the specified virtual address range from the translation tables.
+ * The region must have been added using mmap_add_dynamic_region().
+ *
+ * @param base_va: Virtual address of the region to unmap
+ * @param size: Size of the region to unmap in bytes
+ * @return: 0 on success, negative error code on failure
+ */
 int mmap_remove_dynamic_region(uintptr_t base_va, size_t size)
 {
+	/* Remove the region from the default translation context */
 	return mmap_remove_dynamic_region_ctx(&tf_xlat_ctx,
 					base_va, size);
 }
