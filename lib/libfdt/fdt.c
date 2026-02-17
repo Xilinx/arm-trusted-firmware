@@ -41,7 +41,7 @@ int32_t fdt_ro_probe_(const void *fdt)
 		}
 	} else if (fdt_magic(fdt) == FDT_SW_MAGIC) {
 		/* Unfinished sequential-write blob */
-		if (!can_assume(VALID_INPUT) && fdt_size_dt_struct(fdt) == 0) {
+		if (!can_assume(VALID_INPUT) && fdt_size_dt_struct(fdt) == 0U) {
 			return -FDT_ERR_BADSTATE;
 		}
 	} else {
@@ -77,13 +77,13 @@ static int check_block_(size_t hdrsize, size_t totalsize,
 
 size_t fdt_header_size_(uint32_t version)
 {
-	if (version <= 1) {
+	if (version <= 1U) {
 		return FDT_V1_SIZE;
-	} else if (version <= 2) {
+	} else if (version <= 2U) {
 		return FDT_V2_SIZE;
-	} else if (version <= 3) {
+	} else if (version <= 3U) {
 		return FDT_V3_SIZE;
-	} else if (version <= 16) {
+	} else if (version <= 16U) {
 		return FDT_V16_SIZE;
 	} else {
 		return FDT_V17_SIZE;
@@ -132,7 +132,7 @@ int fdt_check_header(const void *fdt)
 		}
 
 		/* Bounds check structure block */
-		if (!can_assume(LATEST) && fdt_version(fdt) < 17) {
+		if (!can_assume(LATEST) && (fdt_version(fdt) < 17U)) {
 			if (check_off_(hdrsize, fdt_totalsize(fdt),
 					fdt_off_dt_struct(fdt)) == 0) {
 				return -FDT_ERR_TRUNCATED;
@@ -173,7 +173,7 @@ const void *fdt_offset_ptr(const void *fdt, int offset, unsigned int len)
 		}
 	}
 
-	if (can_assume(LATEST) || fdt_version(fdt) >= 0x11) {
+	if (can_assume(LATEST) || fdt_version(fdt) >= 0x11U) {
 		if (((uoffset + len) < uoffset)
 		    || ((uoffset + len) > fdt_size_dt_struct(fdt))) {
 			return NULL;
@@ -227,8 +227,8 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 		offset += sizeof(struct fdt_property) - FDT_TAGSIZE + len;
 
 		if (!can_assume(LATEST) &&
-		    fdt_version(fdt) < 0x10 && len >= 8 &&
-		    ((offset - len) % 8) != 0) {
+		    fdt_version(fdt) < 0x10U && len >= 8U &&
+		    ((offset - len) % 8U) != 0U) {
 			offset += 4;
 		}
 		break;

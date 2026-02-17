@@ -64,7 +64,7 @@ const char *fdt_get_string(const void *fdt, int stroffset, int *lenp)
 		if (stroffset < 0) {
 			goto fail;
 		}
-		if (can_assume(LATEST) || (fdt_version(fdt) >= 17)) {
+		if (can_assume(LATEST) || (fdt_version(fdt) >= 17U)) {
 			if ((unsigned int)stroffset >= fdt_size_dt_strings(fdt)) {
 				goto fail;
 			}
@@ -205,7 +205,7 @@ int fdt_num_mem_rsv(const void *fdt)
 	const struct fdt_reserve_entry *re;
 
 	for (i = 0; (re = fdt_mem_rsv(fdt, i)) != NULL; i++) {
-		if (fdt64_ld_(&re->size) == 0) {
+		if (fdt64_ld_(&re->size) == 0U) {
 			return i;
 		}
 	}
@@ -339,7 +339,7 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 
 	nameptr = nh->name;
 
-	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10)) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10U)) {
 		/*
 		 * For old FDT versions, match the naming conventions of V16:
 		 * give only the leaf name (after all /). The actual tree
@@ -467,7 +467,7 @@ const struct fdt_property *fdt_get_property_namelen(const void *fdt,
 {
 	/* Prior to version 16, properties may need realignment
 	 * and this API does not work. fdt_getprop_*() will, however. */
-	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10)) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10U)) {
 		if (lenp != NULL) {
 			*lenp = -FDT_ERR_BADVERSION;
 		}
@@ -500,8 +500,8 @@ const void *fdt_getprop_namelen(const void *fdt, int nodeoffset,
 	}
 
 	/* Handle realignment */
-	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10) &&
-	    (((poffset + sizeof(*prop)) % 8) != 0) && (fdt32_ld_(&prop->len) >= 8)) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 0x10U) &&
+	    (((poffset + sizeof(*prop)) % 8) != 0) && (fdt32_ld_(&prop->len) >= 8U)) {
 		return prop->data + 4;
 	}
 	return prop->data;

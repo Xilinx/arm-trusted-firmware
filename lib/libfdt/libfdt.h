@@ -13,9 +13,9 @@
 extern "C" {
 #endif
 
-#define FDT_FIRST_SUPPORTED_VERSION	0x02
+#define FDT_FIRST_SUPPORTED_VERSION	0x02U
 #define FDT_LAST_COMPATIBLE_VERSION	0x10
-#define FDT_LAST_SUPPORTED_VERSION	0x11
+#define FDT_LAST_SUPPORTED_VERSION	0x11U
 
 /* Error codes: informative error codes */
 #define FDT_ERR_NOTFOUND	1
@@ -1248,7 +1248,7 @@ const char *fdt_stringlist_get(const void *fdt, int nodeoffset,
  * Implementations may support larger values, but in practice higher
  * values aren't used.
  */
-#define FDT_MAX_NCELLS		4
+#define FDT_MAX_NCELLS		4U
 
 /**
  * fdt_address_cells - retrieve address size for a bus represented in the tree

@@ -13,7 +13,7 @@
 static int fdt_blocks_misordered_(const void *fdt,
 				  int mem_rsv_size, int struct_size)
 {
-	return (fdt_off_mem_rsvmap(fdt) < FDT_ALIGN(sizeof(struct fdt_header), 8))
+	return (fdt_off_mem_rsvmap(fdt) < FDT_ALIGN(sizeof(struct fdt_header), 8U))
 		|| (fdt_off_dt_struct(fdt) <
 		    (fdt_off_mem_rsvmap(fdt) + mem_rsv_size))
 		|| (fdt_off_dt_strings(fdt) <
@@ -29,14 +29,14 @@ static int fdt_rw_probe_(void *fdt)
 	}
 	FDT_RO_PROBE(fdt);
 
-	if (!can_assume(LATEST) && (fdt_version(fdt) < 17)) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) < 17U)) {
 		return -FDT_ERR_BADVERSION;
 	}
 	if (fdt_blocks_misordered_(fdt, sizeof(struct fdt_reserve_entry),
 				   fdt_size_dt_struct(fdt)) != 0) {
 		return -FDT_ERR_BADLAYOUT;
 	}
-	if (!can_assume(LATEST) && (fdt_version(fdt) > 17)) {
+	if (!can_assume(LATEST) && (fdt_version(fdt) > 17U)) {
 		fdt_set_version(fdt, 17);
 	}
 
@@ -457,9 +457,9 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 	mem_rsv_size = (fdt_num_mem_rsv(fdt)+1)
 		* sizeof(struct fdt_reserve_entry);
 
-	if (can_assume(LATEST) || (fdt_version(fdt) >= 17)) {
+	if (can_assume(LATEST) || (fdt_version(fdt) >= 17U)) {
 		struct_size = fdt_size_dt_struct(fdt);
-	} else if (fdt_version(fdt) == 16) {
+	} else if (fdt_version(fdt) == 16U) {
 		struct_size = 0;
 		while (fdt_next_tag(fdt, struct_size, &struct_size) != FDT_END) {
 			;
@@ -487,7 +487,7 @@ int fdt_open_into(const void *fdt, void *buf, int bufsize)
 	}
 
 	/* Need to reorder */
-	newsize = FDT_ALIGN(sizeof(struct fdt_header), 8) + mem_rsv_size
+	newsize = FDT_ALIGN(sizeof(struct fdt_header), 8U) + mem_rsv_size
 		+ struct_size + fdt_size_dt_strings(fdt);
 
 	if (bufsize < newsize) {
