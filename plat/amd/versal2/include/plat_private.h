@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2019, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2021-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,6 +24,9 @@ typedef struct versal_intr_info_type_el3 {
 	uint32_t id;
 	interrupt_type_handler_t handler;
 } versal_intr_info_type_el3_t;
+
+extern uint32_t plat_cluster_count;
+extern uint32_t plat_cores_per_cluster;
 
 void config_setup(void);
 uint32_t get_uart_clk(void);

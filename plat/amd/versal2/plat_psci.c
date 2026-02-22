@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2020, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2021-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -35,8 +35,8 @@ static void zynqmp_cpu_standby(plat_local_state_t cpu_state)
 static int32_t zynqmp_nopmu_pwr_domain_on(u_register_t mpidr)
 {
 	int32_t cpu_id = plat_core_pos_by_mpidr(mpidr) & ~BIT(MPIDR_MT_BIT);
-	int32_t cpu = cpu_id % PLATFORM_CORE_COUNT_PER_CLUSTER;
-	int32_t cluster = cpu_id / PLATFORM_CORE_COUNT_PER_CLUSTER;
+	int32_t cpu = cpu_id % plat_cores_per_cluster;
+	int32_t cluster = cpu_id / plat_cores_per_cluster;
 	uintptr_t apu_cluster_base = 0, apu_pcli_base, apu_pcli_cluster = 0;
 	uintptr_t rst_apu_cluster = PSX_CRF + RST_APU0_OFFSET + ((uint64_t)cluster * 0x4U);
 	int32_t ret = PSCI_E_SUCCESS;
@@ -49,7 +49,7 @@ static int32_t zynqmp_nopmu_pwr_domain_on(u_register_t mpidr)
 		goto exit_label;
 	}
 
-	if (cluster > 3U) {
+	if (cluster >= plat_cluster_count) {
 		panic();
 	}
 
