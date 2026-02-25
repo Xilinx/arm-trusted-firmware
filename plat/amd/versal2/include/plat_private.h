@@ -40,6 +40,9 @@ void plat_gic_resume(void);
 void plat_gic_redistif_on(void);
 void plat_gic_redistif_off(void);
 
+/* Declaration of primary core variable */
+extern uint32_t plat_primary_cpu_core;
+
 extern uint32_t cpu_clock, platform_id, platform_version;
 extern uint32_t rtlversion, psversion, pmcversion;
 void board_detection(void);
