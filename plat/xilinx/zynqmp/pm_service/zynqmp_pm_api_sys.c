@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2022, Arm Limited and Contributors. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -1653,8 +1653,7 @@ static enum pm_ret_status pm_pinctrl_get_pin_groups(uint32_t pin_id,
 void pm_query_data(enum pm_query_ids qid, uint32_t arg1, uint32_t arg2,
 		   uint32_t arg3, uint32_t *data, uint32_t flag)
 {
-	(void)arg3;
-	(void)flag;
+	uint32_t payload[PAYLOAD_ARG_CNT];
 
 	switch (qid) {
 	case PM_QID_CLOCK_GET_NAME:
@@ -1701,8 +1700,9 @@ void pm_query_data(enum pm_query_ids qid, uint32_t arg1, uint32_t arg2,
 		data[0] = (uint32_t)pm_clock_get_max_divisor(arg1, (uint8_t)arg2, &data[1]);
 		break;
 	default:
-		data[0] = (uint32_t)PM_RET_ERROR_ARGS;
-		WARN("Unimplemented query service call: 0x%x\n", qid);
+		/* Send request to the PMU */
+		PM_PACK_PAYLOAD5(payload, flag, PM_QUERY_DATA, qid, arg1, arg2, arg3);
+		data[0] = (uint32_t)pm_ipi_send_sync(primary_proc, payload, &data[1], 3U);
 		break;
 	}
 }
