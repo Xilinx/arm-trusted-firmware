@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2022, Arm Limited and Contributors. All rights reserved.
- * Copyright (c) 2023-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2023-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -28,6 +28,10 @@ enum pm_query_ids {
 	PM_QID_PINCTRL_GET_PIN_GROUPS,
 	PM_QID_CLOCK_GET_NUM_CLOCKS,
 	PM_QID_CLOCK_GET_MAX_DIVISOR,
+	PM_QID_RESERVED_14,
+	PM_QID_RESERVED_15,
+	PM_QID_GET_NODE_NAME,
+	PM_QID_GET_NODE_COUNT,
 };
 
 enum pm_register_access_id {
