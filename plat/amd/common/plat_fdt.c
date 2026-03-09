@@ -113,7 +113,7 @@ uint32_t retrieve_reserved_entries(void)
 					continue;
 				}
 
-				if (rsv_count == MAX_RESERVE_ADDR_INDICES) {
+				if (i == MAX_RESERVE_ADDR_INDICES) {
 					break;
 				}
 
