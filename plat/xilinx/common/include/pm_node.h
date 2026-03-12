@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -125,18 +125,6 @@ enum pm_device_node_idx {
 	XPM_NODEIDX_DEV_TTC_2 = 0x26,
 	XPM_NODEIDX_DEV_TTC_3 = 0x27,
 	XPM_NODEIDX_DEV_SWDT_LPD = 0x28,
-	XPM_NODEIDX_DEV_I2C_2 = 0x117,
-	XPM_NODEIDX_DEV_I2C_3 = 0x118,
-	XPM_NODEIDX_DEV_I2C_4 = 0x119,
-	XPM_NODEIDX_DEV_I2C_5 = 0x11A,
-	XPM_NODEIDX_DEV_I2C_6 = 0x11B,
-	XPM_NODEIDX_DEV_I2C_7 = 0x11C,
-	XPM_NODEIDX_DEV_CAN_FD_2 = 0x11D,
-	XPM_NODEIDX_DEV_CAN_FD_3 = 0x11E,
-	XPM_NODEIDX_DEV_TTC_4 = 0x11F,
-	XPM_NODEIDX_DEV_TTC_5 = 0x120,
-	XPM_NODEIDX_DEV_TTC_6 = 0x121,
-	XPM_NODEIDX_DEV_TTC_7 = 0x122,
 
 	/* FPD Peripheral devices */
 	XPM_NODEIDX_DEV_SWDT_FPD = 0x29,
@@ -192,9 +180,6 @@ enum pm_device_node_idx {
 	XPM_NODEIDX_DEV_GT_9 = 0x52,
 	XPM_NODEIDX_DEV_GT_10 = 0x53,
 
-	/* MMI devices */
-	XPM_NODEIDX_DEV_MMI_GEM = 0x13A,
-
 #if defined(PLAT_versal_net)
 	XPM_NODEIDX_DEV_ACPU_0_0 = 0xAF,
 	XPM_NODEIDX_DEV_ACPU_0_1 = 0xB0,
@@ -248,6 +233,21 @@ enum pm_device_node_idx {
 
 #if defined(PLAT_versal2)
 	XPM_NODEIDX_DEV_USB_1 = 0xD7,
+	XPM_NODEIDX_DEV_I2C_2 = 0x117,
+	XPM_NODEIDX_DEV_I2C_3 = 0x118,
+	XPM_NODEIDX_DEV_I2C_4 = 0x119,
+	XPM_NODEIDX_DEV_I2C_5 = 0x11A,
+	XPM_NODEIDX_DEV_I2C_6 = 0x11B,
+	XPM_NODEIDX_DEV_I2C_7 = 0x11C,
+	XPM_NODEIDX_DEV_CAN_FD_2 = 0x11D,
+	XPM_NODEIDX_DEV_CAN_FD_3 = 0x11E,
+	XPM_NODEIDX_DEV_TTC_4 = 0x11F,
+	XPM_NODEIDX_DEV_TTC_5 = 0x120,
+	XPM_NODEIDX_DEV_TTC_6 = 0x121,
+	XPM_NODEIDX_DEV_TTC_7 = 0x122,
+
+	/* MMI devices */
+	XPM_NODEIDX_DEV_MMI_GEM = 0x13A,
 #endif
 
 	XPM_NODEIDX_DEV_MAX,
