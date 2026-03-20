@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2023-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -57,7 +57,7 @@ error:
 	return ret;
 }
 
-static int add_mmap_dynamic_region(unsigned long long base_pa, uintptr_t base_va,
+int32_t add_mmap_dynamic_region(unsigned long long base_pa, uintptr_t base_va,
 			    size_t size, unsigned int attr)
 {
 	int ret = 0;
@@ -71,7 +71,7 @@ static int add_mmap_dynamic_region(unsigned long long base_pa, uintptr_t base_va
 	return ret;
 }
 
-static int remove_mmap_dynamic_region(uintptr_t base_va, size_t size)
+int32_t remove_mmap_dynamic_region(uintptr_t base_va, size_t size)
 {
 	int ret = 0;
 #if defined(PLAT_XLAT_TABLES_DYNAMIC)
