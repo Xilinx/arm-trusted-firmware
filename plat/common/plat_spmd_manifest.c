@@ -116,7 +116,7 @@ static int manifest_parse_root(spmc_manifest_attribute_t *manifest,
 int plat_spm_core_manifest_load(spmc_manifest_attribute_t *manifest,
 				const void *pm_addr)
 {
-#if TRANSFER_LIST && !RESET_TO_BL31
+#if TRANSFER_LIST
 	int rc;
 
 	assert(manifest != NULL);
