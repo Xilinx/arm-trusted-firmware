@@ -25,6 +25,9 @@
 #define PLATFORM_CLUSTER_COUNT		U(4)
 #define PLATFORM_CORE_COUNT_PER_CLUSTER	U(2) /* 2 CPUs per cluster */
 
+/* Power domain descriptor prefix: entry for root + entry for total cluster count */
+#define PLAT_PWR_DOMAIN_PREFIX_SIZE	U(2)
+
 #define PLATFORM_CORE_COUNT		(PLATFORM_CLUSTER_COUNT * PLATFORM_CORE_COUNT_PER_CLUSTER)
 
 #define E_INVALID_CORE_COUNT		-1
