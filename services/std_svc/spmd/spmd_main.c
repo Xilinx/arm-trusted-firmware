@@ -678,7 +678,7 @@ int spmd_setup(void)
 	assert(spmc_ep_info->pc != 0ULL);
 
 
-#if TRANSFER_LIST && !RESET_TO_BL31
+#if TRANSFER_LIST
 	tl = (struct transfer_list_header *)spmc_ep_info->args.arg3;
 	te = transfer_list_find(tl, TL_TAG_DT_SPMC_MANIFEST);
 	if (te == NULL) {
