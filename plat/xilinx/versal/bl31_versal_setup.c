@@ -156,6 +156,18 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 
 static versal_intr_info_type_el3_t type_el3_interrupt_table[MAX_INTR_EL3];
 
+/*
+ * request_intr_type_el3 - Registers a handler for an EL3 interrupt.
+ *
+ * Parameters:
+ * @id: The unique identifier of the EL3 interrupt to be registered.
+ * @handler: Pointer to the function that will handle the interrupt.
+ *
+ * Returns:
+ * 0            - If the handler is successfully registered.
+ * -EINVAL      - If the handler is NULL or the interrupt table is full.
+ * -EALREADY    - If a handler for the specified interrupt ID is already registered.
+ */
 int request_intr_type_el3(uint32_t id, interrupt_type_handler_t handler)
 {
 	static uint32_t index;
@@ -185,27 +197,51 @@ exit_label:
 	return ret;
 }
 
+/*
+ * rdo_el3_interrupt_handler - Dispatcher for handling EL3-level interrupts.
+ *
+ * This static function is invoked when an EL3 (Exception Level 3) interrupt occurs.
+ * It retrieves the pending interrupt ID and searches a registered table of EL3
+ * interrupt handlers to find the matching handler for the interrupt.
+ *
+ * If a matching handler is found, it is called with the interrupt parameters,
+ * and the return value of the handler is returned to the caller.
+ *
+ * Parameters:
+ * @id     - Interrupt ID (unused in this implementation).
+ * @flags  - Flags providing context about the interrupt (e.g., type, priority).
+ * @handle - Pointer to a structure representing the interrupt context.
+ * @cookie - Pointer to user-defined data passed to the interrupt handler.
+ *
+ * Returns:
+ * uint64_t - The return value from the matched interrupt handler, or 0 if no
+ *            handler was found for the pending interrupt.
+ */
 static uint64_t rdo_el3_interrupt_handler(uint32_t id, uint32_t flags,
 					  void *handle, void *cookie)
 {
-	(void)id;
+	(void)id; /* Unused parameter */
 	uint32_t intr_id;
 	uint32_t i;
 	uint64_t ret = 0;
 	interrupt_type_handler_t handler = NULL;
 
+	/* Get the pending interrupt ID */
 	intr_id = plat_ic_get_pending_interrupt_id();
 
+	/* Search for the handler in the registered table */
 	for (i = 0; i < MAX_INTR_EL3; i++) {
 		if (intr_id == type_el3_interrupt_table[i].id) {
 			handler = type_el3_interrupt_table[i].handler;
 		}
 	}
 
+	/* If the matching handler is found, call it */
 	if (handler != NULL) {
 		ret = handler(intr_id, flags, handle, cookie);
 	}
 
+	/* Return the handler's result, or 0 if no handler was found */
 	return ret;
 }
 
@@ -218,18 +254,44 @@ void bl31_platform_setup(void)
 	plat_versal_gic_init();
 }
 
+/*
+ * bl31_plat_runtime_setup - Platform-specific runtime setup for BL31.
+ *
+ * This function performs the platform-specific setup required during the
+ * BL31 (EL3 Runtime Firmware) stage to handle interrupts and initialize
+ * additional runtime components. It Ensures EL3 exceptions can be safely
+ * handled before normal world execution.
+ *
+ * The interrupt flag is configured for the Non-Secure world using
+ * `set_interrupt_rm_flag()`.
+ * Registers `rdo_el3_interrupt_handler` for handling EL3 interrupts using
+ * `register_interrupt_type_handler()`.
+ * Calls `custom_runtime_setup()` to perform any additional
+ * platform-specific runtime setup.
+ *
+ * Parameters:
+ * None.
+ *
+ * Returns:
+ * None. If any critical operation fails, execution halts via `panic()`.
+ */
 void bl31_plat_runtime_setup(void)
 {
 	uint32_t flags = 0;
 	int32_t rc;
 
+	/* Set the interrupt flag for Non-Secure world */
 	set_interrupt_rm_flag(flags, NON_SECURE);
+
+	/* Register the EL3 interrupt handler */
 	rc = register_interrupt_type_handler(INTR_TYPE_EL3,
 					     rdo_el3_interrupt_handler, flags);
 	if (rc != 0) {
+		/* If the registration fails, halt execution */
 		panic();
 	}
 
+	/* Perform any additional platform-specific runtime setup */
 	custom_runtime_setup();
 }
 
