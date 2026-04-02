@@ -315,6 +315,16 @@ int psci_migrate(u_register_t target_cpu)
 	return rc;
 }
 
+/*
+ * psci_migrate_info_type : Retrieves the migration information type for the Trusted OS.
+ *
+ * Parameters : None.
+ *
+ * Return : The migration information type:
+ * - PSCI_TOS_NOT_UP_MIG_CAP: Trusted OS does not support migration.
+ * - PSCI_TOS_UP_MIG_CAP: Trusted OS supports migration.
+ * - PSCI_E_INVALID_PARAMS: Invalid parameters or unsupported configuration.
+ */
 int psci_migrate_info_type(void)
 {
 	u_register_t resident_cpu_mpidr = 0;
@@ -437,6 +447,21 @@ int psci_set_suspend_mode(unsigned int mode)
 /*******************************************************************************
  * PSCI top level handler for servicing SMCs.
  ******************************************************************************/
+
+/*
+ * psci_smc_handler : Handles PSCI (Power State Coordination Interface), SMC (Secure Monitor Call)
+ * requests from the caller.
+ *
+ * Parameters:
+ * @smc_fid: The PSCI function ID.
+ * @x1, @x2, @x3, @x4: Arguments passed to the PSCI function.
+ * @*cookie: Reserved for future use.
+ * @*handle: Context handle for the caller.
+ * @flags: Flags indicating the caller's security state.
+ *
+ * Return:
+ * - ret: The result of the requested PSCI operation.
+ */
 u_register_t psci_smc_handler(uint32_t smc_fid,
 			  u_register_t x1,
 			  u_register_t x2,
@@ -460,6 +485,7 @@ u_register_t psci_smc_handler(uint32_t smc_fid,
 		return (u_register_t)SMC_UNK;
 	}
 
+	/* Determine if this is a 32-bit or 64-bit PSCI call based on function ID */
 	if (((smc_fid >> FUNCID_CC_SHIFT) & FUNCID_CC_MASK) == SMC_32) {
 		/* 32-bit PSCI function, clear top parameter bits */
 
@@ -467,6 +493,7 @@ u_register_t psci_smc_handler(uint32_t smc_fid,
 		uint32_t r2 = (uint32_t)x2;
 		uint32_t r3 = (uint32_t)x3;
 
+		/* Dispatch to appropriate PSCI 32-bit function based on smc_fid */
 		switch (smc_fid) {
 		case PSCI_VERSION:
 			ret = (u_register_t)psci_version();
@@ -509,11 +536,13 @@ u_register_t psci_smc_handler(uint32_t smc_fid,
 			break;
 
 		case PSCI_SYSTEM_OFF:
+			/* Perform system shutdown. This call does not return */
 			psci_system_off();
 			/* We should never return from psci_system_off() */
 			break;
 
 		case PSCI_SYSTEM_RESET:
+			/* Perform system reset. This call does not return */
 			psci_system_reset();
 			/* We should never return from psci_system_reset() */
 			break;
@@ -551,6 +580,7 @@ u_register_t psci_smc_handler(uint32_t smc_fid,
 			break;
 
 		default:
+			/* Unknown/unsupported function ID */
 			WARN("Unimplemented PSCI Call: 0x%x\n", smc_fid);
 			ret = (u_register_t)SMC_UNK;
 			break;
@@ -610,11 +640,12 @@ u_register_t psci_smc_handler(uint32_t smc_fid,
 			break;
 
 		default:
+			/* Unknown/unsupported function ID */
 			WARN("Unimplemented PSCI Call: 0x%x\n", smc_fid);
 			ret = (u_register_t)SMC_UNK;
 			break;
 		}
 	}
-
+	/* Return result of PSCI operation */
 	return ret;
 }
