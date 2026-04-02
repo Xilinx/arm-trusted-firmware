@@ -260,10 +260,13 @@ static int32_t
 opteed_init_with_entry_point(entry_point_info_t *optee_entry_point)
 {
 	uint32_t linear_id = plat_my_core_pos();
+
+	/* Retrieve the OPTEE context for the current CPU */
 	optee_context_t *optee_ctx = &opteed_sp_context[linear_id];
 	uint64_t rc;
 	assert(optee_entry_point);
 
+	/* Initialize the context for the current CPU */
 	cm_init_my_context(optee_entry_point);
 
 	/*

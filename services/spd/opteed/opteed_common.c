@@ -36,6 +36,7 @@ void opteed_init_optee_ep_state(struct entry_point_info *optee_entry_point,
 	optee_ctx->state = 0;
 	set_optee_pstate(optee_ctx->state, OPTEE_PSTATE_OFF);
 
+	/* Set the CPU context for secure execution */
 	cm_set_context(&optee_ctx->cpu_ctx, SECURE);
 
 	/* initialise an entrypoint to set up the CPU context */
@@ -44,11 +45,17 @@ void opteed_init_optee_ep_state(struct entry_point_info *optee_entry_point,
 		ep_attr |= EP_EE_BIG;
 	}
 	SET_PARAM_HEAD(optee_entry_point, PARAM_EP, VERSION_1, ep_attr);
+
+	/* Set the program counter for OPTEE execution */
 	optee_entry_point->pc = pc;
+
+	/* Configure SPSR based on the execution mode (AArch64 or AArch32) */
 	if (rw == OPTEE_AARCH64) {
+		/* Configure SPSR for AArch64 EL1 mode */
 		optee_entry_point->spsr = SPSR_64(MODE_EL1, MODE_SP_ELX,
 						  DISABLE_ALL_EXCEPTIONS);
 	} else {
+		/* Configure SPSR for AArch32 SVC mode */
 		optee_entry_point->spsr = SPSR_MODE32(MODE32_svc, SPSR_T_ARM,
 						      SPSR_E_LITTLE,
 						      DAIF_FIQ_BIT |
@@ -56,6 +63,7 @@ void opteed_init_optee_ep_state(struct entry_point_info *optee_entry_point,
 							DAIF_ABT_BIT);
 	}
 
+	/* Clear and set the arguments for OPTEE execution */
 	zeromem(&optee_entry_point->args, sizeof(optee_entry_point->args));
 	optee_entry_point->args.arg0 = arg0;
 	optee_entry_point->args.arg1 = arg1;
