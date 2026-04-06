@@ -408,6 +408,9 @@ else ifeq (${ARCH},aarch32)
         endif
 endif
 
+# Flag that enables hardware injection of undefined exceptions
+ENABLE_FEAT_UINJ			?=	0
+
 #----
 # 9.2
 #----
