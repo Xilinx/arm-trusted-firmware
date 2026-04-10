@@ -1,6 +1,6 @@
 # Copyright (c) 2018-2022, Arm Limited and Contributors. All rights reserved.
 # Copyright (c) 2021-2022, Xilinx, Inc. All rights reserved.
-# Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -36,6 +36,9 @@ BL31_SOURCES += plat/amd/common/custom_svc_stub.c
 endif
 
 TFA_NO_PM ?= 0
+
+VERSAL2_VARIANT ?= 42
+$(eval $(call add_define_val,VERSAL2_VARIANT,$(VERSAL2_VARIANT)))
 
 CPU_PWRDWN_SGI ?= 6
 $(eval $(call add_define_val,CPU_PWR_DOWN_REQ_INTR,ARM_IRQ_SEC_SGI_${CPU_PWRDWN_SGI}))

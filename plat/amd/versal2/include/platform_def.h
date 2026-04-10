@@ -22,8 +22,19 @@
 #define PLATFORM_STACK_SIZE		U(0x440)
 #endif
 
+/*
+ * Variant 14: 1 cluster with 4 cores;
+ * default 42: 4 clusters with 2 cores each.
+ */
+#if VERSAL2_VARIANT == 14
+#define PLATFORM_CLUSTER_COUNT		U(1)
+#define PLATFORM_CORE_COUNT_PER_CLUSTER	U(4) /* 4 CPUs per cluster */
+#elif VERSAL2_VARIANT == 42
 #define PLATFORM_CLUSTER_COUNT		U(4)
 #define PLATFORM_CORE_COUNT_PER_CLUSTER	U(2) /* 2 CPUs per cluster */
+#else
+#error "Unsupported VERSAL2_VARIANT. Valid values are 14 or 42."
+#endif
 
 /* Power domain descriptor prefix: entry for root + entry for total cluster count */
 #define PLAT_PWR_DOMAIN_PREFIX_SIZE	U(2)
