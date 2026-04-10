@@ -23,6 +23,16 @@ uint32_t plat_primary_cpu_core = PLAT_INVALID_CPU_CORE;
 uint32_t plat_cluster_count = PLATFORM_CLUSTER_COUNT;
 uint32_t plat_cores_per_cluster = PLATFORM_CORE_COUNT_PER_CLUSTER;
 
+#if VERSAL2_VARIANT == 14
+static const uint8_t plat_power_domain_tree_desc[] = {
+	/* Number of root nodes */
+	1,
+	/* Number of clusters */
+	PLATFORM_CLUSTER_COUNT,
+	/* Number of children for the only cluster node */
+	PLATFORM_CORE_COUNT_PER_CLUSTER,
+};
+#elif VERSAL2_VARIANT == 42
 static const uint8_t plat_power_domain_tree_desc[] = {
 	/* Number of root nodes */
 	1,
@@ -37,7 +47,9 @@ static const uint8_t plat_power_domain_tree_desc[] = {
 	/* Number of children for the fourth cluster node */
 	PLATFORM_CORE_COUNT_PER_CLUSTER,
 };
+#endif
 
+#if VERSAL2_VARIANT == 42
 /* cluster and core updated at runtime */
 static uint8_t plat_power_domain_tree_dyn[PLATFORM_CLUSTER_COUNT + PLAT_PWR_DOMAIN_PREFIX_SIZE] = {0};
 
@@ -192,16 +204,21 @@ exit_on_failure:
 done:
 	return ret;
 }
+#endif
 
 const uint8_t *plat_get_power_domain_tree_desc(void)
 {
 	const uint8_t *ret = NULL;
 
+#if VERSAL2_VARIANT == 14
+	ret = plat_power_domain_tree_desc;
+#elif VERSAL2_VARIANT == 42
 	if (init_topology_from_dt() == 0) {
 		ret = plat_power_domain_tree_dyn;
 	} else {
 		ret = plat_power_domain_tree_desc;
 	}
+#endif
 
 	return ret;
 }
