@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,6 +24,7 @@
 #include "def.h"
 #include <plat_ipi.h>
 #include <plat_pm_common.h>
+#include <plat_private.h>
 #include "pm_api_sys.h"
 #include "pm_client.h"
 
@@ -52,43 +53,57 @@ static const struct pm_ipi apu_ipi = {
 	.buffer_base = IPI_BUFFER_LOCAL_BASE,
 };
 
-/* Order in pm_procs_all array must match cpu ids */
-static const struct pm_proc pm_procs_all[] = {
-	{
-		.node_id = PM_DEV_CLUSTER0_ACPU_0,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER0_ACPU_1,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER1_ACPU_0,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER1_ACPU_1,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER2_ACPU_0,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER2_ACPU_1,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER3_ACPU_0,
-		.ipi = &apu_ipi,
-	},
-	{
-		.node_id = PM_DEV_CLUSTER3_ACPU_1,
-		.ipi = &apu_ipi,
-	},
+/* Default topology: 4 clusters x 2 cores. Order must match cpu ids. */
+static const struct pm_proc pm_procs_default[] = {
+	{ .node_id = PM_DEV_CLUSTER0_ACPU_0, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER0_ACPU_1, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER1_ACPU_0, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER1_ACPU_1, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER2_ACPU_0, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER2_ACPU_1, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER3_ACPU_0, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER3_ACPU_1, .ipi = &apu_ipi },
 };
 
-const struct pm_proc *primary_proc = &pm_procs_all[0];
+/* 1 cluster x 4 cores topology. Order must match cpu ids. */
+static const struct pm_proc pm_procs_1c4[] = {
+	{ .node_id = PM_DEV_CLUSTER0_ACPU_0, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER0_ACPU_1, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER0_ACPU_2, .ipi = &apu_ipi },
+	{ .node_id = PM_DEV_CLUSTER0_ACPU_3, .ipi = &apu_ipi },
+};
+
+/* Active proc table and count; default is the 4x2 topology. */
+static const struct pm_proc *pm_procs_all = pm_procs_default;
+static size_t pm_procs_count = ARRAY_SIZE(pm_procs_default);
+
+/* Only index [0] is used and it is identical in both topology tables. */
+const struct pm_proc *primary_proc = &pm_procs_default[0];
+
+/* Select pm_procs_1c4 for 1-cluster 4-core topology; call after DT topology is set. */
+void pm_client_init(void)
+{
+	if ((plat_cluster_count == 1U) && (plat_cores_per_cluster == 4U)) {
+		pm_procs_all = pm_procs_1c4;
+		pm_procs_count = ARRAY_SIZE(pm_procs_1c4);
+	}
+}
+
+/*
+ * Map cpu_id to the APU_PCIL register slot index. The hardware reserves
+ * APU_PCLI_CLUSTER_CPU_STEP / APU_PCLI_CPU_STEP = 4 slots per cluster
+ * regardless of how many cores the cluster actually contains. Use the
+ * runtime topology variable (populated from the DTB) rather than a
+ * compile-time macro:
+ *   Default (plat_cores_per_cluster=2): 0->0, 1->1, 2->4, 3->5, ...
+ *   VERSAL2_VARIANT=14 (plat_cores_per_cluster=4): 0->0, 1->1, 2->2, 3->3
+ */
+static uint32_t cpu_id_to_core_index(uint32_t cpu_id)
+{
+	return (cpu_id / plat_cores_per_cluster) *
+	       (uint32_t)(APU_PCLI_CLUSTER_CPU_STEP / APU_PCLI_CPU_STEP) +
+	       (cpu_id % plat_cores_per_cluster);
+}
 
 /**
  * pm_get_proc() - returns pointer to the proc structure.
@@ -100,7 +115,7 @@ const struct pm_proc *pm_get_proc(uint32_t cpuid)
 {
 	const struct pm_proc *proc = NULL;
 
-	if (cpuid < ARRAY_SIZE(pm_procs_all)) {
+	if (cpuid < pm_procs_count) {
 		proc = &pm_procs_all[cpuid];
 	} else {
 		ERROR("cpuid: %d proc NULL\n", cpuid);
@@ -278,13 +293,8 @@ enum pm_device_node_idx irq_to_pm_node_idx(uint32_t irq)
  */
 void pm_client_suspend(const struct pm_proc *proc, uint32_t state, uint32_t flag)
 {
-	uint32_t cpu_id = plat_my_core_pos();
+	uint32_t core_index = cpu_id_to_core_index(plat_my_core_pos());
 	uintptr_t val;
-	/*
-	 * Get the core index, use it calculate offset for secondary cores
-	 * to match with register database
-	 */
-	uint32_t core_index = cpu_id + ((cpu_id / 2U) * 2U);
 
 	pm_client_lock_get();
 
@@ -319,7 +329,7 @@ static uint32_t pm_get_cpuid(uint32_t nid)
 	uint32_t ret = (uint32_t) UNDEFINED_CPUID;
 	size_t i;
 
-	for (i = 0; i < ARRAY_SIZE(pm_procs_all); i++) {
+	for (i = 0; i < pm_procs_count; i++) {
 		if (pm_procs_all[i].node_id == nid) {
 			ret = (uint32_t)i;
 			break;
@@ -342,22 +352,7 @@ void pm_client_wakeup(const struct pm_proc *proc)
 	uintptr_t val;
 
 	if (cpuid != (uint32_t) UNDEFINED_CPUID) {
-		/*
-		 * Get the core index and use it to calculate offset for
-		 * disabling power down and wakeup interrupts.
-		 * i.e., Convert cpu-id to core_index with the following mapping:
-		 *  cpu-id -> core_index
-		 *       0 -> 0
-		 *       1 -> 1
-		 *       2 -> 4
-		 *       3 -> 5
-		 *       4 -> 8
-		 *       5 -> 9
-		 *       6 -> 12
-		 *       7 -> 13
-		 * to match with register database.
-		 */
-		uint32_t core_index = cpuid + ((cpuid / 2U) * 2U);
+		uint32_t core_index = cpu_id_to_core_index(cpuid);
 
 		pm_client_lock_get();
 

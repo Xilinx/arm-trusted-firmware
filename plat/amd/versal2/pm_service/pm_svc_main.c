@@ -22,6 +22,7 @@
 #include <plat/arm/common/plat_arm.h>
 #include <plat/common/platform.h>
 
+#include <plat_pm_common.h>
 #include <plat_private.h>
 #include "pm_api_sys.h"
 #include "pm_client.h"
@@ -290,6 +291,12 @@ end:
 int32_t pm_setup(void)
 {
 	int32_t ret = 0;
+
+	/*
+	 * Resolve the active pm_proc table once based on the runtime topology
+	 * set by init_topology_from_dt().
+	 */
+	pm_client_init();
 
 	pm_ipi_init(primary_proc);
 	pm_up = true;
