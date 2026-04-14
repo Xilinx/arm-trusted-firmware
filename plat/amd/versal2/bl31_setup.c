@@ -280,6 +280,16 @@ void bl31_platform_setup(void)
 {
 	prepare_dtb();
 
+	/*
+	 * Initialize topology from DT before GIC init. plat_core_pos_by_mpidr()
+	 * (used during gicv3_rdistif_base_addrs_probe) reads plat_cores_per_cluster
+	 * and plat_cluster_count. If those still hold compile-time defaults when
+	 * the GIC scans its redistributors, cores whose Aff1 exceeds the default
+	 * cores-per-cluster value are treated as invalid and their redistributor
+	 * base address is never stored, causing an assert on CPU bring-up.
+	 */
+	(void)plat_get_power_domain_tree_desc();
+
 	/* Initialize the gic cpu and distributor interfaces */
 	plat_gic_driver_init();
 	plat_gic_init();
