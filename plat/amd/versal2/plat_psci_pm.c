@@ -204,7 +204,7 @@ static int32_t versal2_validate_ns_entrypoint(uint64_t ns_entrypoint)
 	if (counter != 0U) {
 		while (index < counter) {
 			if ((ns_entrypoint >= rmr[index].base) &&
-				       (ns_entrypoint <= rmr[index].size)) {
+			    (ns_entrypoint < (rmr[index].base + rmr[index].size))) {
 				ret = PSCI_E_INVALID_ADDRESS;
 				break;
 			}
