@@ -357,13 +357,59 @@ static void parse_reserved_subnodes(const void *fdt, int rsv_mem,
 	*idx = i;
 }
 
-/* TODO: Parse TL overlays for updated tf-a and op-tee reserved nodes */
+static bool parse_tl_overlay_reserved_nodes(uint32_t *idx)
+{
+	struct transfer_list_entry *ote = NULL;
+	bool found = false;
+	void *ovrly_fdt;
+	uint32_t i = *idx, prev_i;
+	int frag, overlay, rsv_mem;
+
+	while ((ovrly_fdt = tl_get_next_fdt_overlay(&ote)) != NULL) {
+		/*
+		 * Walk every fragment@N to handle overlays from different
+		 * producers (e.g. TF-A, OP-TEE) regardless of fragment index.
+		 */
+		fdt_for_each_subnode(frag, ovrly_fdt, 0) {
+			overlay = fdt_subnode_offset(ovrly_fdt, frag, "__overlay__");
+			if (overlay < 0) {
+				continue;
+			}
+
+			rsv_mem = fdt_subnode_offset(ovrly_fdt, overlay,
+						     "reserved-memory");
+			if (rsv_mem < 0) {
+				continue;
+			}
+
+			prev_i = i;
+			parse_reserved_subnodes(ovrly_fdt, rsv_mem, &i);
+			if (i > prev_i) {
+				found = true;
+			}
+
+			if (i >= MAX_RESERVE_ADDR_INDICES) {
+				WARN("TL overlay: reserved node table full at %u entries\n", i);
+				goto done;
+			}
+		}
+	}
+done:
+	*idx = i;
+	return found;
+}
+
+/*
+ * Populate rsvnodes[] from base DTB /reserved-memory nodes and TL overlays.
+ * Returns 0 if at least one reserved-memory entry is added from any source,
+ * 1 if no reserved-memory entries are added.
+ */
 uint32_t retrieve_reserved_entries(void)
 {
 	uint32_t ret = 1;
 	void *dtb = NULL;
 	int offset;
-	uint32_t i = 0;
+	uint32_t i = 0, prev_i;
 
 	/* Get DT blob address */
 	dtb = (void *)plat_retrieve_dt_addr();
@@ -373,11 +419,18 @@ uint32_t retrieve_reserved_entries(void)
 		/* Find reserved memory node */
 		offset = fdt_path_offset(dtb, "/reserved-memory");
 		if (offset >= 0) {
+			prev_i = i;
 			parse_reserved_subnodes(dtb, offset, &i);
-			ret = 0;
-			rsv_count = i;
+			if (i > prev_i) {
+				ret = 0;
+			}
 		}
 	}
 
+	if (parse_tl_overlay_reserved_nodes(&i)) {
+		ret = 0;
+	}
+
+	rsv_count = i;
 	return ret;
 }

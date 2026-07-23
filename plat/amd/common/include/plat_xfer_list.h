@@ -26,5 +26,6 @@ bool init_transfer_list_from_fdt_or_static(void);
 int32_t tl_init_ns_transfer_list(entry_point_info_t *bl33_image);
 int32_t tl_populate_ns_transfer_list(void);
 int32_t tl_add_dt_overlay(void *fdt, size_t fdtsize);
+void *tl_get_next_fdt_overlay(struct transfer_list_entry **ote);
 
 #endif /* PLAT_XFER_LIST_H */
