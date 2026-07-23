@@ -528,3 +528,54 @@ exit_on:
 	return ret;
 }
 
+/*
+ * Iterate TL entries to find the next TL_TAG_FDT_OVRLY entry and return
+ * a pointer to its FDT data (skipping the 8-byte subtype prefix).
+ * Pass *ote = NULL to start from the beginning. Updates *ote on each call.
+ * Returns NULL when no more overlay entries are found.
+ */
+void *tl_get_next_fdt_overlay(struct transfer_list_entry **ote)
+{
+	struct transfer_list_entry *te;
+	void *fdt = NULL;
+	uint32_t fdt_size, total_size;
+
+	if (secure_tl_region.is_mapped && (tl_hdr != NULL) &&
+	    ((tl_ops_holder == TL_OPS_ALL) || (tl_ops_holder == TL_OPS_RO))) {
+		te = *ote;
+		while ((te = transfer_list_next(tl_hdr, te)) != NULL) {
+			if (te->tag_id == TL_TAG_FDT_OVRLY) {
+				if (te->data_size < (TL_FDT_OVRLY_SUBTYPE_SIZE +
+							     sizeof(struct fdt_header))) {
+					WARN("TL overlay: entry too small (%u bytes), skipping\n",
+					     te->data_size);
+					continue;
+				}
+
+				fdt = (uint8_t *)transfer_list_entry_data(te) +
+					TL_FDT_OVRLY_SUBTYPE_SIZE;
+				fdt_size = te->data_size - TL_FDT_OVRLY_SUBTYPE_SIZE;
+
+				if (fdt_check_header(fdt) != 0) {
+					WARN("TL overlay: invalid FDT header (payload=%u), skipping\n",
+					     fdt_size);
+					fdt = NULL;
+					continue;
+				}
+
+				total_size = fdt_totalsize(fdt);
+				if (total_size > fdt_size) {
+					WARN("TL overlay: FDT size mismatch (payload=%u fdt_total=%u), skipping\n",
+					     fdt_size, total_size);
+					fdt = NULL;
+					continue;
+				}
+
+				*ote = te;
+				break;
+			}
+		}
+	}
+
+	return fdt;
+}
