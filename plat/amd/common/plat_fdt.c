@@ -313,15 +313,45 @@ struct reserve_mem_range *get_reserved_entries_fdt(uint32_t *reserve_nodes)
 	return rsvmr;
 }
 
+static void parse_reserved_subnodes(const void *fdt, int rsv_mem,
+				    uint32_t *idx)
+{
+	const fdt32_t *reg_prop;
+	int node;
+	uint32_t i = *idx;
+
+	fdt_for_each_subnode(node, fdt, rsv_mem) {
+		if (fdt_getprop(fdt, node, "no-map", NULL) == NULL) {
+			continue;
+		}
+
+		if (i == MAX_RESERVE_ADDR_INDICES) {
+			break;
+		}
+
+		reg_prop = fdt_getprop(fdt, node, "reg", NULL);
+		if (reg_prop == NULL) {
+			INFO("No valid reg prop found for subnode\n");
+			continue;
+		}
+
+		rsvnodes[i].base = (((uint64_t)fdt32_to_cpu(reg_prop[0]) << 32) |
+				fdt32_to_cpu(reg_prop[1]));
+		rsvnodes[i].size = (((uint64_t)fdt32_to_cpu(reg_prop[2]) << 32) |
+				fdt32_to_cpu(reg_prop[3]));
+		i++;
+	}
+
+	*idx = i;
+}
+
 /* TODO: Parse TL overlays for updated tf-a and op-tee reserved nodes */
 uint32_t retrieve_reserved_entries(void)
 {
 	uint32_t ret = 1;
 	void *dtb = NULL;
-	int offset, node;
+	int offset;
 	uint32_t i = 0;
-	const fdt32_t *reg_prop;
-
 
 	/* Get DT blob address */
 	dtb = (void *)plat_retrieve_dt_addr();
@@ -331,29 +361,7 @@ uint32_t retrieve_reserved_entries(void)
 		/* Find reserved memory node */
 		offset = fdt_path_offset(dtb, "/reserved-memory");
 		if (offset >= 0) {
-
-			/* Parse subnodes of reserved-memory */
-			fdt_for_each_subnode(node, dtb, offset) {
-				if (fdt_getprop(dtb, node, "no-map", NULL) == NULL) {
-					continue;
-				}
-
-				if (i == MAX_RESERVE_ADDR_INDICES) {
-					break;
-				}
-
-				reg_prop = fdt_getprop(dtb, node, "reg", NULL);
-				if (reg_prop == NULL) {
-					INFO("No valid reg prop found for subnode\n");
-					continue;
-				}
-
-				rsvnodes[i].base = (((uint64_t)fdt32_to_cpu(reg_prop[0]) << 32) |
-						fdt32_to_cpu(reg_prop[1]));
-				rsvnodes[i].size = (((uint64_t)fdt32_to_cpu(reg_prop[2]) << 32) |
-						fdt32_to_cpu(reg_prop[3]));
-				i++;
-			}
+			parse_reserved_subnodes(dtb, offset, &i);
 			ret = 0;
 			rsv_count = i;
 		}
