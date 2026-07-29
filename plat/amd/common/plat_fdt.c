@@ -94,6 +94,12 @@ static int32_t is_node_reserved(const char *node_name, uint64_t base, uint64_t l
 
 		/* Covered by any existing reserved no-map node? */
 		fdt_for_each_subnode(node, dtb, rm) {
+			if (!fdt_node_is_enabled(dtb, node)) {
+				WARN("Reserved-memory subnode %s is disabled, skipping\n",
+				     fdt_get_name(dtb, node, NULL));
+				continue;
+			}
+
 			if (!fdt_getprop(dtb, node, "no-map", NULL)) {
 				continue;
 			}
@@ -321,6 +327,12 @@ static void parse_reserved_subnodes(const void *fdt, int rsv_mem,
 	uint32_t i = *idx;
 
 	fdt_for_each_subnode(node, fdt, rsv_mem) {
+		if (!fdt_node_is_enabled(fdt, node)) {
+			WARN("Reserved-memory subnode %s is disabled, skipping\n",
+			     fdt_get_name(fdt, node, NULL));
+			continue;
+		}
+
 		if (fdt_getprop(fdt, node, "no-map", NULL) == NULL) {
 			continue;
 		}
