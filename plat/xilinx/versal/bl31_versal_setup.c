@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2025, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2018-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2024, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,6 +24,9 @@
 #include <plat_fdt.h>
 #include <plat_private.h>
 #include <plat_startup.h>
+#if (TRANSFER_LIST == 1)
+#include <plat_xfer_list.h>
+#endif
 #include "pm_api_sys.h"
 #include "pm_client.h"
 #include <pm_ipi.h>
@@ -74,11 +77,15 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	(void)arg1;
 	(void)arg2;
 	(void)arg3;
-#if (TFA_NO_PM == 0)
+#if ((TFA_NO_PM == 0) && (TRANSFER_LIST == 0))
 	uint64_t tfa_handoff_addr;
 	uint32_t payload[PAYLOAD_ARG_CNT], max_size = (uint32_t)HANDOFF_PARAMS_MAX_SIZE;
 	enum pm_ret_status ret_status;
 	const uint64_t addr[HANDOFF_PARAMS_MAX_SIZE];
+#endif
+#if (TRANSFER_LIST == 1)
+	int32_t tl_rc;
+	bool tl_status;
 #endif
 
 	/*
@@ -120,7 +127,25 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	SET_PARAM_HEAD(&bl33_image_ep_info, PARAM_EP, VERSION_1, 0);
 	SET_SECURITY_STATE(bl33_image_ep_info.h.attr, NON_SECURE);
 
-#if (TFA_NO_PM == 0)
+#if (TRANSFER_LIST == 1)
+	/*
+	 * Versal Premium Gen 2: initialise the transfer list handoff from the
+	 * firmware handoff window in DDR, then pull the next-image entry
+	 * points from it. Fall back to the build-time defaults if the TL
+	 * carries no usable handoff entries.
+	 */
+	tl_status = init_transfer_list_from_fdt_or_static();
+	if (tl_status != true) {
+		WARN("BL31: Invalid transfer list\n");
+	}
+
+	tl_rc = transfer_list_populate_ep_info(&bl32_image_ep_info,
+					       &bl33_image_ep_info);
+	if ((tl_rc == TL_OPS_NON) || (tl_rc == TL_OPS_CUS)) {
+		NOTICE("BL31: TL not found, using default config\n");
+		bl31_set_default_config();
+	}
+#elif (TFA_NO_PM == 0)
 	PM_PACK_PAYLOAD4(payload, LOADER_MODULE_ID, 1U, PM_LOAD_GET_HANDOFF_PARAMS,
 			(uintptr_t)addr >> 32U, (uintptr_t)addr, max_size);
 	ret_status = pm_ipi_send_sync(payload, NULL, 0);
@@ -247,11 +272,26 @@ static uint64_t rdo_el3_interrupt_handler(uint32_t id, uint32_t flags,
 
 void bl31_platform_setup(void)
 {
+#if (TRANSFER_LIST == 1)
+	int32_t rc;
+#endif
+
 	prepare_dtb();
 
 	/* Initialize the gic cpu and distributor interfaces */
 	plat_versal_gic_driver_init();
 	plat_versal_gic_init();
+
+#if (TRANSFER_LIST == 1)
+	/*
+	 * Versal Premium Gen 2: populate an empty non-secure transfer list and update the
+	 * handoff info before bl31_prepare_next_image_entry() runs.
+	 */
+	rc = tl_init_ns_transfer_list(&bl33_image_ep_info);
+	if (rc < 0) {
+		WARN("Failed to create non-secure TL\n");
+	}
+#endif
 }
 
 /*
@@ -290,6 +330,14 @@ void bl31_plat_runtime_setup(void)
 		/* If the registration fails, halt execution */
 		panic();
 	}
+
+#if (TRANSFER_LIST == 1)
+	/* Versal Premium Gen 2: update the non-secure transfer list with overlay entries. */
+	rc = tl_populate_ns_transfer_list();
+	if (rc < 0) {
+		WARN("Failed to add overlay entries to non-secure TL\n");
+	}
+#endif
 
 	/* Perform any additional platform-specific runtime setup */
 	custom_runtime_setup();

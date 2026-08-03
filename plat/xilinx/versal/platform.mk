@@ -1,7 +1,36 @@
 # Copyright (c) 2018-2021, Arm Limited and Contributors. All rights reserved.
-# Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
+
+# ----------------------------------------------------------------------------
+# Platform variant selection.
+#
+# PLAT_VARIANT=PREMIUM_GEN2 selects the Versal Premium Gen 2 variant. All
+# Versal Premium Gen 2 build specifics live in
+# plat/xilinx/versal/versal_premium_gen2.mk, which emits
+# -DPLAT_VERSAL_PREMIUM_GEN2 so plat/xilinx/versal/include/platform_def.h
+# selects the Versal Premium Gen 2 memory map and handoff settings; when
+# PLAT_VARIANT is unset the stock versal build below is completely unchanged.
+# ----------------------------------------------------------------------------
+PLAT_VARIANT ?=
+
+ifeq (${PLAT_VARIANT}, PREMIUM_GEN2)
+    PLAT_IS_VERSAL_PREMIUM_GEN2 := 1
+else ifneq (${PLAT_VARIANT},)
+    $(error "Unsupported PLAT_VARIANT '${PLAT_VARIANT}'. Valid value: PREMIUM_GEN2")
+endif
+
+# TRANSFER_LIST is a core TF-A build flag that can be requested on any
+# platform, but the versal transfer-list handoff support (headers, libtl
+# sources and FW_HANDOFF_BASE/NS_FW_HANDOFF_BASE) is only wired up for the
+# Versal Premium Gen 2 variant. Reject the combination early instead of
+# failing deep in the build with a missing-header compile error.
+ifeq (${TRANSFER_LIST},1)
+ifndef PLAT_IS_VERSAL_PREMIUM_GEN2
+    $(error "TRANSFER_LIST=1 is only supported on PLAT=versal with PLAT_VARIANT=PREMIUM_GEN2")
+endif
+endif
 
 override PROGRAMMABLE_RESET_ADDRESS := 1
 PSCI_EXTENDED_STATE_ID := 1
@@ -62,7 +91,9 @@ XLNX_DT_CFG     := 0
 endif
 $(eval $(call add_define,XLNX_DT_CFG))
 
+ifndef PLAT_IS_VERSAL_PREMIUM_GEN2
 PLAT_XLAT_TABLES_DYNAMIC := 0
+endif
 ifeq (${PLAT_XLAT_TABLES_DYNAMIC},1)
 $(eval $(call add_define,PLAT_XLAT_TABLES_DYNAMIC))
 endif
@@ -130,7 +161,6 @@ BL31_SOURCES		+=	drivers/arm/cci/cci.c				\
 				common/fdt_wrappers.c                           \
 				plat/common/plat_psci_common.c			\
 				plat/xilinx/common/ipi.c			\
-				plat/xilinx/common/plat_fdt.c			\
 				plat/xilinx/common/plat_console.c               \
 				plat/xilinx/common/plat_clkfunc.c               \
 				plat/xilinx/common/plat_startup.c		\
@@ -168,4 +198,18 @@ ifdef CUSTOM_PKG_PATH
 include $(CUSTOM_PKG_PATH)/custom_pkg.mk
 else
 BL31_SOURCES		+=	plat/xilinx/common/custom_sip_svc.c
+endif
+
+# ----------------------------------------------------------------------------
+# Firmware-handoff device-tree sources.
+#
+# The Versal Premium Gen 2 variant replaces the stock DT handoff with the
+# shared AMD common transfer-list implementation (pulled in via
+# versal_premium_gen2.mk). The stock versal build keeps
+# plat/xilinx/common/plat_fdt.c exactly as before.
+# ----------------------------------------------------------------------------
+ifdef PLAT_IS_VERSAL_PREMIUM_GEN2
+include plat/xilinx/versal/versal_premium_gen2.mk
+else
+BL31_SOURCES		+=	plat/xilinx/common/plat_fdt.c
 endif
