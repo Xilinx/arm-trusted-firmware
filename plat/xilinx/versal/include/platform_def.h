@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018-2021, Arm Limited and Contributors. All rights reserved.
- * Copyright (c) 2022-2023, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -35,8 +35,13 @@
  * little space for growth.
  */
 #ifndef VERSAL_ATF_MEM_BASE
-# define BL31_BASE			U(0xfffe0000)
-# define BL31_LIMIT			U(0x100000000)
+# if defined(PLAT_VERSAL_PREMIUM_GEN2)
+#  define BL31_BASE			U(0x01600000)
+#  define BL31_LIMIT			U(0x01800000)
+# else
+#  define BL31_BASE			U(0xfffe0000)
+#  define BL31_LIMIT			U(0x100000000)
+# endif
 #else
 # define BL31_BASE			U(VERSAL_ATF_MEM_BASE)
 # define BL31_LIMIT			U(VERSAL_ATF_MEM_BASE + VERSAL_ATF_MEM_SIZE)
@@ -49,8 +54,13 @@
  * BL32 specific defines.
  ******************************************************************************/
 #ifndef VERSAL_BL32_MEM_BASE
-# define BL32_BASE			U(0x60000000)
-# define BL32_LIMIT			U(0x80000000)
+# if defined(PLAT_VERSAL_PREMIUM_GEN2)
+#  define BL32_BASE			U(0x01800000)
+#  define BL32_LIMIT			U(0x09800000)
+# else
+#  define BL32_BASE			U(0x60000000)
+#  define BL32_LIMIT			U(0x80000000)
+# endif
 #else
 # define BL32_BASE			U(VERSAL_BL32_MEM_BASE)
 # define BL32_LIMIT			U(VERSAL_BL32_MEM_BASE + VERSAL_BL32_MEM_SIZE)
@@ -60,10 +70,34 @@
  * BL33 specific defines.
  ******************************************************************************/
 #ifndef PRELOADED_BL33_BASE
-# define PLAT_ARM_NS_IMAGE_BASE		U(0x8000000)
+# if defined(PLAT_VERSAL_PREMIUM_GEN2)
+#  define PLAT_ARM_NS_IMAGE_BASE	U(0x40000000)
+# else
+#  define PLAT_ARM_NS_IMAGE_BASE	U(0x8000000)
+# endif
 #else
 # define PLAT_ARM_NS_IMAGE_BASE		U(PRELOADED_BL33_BASE)
 #endif
+
+#if defined(PLAT_VERSAL_PREMIUM_GEN2)
+/*******************************************************************************
+ * Transfer-list (firmware handoff) window consumed by the shared
+ * plat/amd/common TL support. Maps onto the base-camp "TFA transfer list".
+ ******************************************************************************/
+#if (TRANSFER_LIST == 1)
+# ifndef FW_HANDOFF_BASE
+#  define FW_HANDOFF_BASE		U(0x01000000)
+# endif
+# ifndef FW_HANDOFF_SIZE
+#  define FW_HANDOFF_SIZE		U(0x00600000)
+# endif
+
+# define NS_TL_OFFSET_FROM_NS_IMAGE	U(0xA00000)	/* 10 MB */
+# ifndef NS_FW_HANDOFF_BASE
+#  define NS_FW_HANDOFF_BASE		(PLAT_ARM_NS_IMAGE_BASE - NS_TL_OFFSET_FROM_NS_IMAGE)
+# endif
+#endif /* TRANSFER_LIST */
+#endif /* PLAT_VERSAL_PREMIUM_GEN2 */
 
 /*******************************************************************************
  * HIGH and LOW DDR MAX definitions
@@ -102,9 +136,22 @@
 
 #define IS_TFA_IN_OCM(x)	((x >= PLAT_OCM_BASE) && (x < PLAT_OCM_LIMIT))
 
+#if defined(PLAT_VERSAL_PREMIUM_GEN2)
+/*
+ * Enforce the "Versal Premium Gen 2 always runs from DDR" contract at compile
+ * time. If a custom VERSAL_ATF_MEM_BASE is supplied that pushes BL31 inside
+ * the OCM region, fail the build.
+ */
+# if IS_TFA_IN_OCM(BL31_BASE)
+#  error "PLAT_VARIANT=PREMIUM_GEN2 requires BL31 to execute from DDR and not OCM"
+# endif
+#endif
+
 #ifndef MAX_MMAP_REGIONS
 #if (defined(XILINX_OF_BOARD_DTB_ADDR) && !IS_TFA_IN_OCM(BL31_BASE))
 #define MAX_MMAP_REGIONS		9
+#elif (defined(PLAT_VERSAL_PREMIUM_GEN2) && TRANSFER_LIST)
+#define MAX_MMAP_REGIONS		10
 #else
 #define MAX_MMAP_REGIONS		8
 #endif
@@ -112,7 +159,11 @@
 
 #ifndef MAX_XLAT_TABLES
 #if !IS_TFA_IN_OCM(BL31_BASE)
+#if (defined(PLAT_VERSAL_PREMIUM_GEN2) && TRANSFER_LIST)
+#define MAX_XLAT_TABLES		13
+#else
 #define MAX_XLAT_TABLES		9
+#endif
 #else
 #define MAX_XLAT_TABLES		5
 #endif
