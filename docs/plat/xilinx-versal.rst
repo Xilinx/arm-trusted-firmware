@@ -64,6 +64,55 @@ Xilinx Versal platform specific build options
     -   ``6``   : SGI 6 (Default)
     -   ``7``   : SGI 7
 
+Versal Premium Gen 2 variant
+----------------------------
+
+``PLAT_VARIANT=PREMIUM_GEN2`` selects the Versal Premium Gen 2 build variant
+of the Versal Gen 1 (``PLAT=versal``) port. All Versal Premium Gen 2 specific
+overrides are isolated based on platform variant so ``PLAT=versal`` build
+is unaffected when ``PLAT_VARIANT`` is left unset.
+
+To build:
+
+.. code-block:: shell
+
+   make CROSS_COMPILE=aarch64-none-elf- PLAT=versal PLAT_VARIANT=PREMIUM_GEN2 bl31
+
+Run from DDR only
+~~~~~~~~~~~~~~~~~
+
+- Versal Premium Gen 2 always executes BL31 out of the DDR "core runtime
+  memory".
+
+- This is enforced at compile time: if a custom ``VERSAL_ATF_MEM_BASE`` is
+  supplied that would place BL31 in OCM, the build fails with an error
+  stating that ``PLAT_VARIANT=PREMIUM_GEN2`` requires BL31 to execute from
+  DDR and not OCM.
+
+Transfer List (TL) support
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Versal Premium Gen 2 replaces the device-tree handoff with the Transfer List
+  implementation. TL support is disabled by default but can be enabled by
+  setting ``TRANSFER_LIST=1`` through build arguments.
+
+- When ``TRANSFER_LIST=1`` is enabled, dynamic translation tables
+  (``PLAT_XLAT_TABLES_DYNAMIC=1``) are forced on so the extra transfer-list
+  handoff windows in DDR can be mapped on demand.
+
+- BL31 initialises the TL handoff from the firmware handoff window in DDR
+  (``FW_HANDOFF_BASE`` / ``FW_HANDOFF_SIZE``), before the MMU is
+  enabled, and populates the BL32/BL33 entry point info from the TL. If the TL
+  carries no usable handoff entries, BL31 falls back to the build-time
+  default configuration.
+
+- A non-secure TL is created, and its BL33 entry point info is updated,
+  before ``bl31_prepare_next_image_entry()`` runs. The overlay entries
+  copied from the secure TL are populated afterwards, during
+  ``bl31_plat_runtime_setup()``. Its base address defaults to 10 MB below
+  ``PLAT_ARM_NS_IMAGE_BASE`` and can be overridden at build time with
+  ``NS_FW_HANDOFF_BASE``.
+
 Configurable Stack Size
 -----------------------
 
