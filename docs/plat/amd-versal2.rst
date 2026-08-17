@@ -10,39 +10,44 @@ BL32 is an optional Secure Payload.
 BL33 is the non-secure world software (U-Boot, Linux etc).
 
 To build:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 bl31
-```
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 bl31
 
 To build TF-A for JTAG DCC console:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 CONSOLE=dcc bl31
-```
 
-To build TF-A with Errata management interface
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 bl31 ERRATA_ABI_SUPPORT=1
-```
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 CONSOLE=dcc bl31
+
+To build TF-A with Errata management interface:
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 bl31 ERRATA_ABI_SUPPORT=1
 
 To build TF-A with IPI CRC check:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 bl31 IPI_CRC_CHECK=1
-```
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 bl31 IPI_CRC_CHECK=1
 
 AMD Versal Gen 2 platform specific build options
 -------------------------------------------------
 
-*   `MEM_BASE`: Specifies the base address of the bl31 binary.
-*   `MEM_SIZE`: Specifies the size of the memory region of the bl31 binary.
-*   `BL32_MEM_BASE`: Specifies the base address of the bl32 binary.
-*   `BL32_MEM_SIZE`: Specifies the size of the memory region of the bl32 binary.
+*   ``MEM_BASE``: Specifies the base address of the bl31 binary.
+*   ``MEM_SIZE``: Specifies the size of the memory region of the bl31 binary.
+*   ``BL32_MEM_BASE``: Specifies the base address of the bl32 binary.
+*   ``BL32_MEM_SIZE``: Specifies the size of the memory region of the bl32 binary.
 
-*   `CONSOLE`: Select the console driver. Options:
-    -   `pl011`, `pl011_0`: ARM pl011 UART 0 (default)
-    -   `pl011_1`         : ARM pl011 UART 1
-    -   `dcc`             : JTAG Debug Communication Channel(DCC)
+*   ``CONSOLE``: Select the console driver. Options:
 
-*   `NS_FW_HANDOFF_BASE`: When the handoff protocol using transfer lists is
+    -   ``pl011``, ``pl011_0``: ARM pl011 UART 0 (default)
+    -   ``pl011_1``           : ARM pl011 UART 1
+    -   ``dcc``               : JTAG Debug Communication Channel(DCC)
+
+*   ``NS_FW_HANDOFF_BASE``: When the handoff protocol using transfer lists is
     enabled (``TRANSFER_LIST=1``), the build system optionally accepts a
     build-time override for the non-secure firmware handoff base address via
     this argument. If not provided, the platform falls back to the default
@@ -56,7 +61,7 @@ The stack size in TF-A for the Versal platform is configurable.
 The custom package can define the desired stack size as per the requirement in
 the makefile as follows:
 
-.. code-block:: shell
+.. code:: bash
 
     PLATFORM_STACK_SIZE := <value>
 
@@ -83,11 +88,11 @@ The APU IPI ID in TF-A for the Versal Gen 2 platform is configurable as per the 
 
 To build PLAT_IPI_ID_APU:
 
-.. code-block:: shell
+.. code:: bash
 
-  make CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
+    make CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
 
-  $(eval $(call add_define,PLAT_IPI_ID_APU))
+    $(eval $(call add_define,PLAT_IPI_ID_APU))
 
 Custom Package Makefile Fragment Inclusion in TF-A Build
 --------------------------------------------------------
@@ -109,7 +114,7 @@ Custom Package Makefile Fragment Inclusion in TF-A Build
 
 - Example TF-A build command:
 
-.. code-block:: shell
+.. code:: bash
 
     make CROSS_COMPILE=aarch64-none-elf- PLAT=versal2 RESET_TO_BL31=1 bl31 CUSTOM_PKG_PATH=<...>
 

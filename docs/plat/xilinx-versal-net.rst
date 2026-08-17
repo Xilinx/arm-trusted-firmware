@@ -10,54 +10,59 @@ BL32 is an optional Secure Payload.
 BL33 is the non-secure world software (U-Boot, Linux etc).
 
 To build:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net bl31
-```
 
-To build bl32 TSP you have to rebuild bl31 too
-```bash
-make CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net SPD=tspd RESET_TO_BL31=1 bl31 bl32
-```
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net bl31
+
+To build bl32 TSP you have to rebuild bl31 too:
+
+.. code:: bash
+
+    make CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net SPD=tspd RESET_TO_BL31=1 bl31 bl32
 
 To build TF-A for JTAG DCC console:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net VERSAL_NET_CONSOLE=dcc bl31
-```
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net VERSAL_NET_CONSOLE=dcc bl31
 
 To build TF-A with SDEI_SUPPORT:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net SDEI_SUPPORT=1 bl31
-```
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net SDEI_SUPPORT=1 bl31
 
 Xilinx Versal NET platform specific build options
 -------------------------------------------------
 
-*   `VERSAL_NET_ATF_MEM_BASE`: Specifies the base address of the bl31 binary.
-*   `VERSAL_NET_ATF_MEM_SIZE`: Specifies the size of the memory region of the bl31 binary.
-*   `VERSAL_NET_BL32_MEM_BASE`: Specifies the base address of the bl32 binary.
-*   `VERSAL_NET_BL32_MEM_SIZE`: Specifies the size of the memory region of the bl32 binary.
+*   ``VERSAL_NET_ATF_MEM_BASE``: Specifies the base address of the bl31 binary.
+*   ``VERSAL_NET_ATF_MEM_SIZE``: Specifies the size of the memory region of the bl31 binary.
+*   ``VERSAL_NET_BL32_MEM_BASE``: Specifies the base address of the bl32 binary.
+*   ``VERSAL_NET_BL32_MEM_SIZE``: Specifies the size of the memory region of the bl32 binary.
 
-*   `VERSAL_NET_CONSOLE`: Select the console driver. Options:
-    -   `pl011`, `pl011_0`: ARM pl011 UART 0 (default)
-    -   `pl011_1`         : ARM pl011 UART 1
-    -   `dcc`             : JTAG Debug Communication Channel(DCC)
+*   ``VERSAL_NET_CONSOLE``: Select the console driver. Options:
 
-*   `TFA_NO_PM` : Platform Management support.
+    -   ``pl011``, ``pl011_0``: ARM pl011 UART 0 (default)
+    -   ``pl011_1``           : ARM pl011 UART 1
+    -   ``dcc``               : JTAG Debug Communication Channel(DCC)
+
+*   ``TFA_NO_PM`` : Platform Management support.
+
     -    0 : Enable Platform Management (Default)
     -    1 : Disable Platform Management
 
-*   `CPU_PWRDWN_SGI`: Select the SGI for triggering CPU power down request to
-                      secondary cores on receiving power down callback from
-                      firmware. Options:
+*   ``CPU_PWRDWN_SGI``: Select the SGI for triggering CPU power down request to
+    secondary cores on receiving power down callback from firmware. Options:
 
-    -   `0`   : SGI 0
-    -   `1`   : SGI 1
-    -   `2`   : SGI 2
-    -   `3`   : SGI 3
-    -   `4`   : SGI 4
-    -   `5`   : SGI 5
-    -   `6`   : SGI 6 (Default)
-    -   `7`   : SGI 7
+    -   ``0``   : SGI 0
+    -   ``1``   : SGI 1
+    -   ``2``   : SGI 2
+    -   ``3``   : SGI 3
+    -   ``4``   : SGI 4
+    -   ``5``   : SGI 5
+    -   ``6``   : SGI 6 (Default)
+    -   ``7``   : SGI 7
 
 Configurable APU IPI ID
 -----------------------
@@ -66,11 +71,11 @@ The APU IPI ID in TF-A for the Versal NET platform is configurable as per the de
 
 To build PLAT_IPI_ID_APU:
 
-.. code-block:: shell
+.. code:: bash
 
-  make CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
+    make CROSS_COMPILE=aarch64-none-elf- PLAT=versal_net RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
 
-  $(eval $(call add_define,PLAT_IPI_ID_APU))
+    $(eval $(call add_define,PLAT_IPI_ID_APU))
 
 Reference DEN0028E SMC calling convention
 ------------------------------------------
