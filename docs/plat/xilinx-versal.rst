@@ -10,54 +10,59 @@ BL32 is an optional Secure Payload.
 BL33 is the non-secure world software (U-Boot, Linux etc).
 
 To build:
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31
-```
 
-To build bl32 TSP you have to rebuild bl31 too
-```bash
-make CROSS_COMPILE=aarch64-none-elf- PLAT=versal SPD=tspd RESET_TO_BL31=1 bl31 bl32
-```
+.. code:: bash
 
-To build TF-A for JTAG DCC console
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31 VERSAL_CONSOLE=dcc
-```
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31
 
-To build TF-A with Errata management interface
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31 ERRATA_ABI_SUPPORT=1
-```
+To build bl32 TSP you have to rebuild bl31 too:
 
-To build TF-A with Straight-Line Speculation(SLS)
-```bash
-make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31 HARDEN_SLS_ALL=1
-```
+.. code:: bash
+
+    make CROSS_COMPILE=aarch64-none-elf- PLAT=versal SPD=tspd RESET_TO_BL31=1 bl31 bl32
+
+To build TF-A for JTAG DCC console:
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31 VERSAL_CONSOLE=dcc
+
+To build TF-A with Errata management interface:
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31 ERRATA_ABI_SUPPORT=1
+
+To build TF-A with Straight-Line Speculation (SLS):
+
+.. code:: bash
+
+    make RESET_TO_BL31=1 CROSS_COMPILE=aarch64-none-elf- PLAT=versal bl31 HARDEN_SLS_ALL=1
 
 Xilinx Versal platform specific build options
 ---------------------------------------------
 
-*   `VERSAL_ATF_MEM_BASE`: Specifies the base address of the bl31 binary.
-*   `VERSAL_ATF_MEM_SIZE`: Specifies the size of the memory region of the bl31 binary.
-*   `VERSAL_BL32_MEM_BASE`: Specifies the base address of the bl32 binary.
-*   `VERSAL_BL32_MEM_SIZE`: Specifies the size of the memory region of the bl32 binary.
+*   ``VERSAL_ATF_MEM_BASE``: Specifies the base address of the bl31 binary.
+*   ``VERSAL_ATF_MEM_SIZE``: Specifies the size of the memory region of the bl31 binary.
+*   ``VERSAL_BL32_MEM_BASE``: Specifies the base address of the bl32 binary.
+*   ``VERSAL_BL32_MEM_SIZE``: Specifies the size of the memory region of the bl32 binary.
 
-*   `VERSAL_CONSOLE`: Select the console driver. Options:
-    -   `pl011`, `pl011_0`: ARM pl011 UART 0
-    -   `pl011_1`         : ARM pl011 UART 1
+*   ``VERSAL_CONSOLE``: Select the console driver. Options:
 
-*   `CPU_PWRDWN_SGI`: Select the SGI for triggering CPU power down request to
-                      secondary cores on receiving power down callback from
-                      firmware. Options:
+    -   ``pl011``, ``pl011_0``: ARM pl011 UART 0
+    -   ``pl011_1``           : ARM pl011 UART 1
 
-    -   `0`   : SGI 0
-    -   `1`   : SGI 1
-    -   `2`   : SGI 2
-    -   `3`   : SGI 3
-    -   `4`   : SGI 4
-    -   `5`   : SGI 5
-    -   `6`   : SGI 6 (Default)
-    -   `7`   : SGI 7
+*   ``CPU_PWRDWN_SGI``: Select the SGI for triggering CPU power down request to
+    secondary cores on receiving power down callback from firmware. Options:
+
+    -   ``0``   : SGI 0
+    -   ``1``   : SGI 1
+    -   ``2``   : SGI 2
+    -   ``3``   : SGI 3
+    -   ``4``   : SGI 4
+    -   ``5``   : SGI 5
+    -   ``6``   : SGI 6 (Default)
+    -   ``7``   : SGI 7
 
 Configurable Stack Size
 -----------------------
@@ -66,7 +71,7 @@ The stack size in TF-A for the Versal platform is configurable.
 The custom package can define the desired stack size as per the requirement in
 the makefile as follows:
 
-.. code-block:: shell
+.. code:: bash
 
     PLATFORM_STACK_SIZE := <value>
 
@@ -79,7 +84,7 @@ The APU IPI ID in TF-A for the Versal platform is configurable as per the design
 
 To build PLAT_IPI_ID_APU:
 
-.. code-block:: shell
+.. code:: bash
 
     make CROSS_COMPILE=aarch64-none-elf- PLAT=versal RESET_TO_BL31=1 bl31 PLAT_IPI_ID_APU=<value>
 
@@ -119,15 +124,16 @@ Custom Package Makefile Fragment Inclusion in TF-A Build
 
 - Example TF-A build command:
 
-.. code-block:: shell
+.. code:: bash
 
     make CROSS_COMPILE=aarch64-none-elf- PLAT=versal RESET_TO_BL31=1 bl31 CUSTOM_PKG_PATH=<...>
 
-# PLM->TF-A Parameter Passing
-------------------------------
+PLM->TF-A Parameter Passing
+---------------------------
+
 The PLM populates a data structure with image information for the TF-A. The TF-A
 uses that data to hand off to the loaded images. The address of the handoff
-data structure is passed in the ```PMC_GLOBAL_GLOB_GEN_STORAGE4``` register.
+data structure is passed in the ``PMC_GLOBAL_GLOB_GEN_STORAGE4`` register.
 The register is free to be used by other software once the TF-A is bringing up
 further firmware images.
 
