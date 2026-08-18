@@ -41,16 +41,23 @@ const mmap_region_t *plat_get_mmap(void)
 	return plat_zynqmp_mmap;
 }
 
-static uint32_t zynqmp_get_silicon_ver(void)
+static uint32_t zynqmp_get_csu_version(void)
 {
 	static uint32_t ver;
 
 	if (ver == 0U) {
-		ver = mmio_read_32(ZYNQMP_CSU_BASEADDR +
-				   ZYNQMP_CSU_VERSION_OFFSET);
-		ver &= ZYNQMP_SILICON_VER_MASK;
-		ver >>= ZYNQMP_SILICON_VER_SHIFT;
+		ver = mmio_read_32(ZYNQMP_CSU_BASEADDR + ZYNQMP_CSU_VERSION_OFFSET);
 	}
+
+	return ver;
+}
+
+static uint32_t zynqmp_get_silicon_ver(void)
+{
+	uint32_t ver = zynqmp_get_csu_version();
+
+	ver &= ZYNQMP_SILICON_VER_MASK;
+	ver >>= ZYNQMP_SILICON_VER_SHIFT;
 
 	return ver;
 }
@@ -287,9 +294,7 @@ static char *zynqmp_get_silicon_idcode_name(void)
 
 static unsigned int zynqmp_get_rtl_ver(void)
 {
-	uint32_t ver;
-
-	ver = mmio_read_32(ZYNQMP_CSU_BASEADDR + ZYNQMP_CSU_VERSION_OFFSET);
+	uint32_t ver = zynqmp_get_csu_version();
 	ver &= ZYNQMP_RTL_VER_MASK;
 	ver >>= ZYNQMP_RTL_VER_SHIFT;
 
@@ -332,21 +337,35 @@ int32_t plat_is_smccc_feature_available(u_register_t fid)
 
 int32_t plat_get_soc_version(void)
 {
-	uint32_t chip_id = zynqmp_get_silicon_ver();
+	uint32_t idcode = mmio_read_32(ZYNQMP_CSU_BASEADDR + ZYNQMP_CSU_IDCODE_OFFSET);
 	uint32_t manfid = SOC_ID_SET_JEP_106(JEDEC_XILINX_BKID, JEDEC_XILINX_MFID);
-	uint32_t result = (manfid | (chip_id & 0xFFFFU));
+	/*
+	 * IDCODE[27:12] = FAMILY(7) + SUB_FAMILY(2) + DEVICE_CODE(4) + SVD(3)
+	 * = stable 16-bit SoC part-number, does not change across steppings.
+	 */
+	uint32_t soc_id = (idcode >> ZYNQMP_CSU_IDCODE_SVD_SHIFT) &
+			  SOC_ID_IMPL_DEF_MASK;
+	uint32_t result = manfid | soc_id;
 
 	return (int32_t)result;
 }
 
 int32_t plat_get_soc_revision(void)
 {
-	return (int32_t)mmio_read_32(ZYNQMP_CSU_BASEADDR + ZYNQMP_CSU_IDCODE_OFFSET);
+	/*
+	 * CSU_VERSION[30:0] carries PS_VER[3:0], RTL_VER[11:4], and
+	 * SILICON_VER[15:12]. PS_VER and RTL_VER change across silicon
+	 * steppings, satisfying the SMCCC revision stability requirement.
+	 */
+	uint32_t ver = zynqmp_get_csu_version();
+	uint32_t result = ver & SOC_ID_REV_MASK;
+
+	return (int32_t)result;
 }
 
 static uint32_t zynqmp_get_ps_ver(void)
 {
-	uint32_t ver = mmio_read_32(ZYNQMP_CSU_BASEADDR + ZYNQMP_CSU_VERSION_OFFSET);
+	uint32_t ver = zynqmp_get_csu_version();
 
 	ver &= ZYNQMP_PS_VER_MASK;
 	ver >>= ZYNQMP_PS_VER_SHIFT;
