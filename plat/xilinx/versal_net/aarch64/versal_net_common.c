@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2021-2022, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2018-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2025, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -184,3 +184,18 @@ void get_boot_mode(uint32_t *mode)
 	return;
 }
 #endif
+
+/*
+ * Versal NET-specific implementations of PMC_TAP accessors.
+ * PMC_TAP is mapped in DEVICE2 at runtime on Versal NET, so direct read
+ * is safe.
+ */
+uint32_t get_pmc_tap_idcode(void)
+{
+	return mmio_read_32(PMC_TAP_IDCODE);
+}
+
+uint32_t get_pmc_tap_version(void)
+{
+	return mmio_read_32(PMC_TAP_VERSION);
+}
