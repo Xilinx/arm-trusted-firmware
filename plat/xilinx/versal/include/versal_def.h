@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018-2022, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2019-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2024, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -43,6 +43,7 @@
 #define VERSAL_QEMU                3U
 #define VERSAL_COSIM               7U
 
+#define PMC_TAP_IDCODE		U(0xF11A0000)
 #define PMC_TAP_VERSION		U(0xF11A0004)
 
 /* Firmware Image Package */
