@@ -27,8 +27,13 @@
 #define ARM_IRQ_SEC_SGI_7	15U
 
 /*******************************************************************************
- * PMC_TAP accessor functions - platform-specific implementations
+ * PMC_TAP accessor functions - platform-specific implementations, and shared
+ * PMC_TAP register layout constants
  ******************************************************************************/
+
+/* IDCODE[27:12] = FAMILY + SUB_FAMILY + DEVICE_CODE + SVD (stable part number) */
+#define PMC_TAP_IDCODE_SVD_SHIFT	U(12)
+
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
