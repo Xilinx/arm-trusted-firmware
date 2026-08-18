@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2023-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,5 +25,17 @@
 #define ARM_IRQ_SEC_SGI_5	13U
 #define ARM_IRQ_SEC_SGI_6	14U
 #define ARM_IRQ_SEC_SGI_7	15U
+
+/*******************************************************************************
+ * PMC_TAP accessor functions - platform-specific implementations
+ ******************************************************************************/
+#ifndef __ASSEMBLER__
+
+#include <stdint.h>
+
+uint32_t get_pmc_tap_idcode(void);
+uint32_t get_pmc_tap_version(void);
+
+#endif /* __ASSEMBLER__ */
 
 #endif /* PLAT_COMMON_H */

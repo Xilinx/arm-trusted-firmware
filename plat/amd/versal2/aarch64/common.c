@@ -157,3 +157,17 @@ void config_setup(void)
 	/* Configure IPI data */
 	soc_ipi_config_table_init();
 }
+
+/*
+ * Versal2-specific implementations of PMC_TAP accessors.
+ * PMC_TAP is mapped in DEVICE2 at runtime on Versal2, so direct read is safe.
+ */
+uint32_t get_pmc_tap_idcode(void)
+{
+	return mmio_read_32(PMC_TAP_IDCODE);
+}
+
+uint32_t get_pmc_tap_version(void)
+{
+	return mmio_read_32(PMC_TAP_VERSION);
+}
