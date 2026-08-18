@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2020, Arm Limited and Contributors. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -201,6 +202,7 @@
 
 #define ZYNQMP_CSU_BASEADDR		U(0xFFCA0000)
 #define ZYNQMP_CSU_IDCODE_OFFSET	U(0x40)
+#define PLAT_SOC_NAME			"ZynqMP"
 
 #define ZYNQMP_CSU_IDCODE_XILINX_ID_SHIFT	U(0)
 #define ZYNQMP_CSU_IDCODE_XILINX_ID_MASK	(U(0xFFF) << ZYNQMP_CSU_IDCODE_XILINX_ID_SHIFT)

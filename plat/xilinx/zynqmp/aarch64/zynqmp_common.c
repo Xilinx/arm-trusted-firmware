@@ -6,6 +6,7 @@
  */
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <common/debug.h>
@@ -361,6 +362,21 @@ int32_t plat_get_soc_revision(void)
 	uint32_t result = ver & SOC_ID_REV_MASK;
 
 	return (int32_t)result;
+}
+
+int32_t plat_get_soc_name(char *soc_name)
+{
+	uint32_t idcode = mmio_read_32(ZYNQMP_CSU_BASEADDR + ZYNQMP_CSU_IDCODE_OFFSET);
+	int32_t ret = SMC_ARCH_CALL_SUCCESS;
+	int rc = snprintf(soc_name, SMCCC_SOC_NAME_LEN, PLAT_SOC_NAME " %08x",
+			  idcode);
+
+	/* snprintf return value should be checked to detect truncation */
+	if (rc < 0 || rc >= (int)SMCCC_SOC_NAME_LEN) {
+		ret = SMC_ARCH_CALL_NOT_SUPPORTED;
+	}
+
+	return ret;
 }
 
 static uint32_t zynqmp_get_ps_ver(void)
