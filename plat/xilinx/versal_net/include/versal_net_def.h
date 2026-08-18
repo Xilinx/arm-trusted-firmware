@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2022, Arm Limited and Contributors. All rights reserved.
  * Copyright (c) 2021-2022, Xilinx, Inc. All rights reserved.
- * Copyright (c) 2022-2023, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2022-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -42,6 +42,7 @@
 
 /* For platform detection */
 #define PMC_TAP				U(0xF11A0000)
+#define PMC_TAP_IDCODE			PMC_TAP
 #define PMC_TAP_VERSION			(PMC_TAP + 0x4U)
 # define PLATFORM_MASK			GENMASK(27U, 24U)
 # define PLATFORM_VERSION_MASK		GENMASK(31U, 28U)
