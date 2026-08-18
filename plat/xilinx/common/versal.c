@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (c) 2023-2026, Advanced Micro Devices, Inc. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,6 +10,7 @@
 #include <plat/common/platform.h>
 #include <services/arm_arch_svc.h>
 
+#include <plat_common.h>
 #include <plat_private.h>
 #include <plat_startup.h>
 #include <pm_api_sys.h>
@@ -46,11 +47,16 @@ int32_t plat_is_smccc_feature_available(u_register_t fid)
  */
 int32_t plat_get_soc_version(void)
 {
-	uint32_t manfid;
+	uint32_t manfid = SOC_ID_SET_JEP_106(JEDEC_XILINX_BKID, JEDEC_XILINX_MFID);
+	/*
+	 * IDCODE[27:12] = FAMILY + SUB_FAMILY + DEVICE_CODE + SVD - stable
+	 * 16-bit SoC part-number that does not change across steppings.
+	 */
+	uint32_t soc_id = (get_pmc_tap_idcode() >> PMC_TAP_IDCODE_SVD_SHIFT) &
+			  SOC_ID_IMPL_DEF_MASK;
+	uint32_t result = manfid | soc_id;
 
-	manfid = SOC_ID_SET_JEP_106(JEDEC_XILINX_BKID, JEDEC_XILINX_MFID);
-
-	return (int32_t)(manfid | (platform_version & SOC_ID_IMPL_DEF_MASK));
+	return (int32_t)result;
 }
 
 /**
@@ -63,5 +69,12 @@ int32_t plat_get_soc_version(void)
  */
 int32_t plat_get_soc_revision(void)
 {
-	return (int32_t)(platform_id & SOC_ID_REV_MASK);
+	/*
+	 * VERSION[30:0] carries PMC_VERSION[7:0], PS_VERSION[15:8],
+	 * RTL_VERSION[23:16], PLATFORM[27:24], and PLATFORM_VERSION[30:28].
+	 * PS_VERSION and PMC_VERSION change across silicon steppings.
+	 */
+	uint32_t result = get_pmc_tap_version() & SOC_ID_REV_MASK;
+
+	return (int32_t)result;
 }
