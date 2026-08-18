@@ -46,6 +46,7 @@
 #define PMC_TAP_VERSION			(PMC_TAP + 0x4U)
 # define PLATFORM_MASK			GENMASK(27U, 24U)
 # define PLATFORM_VERSION_MASK		GENMASK(31U, 28U)
+#define PLAT_SOC_NAME			"Versal NET"
 
 /* Global timer reset */
 #define PSX_CRF			U(0xEC200000)

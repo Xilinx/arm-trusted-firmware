@@ -45,6 +45,7 @@
 
 #define PMC_TAP_IDCODE		U(0xF11A0000)
 #define PMC_TAP_VERSION		U(0xF11A0004)
+#define PLAT_SOC_NAME		"Versal"
 
 /* Firmware Image Package */
 #define VERSAL_PRIMARY_CPU	0

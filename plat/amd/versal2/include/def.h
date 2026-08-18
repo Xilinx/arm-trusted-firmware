@@ -56,6 +56,8 @@
 #define PSXC_VSLGEN2_IDCODE		U(0x04DB0093)
 #define PSXC_2VM3654_IDCODE		U(0x04D98093)
 
+#define PLAT_SOC_NAME			"Versal Gen 2"
+
 /* Global timer reset */
 #define PSX_CRF			U(0xEC200000)
 #define ACPU0_CLK_CTRL		U(0x10C)

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <stdio.h>
+
 #include <common/debug.h>
 #include <lib/mmio.h>
 #include <lib/smccc.h>
@@ -77,4 +79,33 @@ int32_t plat_get_soc_revision(void)
 	uint32_t result = get_pmc_tap_version() & SOC_ID_REV_MASK;
 
 	return (int32_t)result;
+}
+
+/**
+ * plat_get_soc_name() - SoC name for all Versal-family platforms.
+ *
+ * PLAT_SOC_NAME is defined per platform in its *_def.h:
+ *   versal_def.h     -> "Versal"
+ *   versal_net_def.h -> "Versal NET"
+ *   def.h (versal2)  -> "Versal Gen 2"
+ *
+ * PMC_TAP.IDCODE is appended so Linux can identify the exact SoC variant.
+ * This file is compiled for all three platforms via platform.mk.
+ *
+ * @soc_name: Buffer to store the SoC name string.
+ *
+ * Return: SMC_ARCH_CALL_SUCCESS on success.
+ */
+int32_t plat_get_soc_name(char *soc_name)
+{
+	int32_t ret = SMC_ARCH_CALL_SUCCESS;
+	int rc = snprintf(soc_name, SMCCC_SOC_NAME_LEN, PLAT_SOC_NAME " %08x",
+			  get_pmc_tap_idcode());
+
+	/* snprintf return value should be checked to detect truncation */
+	if (rc < 0 || rc >= (int)SMCCC_SOC_NAME_LEN) {
+		ret = SMC_ARCH_CALL_NOT_SUPPORTED;
+	}
+
+	return ret;
 }
