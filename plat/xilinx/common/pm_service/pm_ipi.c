@@ -225,7 +225,8 @@ enum pm_ret_status pm_ipi_buff_read_callb(uint32_t *value, size_t count)
 	enum pm_ret_status ret = PM_RET_SUCCESS;
 
 	if (count > (size_t)IPI_BUFFER_MAX_WORDS) {
-		return PM_RET_ERROR_ARGS;
+		ret = PM_RET_ERROR_ARGS;
+		goto exit_label;
 	}
 
 	for (i = 0; i < count; i++) {
@@ -246,6 +247,7 @@ enum pm_ret_status pm_ipi_buff_read_callb(uint32_t *value, size_t count)
 		memset(value, 0, local_count);
 	}
 #endif
+exit_label:
 	return ret;
 }
 
