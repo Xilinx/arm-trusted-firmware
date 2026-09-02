@@ -32,6 +32,13 @@ IPI_CRC_CHECK := 0
 GIC_ENABLE_V4_EXTN :=  0
 GICV3_SUPPORT_GIC600 := 1
 
+# Enable Handoff protocol using transfer lists
+TRANSFER_LIST                   ?= 0
+
+ifeq (${TRANSFER_LIST},1)
+include lib/transfer_list/transfer_list.mk
+endif
+
 ifdef CUSTOM_PKG_PATH
 include plat/amd/common/custom_pkg.mk
 else
@@ -214,11 +221,7 @@ CORTEX_A78_AE_H_INC     := 1
 $(eval $(call add_define, CORTEX_A78_AE_H_INC))
 endif
 
-# Enable Handoff protocol using transfer lists
-TRANSFER_LIST                   ?= 0
-
 ifeq (${TRANSFER_LIST},1)
-include lib/transfer_list/transfer_list.mk
 BL31_SOURCES           +=	plat/amd/common/plat_fdt.c
 BL31_SOURCES           +=	plat/amd/common/plat_xfer_list.c
 else
